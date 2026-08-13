@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-kRU1SUDp.js","assets/dist-Ck9YJ66N.js"])))=>i.map(i=>d[i]);
+import{t as e}from"./preload-helper-DSXbuxSR.js";import{r as t}from"./dist-Ck9YJ66N.js";var n=t(`BluetoothSerial`,{web:()=>e(()=>import(`./web-kRU1SUDp.js`).then(e=>new e.BluetoothSerialWeb),__vite__mapDeps([0,1]))});export{n as t};

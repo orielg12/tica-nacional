@@ -1,0 +1,14 @@
+2026/07/11-11:14:27.450 5ae8 Reusing MANIFEST C:\Users\ThinkPad\.gemini\antigravity\scratch\lottery_system\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/11-11:14:27.451 5ae8 Recovering log #27
+2026/07/11-11:14:27.635 5ae8 Reusing old log C:\Users\ThinkPad\.gemini\antigravity\scratch\lottery_system\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000027.log 
+2026/07/11-11:14:30.591 5ae8 Level-0 table #33: started
+2026/07/11-11:14:30.645 5ae8 Level-0 table #33: 1022891 bytes OK
+2026/07/11-11:14:30.651 5ae8 Delete type=0 #27
+2026/07/11-11:14:31.200 5ae8 Compacting 1@1 + 2@2 files
+2026/07/11-11:14:31.381 5ae8 Generated table #34@1: 25796 keys, 2188334 bytes
+2026/07/11-11:14:31.470 5ae8 Generated table #35@1: 38033 keys, 1566506 bytes
+2026/07/11-11:14:31.470 5ae8 Compacted 1@1 + 2@2 files => 3754840 bytes
+2026/07/11-11:14:31.471 5ae8 compacted to: files[ 0 0 2 0 0 0 0 ]
+2026/07/11-11:14:31.472 5ae8 Delete type=2 #29
+2026/07/11-11:14:31.472 5ae8 Delete type=2 #30
+2026/07/11-11:14:31.472 5ae8 Delete type=2 #33

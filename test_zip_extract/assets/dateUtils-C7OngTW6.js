@@ -1,0 +1,1 @@
+function e(e){let t=e||new Date;return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,`0`)}-${String(t.getDate()).padStart(2,`0`)}`}function t(e){let[t,n,r]=e.split(`-`).map(Number);return new Date(t,n-1,r,0,0,0,0).toISOString()}function n(e){let[t,n,r]=e.split(`-`).map(Number);return new Date(t,n-1,r,23,59,59,999).toISOString()}export{e as n,t as r,n as t};

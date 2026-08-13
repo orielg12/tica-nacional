@@ -1,0 +1,63 @@
+2026/07/11-13:49:19.751 73d4 Reusing MANIFEST C:\Users\ThinkPad\.gemini\antigravity\scratch\lottery_system\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/11-13:49:19.752 73d4 Recovering log #32
+2026/07/11-13:49:19.825 73d4 Reusing old log C:\Users\ThinkPad\.gemini\antigravity\scratch\lottery_system\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000032.log 
+2026/07/11-14:21:20.002 7678 Level-0 table #38: started
+2026/07/11-14:21:20.081 7678 Level-0 table #38: 1111084 bytes OK
+2026/07/11-14:21:20.084 7678 Delete type=0 #32
+2026/07/11-14:21:20.094 7678 Compacting 1@1 + 2@2 files
+2026/07/11-14:21:20.283 7678 Generated table #39@1: 27770 keys, 2193355 bytes
+2026/07/11-14:21:20.459 7678 Generated table #40@1: 42933 keys, 1907030 bytes
+2026/07/11-14:21:20.459 7678 Compacted 1@1 + 2@2 files => 4100385 bytes
+2026/07/11-14:21:20.460 7678 compacted to: files[ 0 0 2 0 0 0 0 ]
+2026/07/11-14:21:20.462 7678 Delete type=2 #34
+2026/07/11-14:21:20.462 7678 Delete type=2 #35
+2026/07/11-14:21:20.462 7678 Delete type=2 #38
+2026/07/12-16:07:07.923 7678 Level-0 table #42: started
+2026/07/12-16:07:08.017 7678 Level-0 table #42: 890653 bytes OK
+2026/07/12-16:07:08.020 7678 Delete type=0 #37
+2026/07/12-16:07:08.040 7678 Compacting 1@1 + 2@2 files
+2026/07/12-16:07:08.223 7678 Generated table #43@1: 28779 keys, 2195876 bytes
+2026/07/12-16:07:08.395 7678 Generated table #44@1: 44576 keys, 2059670 bytes
+2026/07/12-16:07:08.395 7678 Compacted 1@1 + 2@2 files => 4255546 bytes
+2026/07/12-16:07:08.397 7678 compacted to: files[ 0 0 2 0 0 0 0 ]
+2026/07/12-16:07:08.397 7678 Delete type=2 #42
+2026/07/12-16:07:08.547 7678 Level-0 table #46: started
+2026/07/12-16:07:08.591 7678 Level-0 table #46: 591755 bytes OK
+2026/07/12-16:07:08.594 7678 Delete type=0 #41
+2026/07/12-16:07:08.603 7678 Compacting 1@1 + 2@2 files
+2026/07/12-16:07:08.759 7678 Generated table #47@1: 37295 keys, 2205566 bytes
+2026/07/12-16:07:08.918 7678 Generated table #48@1: 33247 keys, 2212497 bytes
+2026/07/12-16:07:08.960 7678 Generated table #49@1: 17121 keys, 427553 bytes
+2026/07/12-16:07:08.960 7678 Compacted 1@1 + 2@2 files => 4845616 bytes
+2026/07/12-16:07:08.962 7678 compacted to: files[ 0 0 3 0 0 0 0 ]
+2026/07/12-16:07:09.189 7088 Level-0 table #51: started
+2026/07/12-16:07:09.254 7088 Level-0 table #51: 642040 bytes OK
+2026/07/12-16:07:09.256 7088 Delete type=2 #43
+2026/07/12-16:07:09.256 7088 Delete type=2 #44
+2026/07/12-16:07:09.256 7088 Delete type=0 #45
+2026/07/12-16:07:09.256 7088 Delete type=2 #46
+2026/07/12-16:07:09.272 7678 Compacting 1@1 + 3@2 files
+2026/07/12-16:07:09.470 7678 Generated table #52@1: 58865 keys, 2231432 bytes
+2026/07/12-16:07:09.630 7678 Generated table #53@1: 24014 keys, 2211241 bytes
+2026/07/12-16:07:09.718 7678 Generated table #54@1: 31586 keys, 1053479 bytes
+2026/07/12-16:07:09.718 7678 Compacted 1@1 + 3@2 files => 5496152 bytes
+2026/07/12-16:07:09.719 7678 compacted to: files[ 0 0 3 0 0 0 0 ]
+2026/07/12-16:07:09.720 7678 Delete type=2 #39
+2026/07/12-16:07:09.721 7678 Delete type=2 #40
+2026/07/12-16:07:45.635 7678 Level-0 table #56: started
+2026/07/12-16:07:45.684 7678 Level-0 table #56: 1173360 bytes OK
+2026/07/12-16:07:45.686 7678 Delete type=2 #47
+2026/07/12-16:07:45.687 7678 Delete type=2 #48
+2026/07/12-16:07:45.687 7678 Delete type=2 #49
+2026/07/12-16:07:45.687 7678 Delete type=0 #50
+2026/07/12-16:07:45.687 7678 Delete type=2 #51
+2026/07/12-16:07:45.694 7678 Compacting 1@1 + 3@2 files
+2026/07/12-16:07:45.838 7678 Generated table #57@1: 28020 keys, 2194222 bytes
+2026/07/12-16:07:45.960 7678 Generated table #58@1: 28448 keys, 2215039 bytes
+2026/07/12-16:07:46.002 7678 Generated table #59@1: 28400 keys, 687139 bytes
+2026/07/12-16:07:46.002 7678 Compacted 1@1 + 3@2 files => 5096400 bytes
+2026/07/12-16:07:46.003 7678 compacted to: files[ 0 0 3 0 0 0 0 ]
+2026/07/12-16:07:46.004 7678 Delete type=2 #52
+2026/07/12-16:07:46.004 7678 Delete type=2 #53
+2026/07/12-16:07:46.004 7678 Delete type=2 #54
+2026/07/12-16:07:46.004 7678 Delete type=2 #56
