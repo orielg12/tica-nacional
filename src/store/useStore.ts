@@ -78,6 +78,7 @@ interface State {
   addNumber: (num: string, amount: number, isGranjita?: boolean) => void;
   addPaletPlay: (num1: string, num2: string, amount: number) => void;
   removeNumber: (id: string) => void;
+  updateNumber: (id: string, newNumber: string, newAmount: number) => void;
   clearCart: () => void;
   
   toggleLottery: (lottery: LotteryConfig) => void;
@@ -181,6 +182,12 @@ export const useStore = create<State>()(
       
       removeNumber: (id) => set((state) => ({
         cart: state.cart.filter((item) => item.id !== id)
+      })),
+      
+      updateNumber: (id, newNumber, newAmount) => set((state) => ({
+        cart: state.cart.map(item =>
+          item.id === id ? { ...item, number: newNumber, amount: newAmount } : item
+        )
       })),
       
       clearCart: () => set({ cart: [] }),

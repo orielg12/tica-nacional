@@ -19,14 +19,12 @@ export default function POS() {
   const bgBase       = tc('bg-gray-900',  'bg-white');
   const bgPanel      = tc('bg-gray-800',  'bg-[#0d9488]');   // SORTEOS: franja teal sólida
   const bgInput      = tc('bg-[#1e293b]', 'bg-white');       // TIEMPOS/NÚMERO: blanco puro
-  const bgDecenas    = tc('bg-[#0f172a]', 'bg-[#0d9488]');   // DECENAS: franja teal sólida
   const bgCart       = tc('bg-[#0f172a]', 'bg-white');       // carrito: blanco puro
   const bgNumpad     = tc('bg-[#111827]', 'bg-white');       // numpad: blanco puro
   const bgNumBtn     = tc('bg-[#1f2937]', 'bg-white');       // botones numpad: blanco
   // Borders
   const borderPanel   = tc('border-gray-700', 'border-slate-200');
   const borderInput   = tc('border-transparent', 'border-slate-300');
-  const borderDecenas = tc('border-sky-800/60', 'border-[#0a7a6f]');
   const borderNumpad  = tc('border-gray-800',   'border-slate-200');
   // Text — SEPARADO por contexto de fondo
   const textPrimary    = tc('text-white',    'text-slate-900');   // texto principal
@@ -36,10 +34,8 @@ export default function POS() {
   const textMutedInput = tc('text-gray-600', 'text-slate-400');   // placeholder en input
   const textMuted      = tc('text-gray-500', 'text-white/90'); // subtítulos en franja teal
   const textTeal       = tc('text-teal-400', 'text-[#0d9488]');
-  const textSkyLabel   = tc('text-sky-200',  'text-white font-black'); // POR DECENAS en franja teal → blanco
   // Select
   const selectBg      = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0d9488] font-bold');
-  const selectDecenas = tc('bg-[#162032] border-2 border-sky-500/70 text-sky-200', 'bg-[#0a7a6f] border border-[#085e56] text-white font-bold');
   // Numpad buttons: en claro → blanco con contorno marcado y sombra 3D física
   const numBtnClass   = tc(
     `${bgNumBtn} active:opacity-70 rounded-lg h-[55px] flex items-center justify-center text-2xl font-bold font-mono shadow`,
@@ -94,6 +90,18 @@ export default function POS() {
   const [usePrize, setUsePrize] = useState(false);
   const [prizeSearchTerm, setPrizeSearchTerm] = useState('');
 
+  // Long-press decenas
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [decadePopup, setDecadePopup] = useState<{ digit: string; x: number; y: number } | null>(null);
+
+  const [swipingItemId, setSwipingItemId] = useState<string | null>(null);
+  const [swipeX, setSwipeX] = useState(0);
+  const [swipeStartX, setSwipeStartX] = useState(0);
+
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editNumber, setEditNumber] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+
   useEffect(() => {
     // Forzar fetch fresco al montar el POS y purgar loterías de La Granjita si las hubiera
     store.fetchLotteries();
@@ -117,11 +125,6 @@ export default function POS() {
     };
     
     updateAvailable();
-    // Refrescar disponibilidad y consultar loterías desde Supabase automáticamente cada 10s
-    const interval = setInterval(async () => {
-      await store.fetchLotteries();
-      updateAvailable();
-    }, 10000);
 
     // Refrescar inmediatamente cuando el usuario reactiva la pantalla o vuelve a la app
     const handleFocus = () => {
@@ -134,7 +137,6 @@ export default function POS() {
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
     };
@@ -814,6 +816,63 @@ export default function POS() {
     }
   };
 
+  const handleSwipeStart = (id: string, e: React.TouchEvent) => {
+    setSwipingItemId(id);
+    setSwipeStartX(e.touches[0].clientX);
+    setSwipeX(0);
+  };
+
+  const handleSwipeMove = (e: React.TouchEvent) => {
+    if (!swipingItemId) return;
+    const dx = e.touches[0].clientX - swipeStartX;
+    setSwipeX(dx);
+  };
+
+  const handleSwipeEnd = () => {
+    if (swipingItemId) {
+      if (swipeX < -80) {
+        store.removeNumber(swipingItemId);
+      } else if (swipeX > 80) {
+        const itemToEdit = posCart.find(i => i.id === swipingItemId);
+        if (itemToEdit) {
+          setEditingItemId(itemToEdit.id);
+          setEditNumber(itemToEdit.number);
+          setEditAmount(itemToEdit.amount.toString());
+        }
+      }
+    }
+    setSwipingItemId(null);
+    setSwipeX(0);
+  };
+
+  const handleNumpadLongPressStart = (digit: string, e: React.PointerEvent) => {
+    const amount = parseFloat(currentAmount);
+    if (isNaN(amount) || amount <= 0 || store.selectedLotteries.length === 0) return;
+    const timer = setTimeout(() => {
+      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      setDecadePopup({ digit, x: rect.left + rect.width / 2, y: rect.top });
+    }, 800);
+    setLongPressTimer(timer);
+  };
+
+  const handleNumpadLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleConfirmDecade = (digit: string) => {
+    const amount = parseFloat(currentAmount);
+    if (!isNaN(amount) && amount > 0 && store.selectedLotteries.length > 0) {
+      const nums = getDecadeNumbers(parseInt(digit));
+      nums.forEach(n => store.addNumber(n, amount));
+      setCurrentAmount('');
+      setFocusedInput('amount');
+    }
+    setDecadePopup(null);
+  };
+
   const renderCartList = (_isDesktop: boolean) => {
     if (posCart.length === 0) {
       return (
@@ -829,39 +888,133 @@ export default function POS() {
     return (
       <div className="space-y-2 pb-6">
         {posCart.map((item, index) => {
-          return (
-            <div 
-              key={item.id} 
-              className="flex justify-between items-center bg-[#1e293b]/70 hover:bg-[#1e293b] rounded-xl p-3 shadow-md text-white border-l-4 border-teal-500 w-full transition-all duration-200 animate-slide-up"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-gray-500 text-[10px] font-mono w-4">#{index + 1}</span>
-                <div className="bg-teal-950/40 rounded-xl px-3 py-1 flex items-center gap-1.5 border border-teal-800/40 shadow-inner min-w-[50px] justify-center">
-                  <span className="text-lg font-bold font-mono tracking-tighter text-teal-400">{item.number}</span>
+          const isEditing = editingItemId === item.id;
+          const isSwiping = swipingItemId === item.id;
+          const translateX = isSwiping ? swipeX : 0;
+          const opacity = isSwiping ? Math.max(0.3, 1 + swipeX / 200) : 1;
+
+          if (isEditing) {
+            return (
+              <div key={item.id} className="bg-teal-900/40 border-l-4 border-teal-400 rounded-xl p-3 shadow-md animate-slide-up">
+                <p className="text-teal-400 text-xs font-bold mb-2">✏️ Editando apunte #{index + 1}</p>
+                <div className="flex gap-2 mb-2">
+                  <div className="flex-1">
+                    <label className="text-gray-400 text-[10px] uppercase font-bold">Número</label>
+                    <input
+                      type="number"
+                      min="0" max="99"
+                      value={editNumber}
+                      onChange={e => setEditNumber(e.target.value.slice(0,2))}
+                      className="w-full bg-gray-800 border border-teal-500 text-white font-mono text-2xl font-bold rounded-lg p-2 text-center outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-gray-400 text-[10px] uppercase font-bold">Tiempos</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editAmount}
+                      onChange={e => setEditAmount(e.target.value)}
+                      className="w-full bg-gray-800 border border-teal-500 text-white font-mono text-2xl font-bold rounded-lg p-2 text-center outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingItemId(null)}
+                    className="flex-1 bg-gray-700 text-gray-300 rounded-lg py-2 text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      const num = editNumber.padStart(2, '0');
+                      const amt = parseFloat(editAmount);
+                      if (num.length === 2 && !isNaN(amt) && amt > 0) {
+                        store.updateNumber(item.id, num, amt);
+                        setEditingItemId(null);
+                      } else {
+                        alert('Número de 2 dígitos y tiempos mayor a 0.');
+                      }
+                    }}
+                    className="flex-1 bg-teal-500 text-white rounded-lg py-2 text-sm font-bold"
+                  >
+                    ✓ Guardar
+                  </button>
                 </div>
               </div>
-            
-              <div className="flex items-center gap-3">
-                <div className="text-right flex flex-col">
-                  <span className="text-base font-bold font-mono text-white">
-                    {item.amount} <span className="text-xs text-gray-400 font-sans font-normal">viles</span>
-                  </span>
-                  <span className="text-xs text-teal-400 font-mono font-semibold">
-                    ${(item.amount * store.saleMode * (item.lotteries?.length || 1)).toFixed(2)}
-                  </span>
-                  {item.lotteries && item.lotteries.length > 0 && (
-                    <span className="text-[9px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider leading-none">
-                      [{item.lotteries.map(l => l.name.substring(0, 4)).join(', ')}]
-                    </span>
-                  )}
+            );
+          }
+
+          return (
+            <div key={item.id} className="relative overflow-hidden rounded-xl">
+              {/* Swipe Background Action Indicators */}
+              <div className="absolute inset-0 flex items-center justify-between px-3 text-xs font-bold text-white pointer-events-none rounded-xl bg-gray-950/60">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 font-bold transition-opacity ${isSwiping && swipeX > 20 ? 'opacity-100' : 'opacity-0'}`}>
+                  <span>✏️</span>
+                  <span>Editar</span>
                 </div>
-                <button 
-                  onClick={() => store.removeNumber(item.id)}
-                  className="bg-red-950/40 text-red-400 p-2 rounded-xl hover:bg-red-900/40 hover:text-red-300 transition-colors"
-                  title="Eliminar"
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 font-bold transition-opacity ${isSwiping && swipeX < -20 ? 'opacity-100' : 'opacity-0'}`}>
+                  <span>Borrar</span>
+                  <span>🗑️</span>
+                </div>
+              </div>
+
+              <div 
+                style={{
+                  transform: `translateX(${translateX}px)`,
+                  opacity,
+                  transition: isSwiping ? 'none' : 'transform 0.2s, opacity 0.2s',
+                }}
+                className="relative flex justify-between items-center bg-[#1e293b] hover:bg-[#1e293b] rounded-xl p-3 shadow-md text-white border-l-4 border-teal-500 w-full animate-slide-up touch-pan-y z-10"
+                onTouchStart={(e) => handleSwipeStart(item.id, e)}
+                onTouchMove={handleSwipeMove}
+                onTouchEnd={handleSwipeEnd}
+              >
+                <div 
+                  className="flex items-center gap-3 flex-1 cursor-pointer"
+                  onClick={() => {
+                    setEditingItemId(item.id);
+                    setEditNumber(item.number);
+                    setEditAmount(item.amount.toString());
+                  }}
                 >
-                  <Trash2 size={16} />
-                </button>
+                  <span className="text-gray-500 text-[10px] font-mono w-4">#{index + 1}</span>
+                  <div className="bg-teal-950/40 rounded-xl px-3 py-1 flex items-center gap-1.5 border border-teal-800/40 shadow-inner min-w-[50px] justify-center">
+                    <span className="text-lg font-bold font-mono tracking-tighter text-teal-400">{item.number}</span>
+                  </div>
+                </div>
+              
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="text-right flex flex-col cursor-pointer"
+                    onClick={() => {
+                      setEditingItemId(item.id);
+                      setEditNumber(item.number);
+                      setEditAmount(item.amount.toString());
+                    }}
+                  >
+                    <span className="text-base font-bold font-mono text-white">
+                      {item.amount} <span className="text-xs text-gray-400 font-sans font-normal">viles</span>
+                    </span>
+                    <span className="text-xs text-teal-400 font-mono font-semibold">
+                      ${(item.amount * store.saleMode * (item.lotteries?.length || 1)).toFixed(2)}
+                    </span>
+                    {item.lotteries && item.lotteries.length > 0 && (
+                      <span className="text-[9px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider leading-none">
+                        [{item.lotteries.map(l => l.name.substring(0, 4)).join(', ')}]
+                      </span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => store.removeNumber(item.id)}
+                    className="bg-red-950/40 text-red-400 p-2 rounded-xl hover:bg-red-900/40 hover:text-red-300 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -977,42 +1130,6 @@ export default function POS() {
                </div>
              </div>
 
-             {/* SELECTOR DE DECENAS RÁPIDAS */}
-             <div className={`flex-none ${bgDecenas} px-3 py-3 lg:px-6 lg:py-4 border-b-2 ${borderDecenas} shadow-md z-10 w-full flex justify-between items-center gap-3`}>
-                <span className={`${textSkyLabel} text-sm lg:text-base font-black tracking-widest uppercase whitespace-nowrap`}>POR DECENAS:</span>
-                <select
-                   className={`flex-1 ${selectDecenas} text-base lg:text-xl font-extrabold p-3 lg:p-3.5 rounded-xl outline-none shadow-inner cursor-pointer`}
-                   onChange={(e) => {
-                      if(e.target.value !== "") {
-                         const decade = parseInt(e.target.value);
-                         const amount = parseFloat(currentAmount);
-                         if (isNaN(amount) || amount <= 0 || store.selectedLotteries.length === 0) {
-                            alert("Ingresa los TIEMPOS y selecciona LOTERÍAS primero para vender por decenas.");
-                            e.target.value = "";
-                            return;
-                         }
-                         const nums = getDecadeNumbers(decade);
-                         nums.forEach(n => store.addNumber(n, amount));
-                         setCurrentAmount('');
-                         setFocusedInput('amount');
-                         e.target.value = "";
-                      }
-                   }}
-                >
-                  <option value="">+ Desplegar y elegir Decena</option>
-                  <option value="0">Decena del 0 (00-09)</option>
-                  <option value="1">Decena del 1 (10-19)</option>
-                  <option value="2">Decena del 2 (20-29)</option>
-                  <option value="3">Decena del 3 (30-39)</option>
-                  <option value="4">Decena del 4 (40-49)</option>
-                  <option value="5">Decena del 5 (50-59)</option>
-                  <option value="6">Decena del 6 (60-69)</option>
-                  <option value="7">Decena del 7 (70-79)</option>
-                  <option value="8">Decena del 8 (80-89)</option>
-                  <option value="9">Decena del 9 (90-99)</option>
-                </select>
-             </div>
-
         {/* ÁREA DE JUGADAS MÓVIL */}
         {!isDesktop && (
           <div className={`flex-1 overflow-y-auto ${bgCart} p-3 no-scrollbar w-full`}>
@@ -1071,6 +1188,9 @@ export default function POS() {
                   <button
                     key={num}
                     onClick={() => handleNumpadPress(num.toString())}
+                    onPointerDown={(e) => handleNumpadLongPressStart(num.toString(), e)}
+                    onPointerUp={handleNumpadLongPressEnd}
+                    onPointerLeave={handleNumpadLongPressEnd}
                     className={`${numBtnClass} ${textPrimary}`}
                   >
                     {num}
@@ -1083,6 +1203,9 @@ export default function POS() {
                   00
                 </button>
                 <button
+                    onPointerDown={(e) => handleNumpadLongPressStart('0', e)}
+                    onPointerUp={handleNumpadLongPressEnd}
+                    onPointerLeave={handleNumpadLongPressEnd}
                     onClick={() => handleNumpadPress('0')}
                     className={`${numBtnClass} ${textPrimary}`}
                 >
@@ -1653,6 +1776,40 @@ export default function POS() {
                   Agregar a Lista Actual
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP DECENAS (long press) */}
+      {decadePopup && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setDecadePopup(null)}
+        >
+          <div
+            className="bg-gray-800 border-2 border-teal-500 rounded-2xl p-5 shadow-2xl min-w-[280px] text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-teal-400 font-bold text-lg mb-1">📦 Decena del {decadePopup.digit}</p>
+            <p className="text-gray-400 text-sm mb-4">
+              Agregar los 10 números: {decadePopup.digit}0–{decadePopup.digit}9
+              <br/>
+              <span className="text-yellow-400 font-bold">{currentAmount} viles cada uno</span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDecadePopup(null)}
+                className="flex-1 bg-gray-700 text-gray-300 rounded-xl py-3 font-bold text-base"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleConfirmDecade(decadePopup.digit)}
+                className="flex-1 bg-teal-500 text-white rounded-xl py-3 font-bold text-base"
+              >
+                ✓ Confirmar
+              </button>
             </div>
           </div>
         </div>

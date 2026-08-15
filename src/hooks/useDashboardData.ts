@@ -164,9 +164,7 @@ export function useDashboardData(selectedDateStr?: string) {
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5000);
-    return () => clearInterval(interval);
   }, [selectedDateStr]);
 
-  return { metrics, loading };
+  return { metrics, loading, refetch: fetchMetrics };
 }

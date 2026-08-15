@@ -117,9 +117,13 @@ export async function processSale(
           }
         }
 
+        const paddedNum = item.number.padStart(2, '0');
+        const numberSpecificLimit = hardLimitsMap[`NUM_${paddedNum}`] ?? hardLimitsMap[paddedNum];
+        const effectiveCoverLimit = numberSpecificLimit !== undefined ? numberSpecificLimit : limit;
+
         let coverAmountDollars = 0;
-        if (accumulatedDollars + itemDollars > limit) {
-           coverAmountDollars = (accumulatedDollars + itemDollars) - limit;
+        if (accumulatedDollars + itemDollars > effectiveCoverLimit) {
+           coverAmountDollars = (accumulatedDollars + itemDollars) - effectiveCoverLimit;
            if (coverAmountDollars > itemDollars) {
               coverAmountDollars = itemDollars;
            }

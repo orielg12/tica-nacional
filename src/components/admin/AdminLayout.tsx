@@ -38,8 +38,21 @@ export default function AdminLayout() {
       })
       .subscribe();
 
+    // Sincronización automática de resultados en segundo plano cada 60 segundos
+    const syncInterval = setInterval(() => {
+      import('../../services/autoResultsService').then(mod => {
+        mod.syncAutoResults().catch(err => console.warn('Auto sync error:', err));
+      });
+    }, 60000);
+
+    // Ejecución inicial al abrir el panel admin
+    import('../../services/autoResultsService').then(mod => {
+      mod.syncAutoResults().catch(err => console.warn('Initial auto sync error:', err));
+    });
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(syncInterval);
     };
   }, []);
 

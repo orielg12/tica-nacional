@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { X, Loader, Share2, Gift } from 'lucide-react';
-import { formatLotteryTime } from '../utils/lotteryRules';
+import { formatLotteryTime, isGranjitaLottery } from '../utils/lotteryRules';
+import { formatAnimalDisplay } from '../utils/granjitaAnimals';
 import { useStore } from '../store/useStore';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -163,57 +164,60 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
     if (lower.includes('honduras')) return '🇭🇳';
     if (lower.includes('tica')) return '🇨🇷';
     if (lower.includes('monazo')) return '🇨🇷';
-    if (lower.includes('primera')) return '🇩🇴';
+    if (lower.includes('primera')) return '🇨🇷';
     if (lower.includes('nacional')) return '🇵🇦';
     if (lower.includes('anguilla')) return '🇦🇮';
     if (lower.includes('new york') || lower.includes('florida')) return '🇺🇸';
     if (lower.includes('granjita')) return '🐓';
-    return '🎲';
+    return '🇨🇷';
   };
 
   const handleSharePrizeMessage = async () => {
     if (!ticketData) return;
 
     // Aggregate wins per draw
-    const drawWins: Record<string, { name: string; time: string; total: number }> = {};
-    items.forEach(item => {
-      const win = itemWins[item.id];
-      if (!win) return;
-      const drawId = item.draw_id;
-      if (!drawWins[drawId]) {
-        const lotConfig = store.lotteriesMaster.find(l => l.id === drawId);
-        const drawName = lotConfig?.name || String(drawId).toUpperCase();
-        const drawTime = lotConfig ? formatLotteryTime(lotConfig.hour, lotConfig.minute) : '';
-        drawWins[drawId] = { name: drawName, time: drawTime, total: 0 };
-      }
-      drawWins[drawId].total += win.prize;
-    });
+    const winningDrawIds = [...new Set(items.filter(item => itemWins[item.id]).map(item => item.draw_id))];
+    if (winningDrawIds.length === 0) return;
 
-    // Keep only the most recent draw (assuming higher drawId is newer)
-    const sortedDraws = Object.entries(drawWins).sort(
-      ([aId], [bId]) => Number(bId) - Number(aId)
-    );
-    const recentDraws = sortedDraws.slice(0, 1);
     const lines: string[] = [];
     lines.push('🎉 ¡Felicidades! Tienes un Premio 🎉');
     lines.push('');
 
-    // Build message for the most recent winning draw
-    recentDraws.forEach(([, info]) => {
-      const flag = getFlag(info.name);
-      lines.push(`${flag} Sorteo: ${info.name}${info.time ? ` ${info.time}` : ''}`);
-      lines.push(`🏆 Premio total del sorteo: $${info.total.toFixed(2)}`);
+    winningDrawIds.forEach(drawId => {
+      const lotConfig = store.lotteriesMaster.find(l => l.id === drawId);
+      const drawName = lotConfig?.name || String(drawId).toUpperCase();
+      const drawTime = lotConfig ? formatLotteryTime(lotConfig.hour, lotConfig.minute) : '';
+      const flag = getFlag(drawName);
+
+      lines.push(`${flag} Sorteo: ${drawName}${drawTime ? ` ${drawTime}` : ''}`);
+
+      // Jugaste line: [monto_jugado] al [numero_que_gano]
+      const drawItems = items.filter(item => item.draw_id === drawId);
+      const winningItemsForDraw = drawItems.filter(item => itemWins[item.id]);
+      const isGranjita = isGranjitaLottery(lotConfig);
+
+      const jugadasText = winningItemsForDraw.map(item => {
+        const numDisp = isGranjita ? formatAnimalDisplay(item.number_played) : String(item.number_played).padStart(2, '0');
+        const amtDisp = parseFloat(item.amount) || item.amount;
+        return `${amtDisp} al ${numDisp}`;
+      }).join(', ');
+
+      lines.push(`🎫 Jugaste: ${jugadasText}`);
+
+      // Premio line(s)
+      winningItemsForDraw.forEach(item => {
+        const win = itemWins[item.id];
+        if (win && win.details) {
+          win.details.forEach(d => {
+            lines.push(`🏆 ${d.tier}: $${d.prize.toFixed(2)}`);
+          });
+        }
+      });
+
       lines.push('');
     });
 
-    // Totals
-    lines.push(`💵 Total Acumulado Ganado: $${totalPrizesWon.toFixed(2)}`);
-    if (alreadyPaid > 0) {
-      lines.push(`➖ Ya cobrado/abonado anteriormente: -$${alreadyPaid.toFixed(2)}`);
-      lines.push(`✅ SALDO RESTANTE A COBRAR: $${remainingPrize.toFixed(2)}`);
-    } else {
-      lines.push(`✅ SALDO A COBRAR: $${totalPrizesWon.toFixed(2)}`);
-    }
+    lines.push(`💵 TOTAL GANADO: $${totalPrizesWon.toFixed(2)}`);
 
     const prizeMsg = lines.join('\n');
     try {

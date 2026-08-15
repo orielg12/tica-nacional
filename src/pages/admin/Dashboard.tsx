@@ -1,17 +1,143 @@
-import { getLocalISODate } from '../../utils/dateUtils';
+import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
 import { useState, useEffect } from 'react';
 import { useDashboardData } from '../../hooks/useDashboardData';
-import { DollarSign, Tag, Percent, Trophy, Star, FileText, Users, Building, Settings, ShieldAlert } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { DollarSign, Tag, Percent, Trophy, ShieldAlert, RefreshCw, Flame } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../utils/supabase';
 
 export default function Dashboard() {
   const [dateStr, setDateStr] = useState('');
   const [activeDate, setActiveDate] = useState(getLocalISODate());
-  const { metrics } = useDashboardData(activeDate);
+  const { metrics, refetch } = useDashboardData(activeDate);
   const store = useStore();
 
   const [chartView, setChartView] = useState<'weekly' | 'monthly'>('weekly');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [upcomingDrawsHot, setUpcomingDrawsHot] = useState<{
+    drawId: string;
+    drawName: string;
+    drawTime: string;
+    topNumbers: { number: string; viles: number; totalAmount: number; ticketsCount: number }[];
+  }[]>([]);
+  const [loadingHotNumbers, setLoadingHotNumbers] = useState(false);
+
+  const fetchHotNumbers = async () => {
+    setLoadingHotNumbers(true);
+    try {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const isToday = activeDate === getLocalISODate();
+
+      // 1. Obtener todas las loterías activas configuradas
+      const availableLotteries = store.lotteriesMaster.filter(l => l.isActive);
+
+      // Si es hoy, priorizar loterías abiertas o incluir todas las activas del día
+      let targetLotteries = availableLotteries;
+      if (isToday) {
+        const upcoming = availableLotteries.filter(l => {
+          const lotMinutes = l.hour * 60 + l.minute - (l.closeMinutes ?? 10);
+          return lotMinutes > currentMinutes;
+        });
+        if (upcoming.length > 0) {
+          targetLotteries = upcoming;
+        }
+      }
+
+      if (targetLotteries.length === 0) {
+        setUpcomingDrawsHot([]);
+        return;
+      }
+
+      const startOfDay = getStartOfDayUTC(activeDate);
+      const endOfDay = getEndOfDayUTC(activeDate);
+      const targetIds = availableLotteries.map(l => l.id);
+
+      const { data, error } = await supabase
+        .from('ticket_numbers')
+        .select('number_played, amount, draw_id, ticket:ticket_id(id, status, total_amount)')
+        .in('draw_id', targetIds)
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay);
+
+      if (error) {
+        console.error("Error consultando jugadas de números altos:", error);
+      }
+
+      const validPlays = (!error && data) ? data.filter((tn: any) => !tn.ticket || tn.ticket.status !== 'cancelled') : [];
+
+      const resultsByDraw: typeof upcomingDrawsHot = [];
+
+      // Evaluar cada lotería que tenga jugadas
+      availableLotteries.forEach(lotto => {
+        const drawPlays = validPlays.filter((tn: any) => tn.draw_id === lotto.id);
+        if (drawPlays.length === 0) return; // Solo mostrar sorteos con jugadas procesadas
+
+        const countMap: Record<string, { viles: number; totalAmount: number; ticketsCount: number }> = {};
+
+        drawPlays.forEach((tn: any) => {
+          const num = String(tn.number_played).padStart(2, '0');
+          const viles = parseFloat(tn.amount || '0');
+          const ticketMode = Number(store.saleMode) || 0.20;
+          const amt = viles * ticketMode;
+
+          if (!countMap[num]) countMap[num] = { viles: 0, totalAmount: 0, ticketsCount: 0 };
+          countMap[num].viles += viles;
+          countMap[num].totalAmount += amt;
+          countMap[num].ticketsCount += 1;
+        });
+
+        // Ordenar por viles / dinero apostado
+        const topNumbers = Object.entries(countMap)
+          .map(([num, d]) => ({ number: num, viles: d.viles, totalAmount: d.totalAmount, ticketsCount: d.ticketsCount }))
+          .filter(item => item.viles > 0)
+          .sort((a, b) => b.totalAmount - a.totalAmount)
+          .slice(0, 5);
+
+        if (topNumbers.length > 0) {
+          const timeStr = `${lotto.hour > 12 ? lotto.hour - 12 : (lotto.hour === 0 ? 12 : lotto.hour)}:${lotto.minute.toString().padStart(2, '0')} ${lotto.hour >= 12 ? 'PM' : 'AM'}`;
+
+          resultsByDraw.push({
+            drawId: lotto.id,
+            drawName: lotto.name,
+            drawTime: timeStr,
+            topNumbers
+          });
+        }
+      });
+
+      setUpcomingDrawsHot(resultsByDraw);
+    } catch (e) {
+      console.error("Error fetching automatic upcoming draw hot numbers:", e);
+    } finally {
+      setLoadingHotNumbers(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    await fetchHotNumbers();
+    setIsRefreshing(false);
+  };
+
+    useEffect(() => {
+    // Cargar datos iniciales
+    fetchHotNumbers();
+    // Suscribirse a cambios en tiempo real (ventas y premios)
+    const channel = supabase
+      .channel('public:ticket_numbers')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticket_numbers' }, payload => {
+        console.log('Nuevo ticket:', payload);
+        // Refrescar métricas y números calientes
+        refetch();
+        fetchHotNumbers();
+      })
+      .subscribe();
+    // Cleanup on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeDate]);
 
   const getDayNameFromDateStr = (dateStr: string) => {
     if (!dateStr) return '';
@@ -51,6 +177,28 @@ export default function Dashboard() {
               value={activeDate}
               onChange={(e) => setActiveDate(e.target.value)}
             />
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                backgroundColor: '#0d9488',
+                color: '#fff',
+                border: 'none',
+                padding: '0.45rem 0.9rem',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                opacity: isRefreshing ? 0.7 : 1
+              }}
+              title="Actualizar datos manualmente"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span>{isRefreshing ? 'Cargando...' : '↻ Actualizar'}</span>
+            </button>
          </div>
       </div>
 
@@ -65,13 +213,61 @@ export default function Dashboard() {
         <MetricCard title="REEMBOLSOS BANCA" value={`$${metrics.reembolsoRespaldo.toFixed(2)}`} icon={<ShieldAlert size={18}/>} color="#10b981" />
       </div>
 
-      {/* Quick Action Buttons */}
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-         <QuickActionButton to="/admin/results" icon={<Star size={16}/>} text="Gestionar Resultados" />
-         <QuickActionButton to="/admin/users" icon={<Users size={16}/>} text="Gestionar Usuarios" />
-         <QuickActionButton to="/admin/risk" icon={<Building size={16}/>} text="Gestionar Bancas" />
-         <QuickActionButton to="/admin/lotteries" icon={<Settings size={16}/>} text="Configurar Sorteos" />
-         <QuickActionButton to="/admin" icon={<FileText size={16}/>} text="Dashboard General" />
+      {/* MONITOR DE NÚMEROS ALTOS POR SORTEO PRÓXIMO / ACTIVO */}
+      <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.2rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+               <Flame size={20} color="#ef4444" />
+               <h4 style={{ margin: 0, fontSize: '1rem', color: '#17233D', fontWeight: 'bold' }}>
+                  Monitor de Números Altos (Jugadas Procesadas)
+               </h4>
+            </div>
+            <span style={{ fontSize: '0.75rem', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 'bold' }}>
+               ● Solo sorteos activos con viles apostados
+            </span>
+         </div>
+
+         {loadingHotNumbers ? (
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem', padding: '1rem', textAlign: 'center' }}>Cargando jugadas procesadas...</div>
+         ) : upcomingDrawsHot.length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem', padding: '1rem', textAlign: 'center', fontStyle: 'italic' }}>
+               Sin jugadas procesadas en sorteos activos por vencer.
+            </div>
+         ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(240px, 1fr))`, gap: '1rem' }}>
+               {upcomingDrawsHot.map((drawData) => (
+                  <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0.8rem' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.4rem', marginBottom: '0.6rem' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#0d9488' }}>{drawData.drawName}</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', backgroundColor: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{drawData.drawTime}</span>
+                     </div>
+
+                     {drawData.topNumbers.length === 0 ? (
+                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>Sin apuntes aún para este sorteo...</p>
+                     ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                           {drawData.topNumbers.map((numItem, nIdx) => (
+                              <div key={nIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '0.35rem 0.6rem', borderRadius: '6px', border: numItem.totalAmount >= 5.0 ? '1px solid #fca5a5' : '1px solid #e2e8f0' }}>
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#94a3b8', width: '16px' }}>#{nIdx + 1}</span>
+                                    <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem', color: '#0f172a' }}>{numItem.number}</span>
+                                 </div>
+                                 <div style={{ textAlign: 'right' }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: numItem.totalAmount >= 5.0 ? '#dc2626' : '#0d9488' }}>
+                                       ${numItem.totalAmount.toFixed(2)}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', color: '#64748b', marginLeft: '0.35rem', fontWeight: '500' }}>
+                                       ({numItem.viles} viles / {numItem.ticketsCount} tkts)
+                                    </span>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     )}
+                  </div>
+               ))}
+            </div>
+         )}
       </div>
 
       {/* Content Sections */}
@@ -214,8 +410,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-         </div>
-
+          </div>
       </div>
 
       {/* Gráfica Lineal de Tendencia Mensual */}
@@ -338,18 +533,7 @@ function MetricCard({ title, value, icon, color }: { title: string, value: strin
   );
 }
 
-function QuickActionButton({ to, icon, text }: { to: string, icon: React.ReactNode, text: string }) {
-  return (
-    <Link to={to} style={{ 
-      display: 'flex', alignItems: 'center', gap: '0.5rem', 
-      backgroundColor: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', 
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)', color: '#495057', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none',
-      border: '1px solid #e9ecef'
-    }}>
-      <span style={{ color: '#6c757d' }}>{icon}</span> {text}
-    </Link>
-  );
-}
+
 
 function SummaryRow({ label, value }: { label: string, value: string }) {
   return (

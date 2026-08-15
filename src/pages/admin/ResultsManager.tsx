@@ -4,8 +4,8 @@ import { supabase } from '../../utils/supabase';
 import { formatLotteryTime, isGranjitaLottery } from '../../utils/lotteryRules';
 import { GRANJITA_ANIMALS, formatAnimalDisplay } from '../../utils/granjitaAnimals';
 import { useStore } from '../../store/useStore';
-import CalendarPicker from '../../components/CalendarPicker';
-import { Printer, RefreshCw, Trophy } from 'lucide-react';
+import { Printer, RefreshCw, Trophy, Zap, Trash2 } from 'lucide-react';
+import { syncAutoResults } from '../../services/autoResultsService';
 
 export default function ResultsManager() {
   const store = useStore();
@@ -16,6 +16,41 @@ export default function ResultsManager() {
   const [historyFilterLottery, setHistoryFilterLottery] = useState('');
   const [loading, setLoading] = useState(false);
   const [dbResults, setDbResults] = useState<any[]>([]);
+  const [syncingAuto, setSyncingAuto] = useState(false);
+  const [autoSummaryModal, setAutoSummaryModal] = useState<any[] | null>(null);
+
+  const handleAutoSyncAll = async () => {
+    setSyncingAuto(true);
+    try {
+      const summary = await syncAutoResults(selectedDate);
+      setAutoSummaryModal(summary);
+      fetchCurrentWinningNumbers();
+      fetchHistory();
+      fetchPlays();
+    } catch (e) {
+      console.error("Auto sync error:", e);
+      alert("No se pudo completar la sincronización automática.");
+    } finally {
+      setSyncingAuto(false);
+    }
+  };
+
+  const handleDeleteResult = async (drawId: string, resDate: string) => {
+    if (!confirm("¿Deseas eliminar este resultado registrado para permitir una nueva carga o corrección?")) return;
+    try {
+      setLoading(true);
+      await supabase.from('results').delete().eq('draw_id', drawId).eq('date', resDate);
+      fetchHistory();
+      fetchCurrentWinningNumbers();
+      fetchPlays();
+      alert("Resultado eliminado correctamente.");
+    } catch (e) {
+      console.error("Error eliminando resultado:", e);
+      alert("No se pudo eliminar el resultado.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // States for real-time calculations
   const [plays, setPlays] = useState<any[]>([]);
@@ -162,7 +197,7 @@ export default function ResultsManager() {
 
       const numPlayed = String(play.number_played).trim();
       let multiplier = 0;
-      const matchTiers = [];
+      const matchTiers: string[] = [];
 
       if (firstNum && numPlayed === firstNum) {
         multiplier += (playSaleMode === 0.25 ? 14 : 11);
@@ -351,14 +386,31 @@ export default function ResultsManager() {
 
   return (
     <div style={{ padding: '2rem' }}>
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', color: '#17233D', margin: 0 }}>Carga de Resultados</h1>
-          <p style={{ color: '#5b6b84', margin: '0.5rem 0 0' }}>Sube los números ganadores y audita el balance de la banca.</p>
+          <p style={{ color: '#5b6b84', margin: '0.5rem 0 0' }}>Sube los números ganadores o sincroniza automáticamente de las loterías oficiales.</p>
         </div>
-        <button onClick={fetchPlays} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', padding: '0.6rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-           <RefreshCw size={16} /> Refrescar Ventas
-        </button>
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+          <button 
+            onClick={handleAutoSyncAll} 
+            disabled={syncingAuto}
+            style={{ 
+              display: 'flex', gap: '0.5rem', alignItems: 'center', 
+              background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', 
+              border: 'none', color: '#ffffff', padding: '0.6rem 1.2rem', 
+              borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+              boxShadow: '0 4px 10px rgba(234, 179, 8, 0.3)'
+            }}
+          >
+             <Zap size={18} className={syncingAuto ? "animate-spin" : "animate-bounce"} /> 
+             {syncingAuto ? "Sincronizando Premios..." : "⚡ Auto-Cargar Premios"}
+          </button>
+
+          <button onClick={() => { fetchPlays(); fetchCurrentWinningNumbers(); fetchHistory(); }} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#0d9488', border: 'none', color: '#ffffff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+             <RefreshCw size={16} /> ↻ Actualizar
+          </button>
+        </div>
       </header>
 
       {/* Grid de Dos Columnas Principal */}
@@ -370,7 +422,12 @@ export default function ResultsManager() {
           
           <div style={{ marginBottom: '1.2rem' }}>
             <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold', color: '#8b9bb4', marginBottom: '0.4rem' }}>Fecha del Sorteo</label>
-            <CalendarPicker selectedDate={selectedDate} onSelect={setSelectedDate} />
+            <input 
+              type="date" 
+              value={selectedDate} 
+              onChange={(e) => setSelectedDate(e.target.value)} 
+              style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontWeight: 'bold', background: '#f8fafc' }}
+            />
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
@@ -570,9 +627,14 @@ export default function ResultsManager() {
            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1.2rem' }}>
              <h3 style={{ margin: 0, color: '#17233d', fontSize: '1.2rem' }}>Historial General de Resultados</h3>
              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-               <div style={{ flex: '1 1 180px' }}>
-                 <CalendarPicker selectedDate={historyFilterDate} onSelect={setHistoryFilterDate} placeholder="Todas las fechas" />
-               </div>
+                <div style={{ flex: '1 1 180px' }}>
+                  <input 
+                    type="date" 
+                    value={historyFilterDate} 
+                    onChange={(e) => setHistoryFilterDate(e.target.value)} 
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', background: '#f8fafc', fontWeight: 'bold' }}
+                  />
+                </div>
                <div style={{ flex: '1 1 180px' }}>
                  <select 
                    value={historyFilterLottery}
@@ -588,29 +650,81 @@ export default function ResultsManager() {
              </div>
            </div>
            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
-             <thead>
-               <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#5b6b84', background: '#f8fafc' }}>
-                 <th style={{ padding: '0.8rem' }}>Fecha</th>
-                 <th style={{ padding: '0.8rem' }}>Lotería</th>
-                 <th style={{ padding: '0.8rem' }}>Números Ganadores</th>
-               </tr>
-             </thead>
-             <tbody>
-               {dbResults.map((r, i) => {
-                 const lotInfo = store.lotteriesMaster.find(l => l.id === r.draw_id || l.id === r.lotteryId);
-                 const lotName = lotInfo ? `${lotInfo.name} (${formatLotteryTime(lotInfo.hour, lotInfo.minute)})` : (r.draw_id || r.lotteryId);
-                 const isGranjita = isGranjitaLottery(r.draw_id || r.lotteryId);
-                 const winningDisplay = isGranjita ? formatAnimalDisplay(r.winning_number) : r.winning_number;
-                 return (
-                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                     <td style={{ padding: '0.8rem', color: '#1e293b' }}>{r.date}</td>
-                     <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#1e293b' }}>{lotName}</td>
-                     <td style={{ padding: '0.8rem', color: '#10b981', fontWeight: 800, fontSize: '1rem', fontFamily: 'monospace' }}>{winningDisplay}</td>
-                   </tr>
-                 );
-               })}
-             </tbody>
-           </table>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#5b6b84', background: '#f8fafc' }}>
+                  <th style={{ padding: '0.8rem' }}>Fecha</th>
+                  <th style={{ padding: '0.8rem' }}>Lotería</th>
+                  <th style={{ padding: '0.8rem' }}>Números Ganadores</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'center' }}>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dbResults.map((r, i) => {
+                  const lotInfo = store.lotteriesMaster.find(l => l.id === r.draw_id || l.id === r.lotteryId);
+                  const lotName = lotInfo ? `${lotInfo.name} (${formatLotteryTime(lotInfo.hour, lotInfo.minute)})` : (r.draw_id || r.lotteryId);
+                  const isGranjita = isGranjitaLottery(r.draw_id || r.lotteryId);
+                  const winningDisplay = isGranjita ? formatAnimalDisplay(r.winning_number) : r.winning_number;
+                  const drawIdVal = r.draw_id || r.lotteryId;
+                  return (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.8rem', color: '#1e293b' }}>{r.date}</td>
+                      <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#1e293b' }}>{lotName}</td>
+                      <td style={{ padding: '0.8rem', color: '#10b981', fontWeight: 800, fontSize: '1rem', fontFamily: 'monospace' }}>{winningDisplay}</td>
+                      <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                        <button
+                          onClick={() => handleDeleteResult(drawIdVal, r.date)}
+                          title="Eliminar este resultado para corregirlo o permitir recarga"
+                          style={{
+                            background: '#fee2e2',
+                            border: '1px solid #fca5a5',
+                            color: '#dc2626',
+                            padding: '0.35rem 0.6rem',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          <Trash2 size={14} /> Borrar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+        </div>
+      )}
+      {/* MODAL RESUMEN AUTO-PREMIOS */}
+      {autoSummaryModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#ffffff', borderRadius: '16px', maxWidth: '500px', width: '100%', padding: '1.5rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.25rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+              ⚡ Premiaciones Auto-Sincronizadas ({selectedDate})
+            </h3>
+            <div style={{ maxHeight: '320px', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {autoSummaryModal.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b' }}>{item.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: item.status === 'updated' ? '#15803d' : '#64748b' }}>{item.message}</div>
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.95rem', background: item.winningNumber ? '#dcfce7' : '#f1f5f9', color: item.winningNumber ? '#15803d' : '#94a3b8', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
+                    {item.winningNumber || '--'}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={() => setAutoSummaryModal(null)} 
+              style={{ width: '100%', padding: '0.8rem', background: '#0d9488', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
+            >
+              ACEPTAR Y REGRESAR
+            </button>
+          </div>
         </div>
       )}
     </div>

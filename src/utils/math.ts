@@ -18,7 +18,7 @@ export function calculatePrizes(amount: number) {
  */
 export function getDecadeNumbers(decadeIndex: number): string[] {
   if (decadeIndex < 0 || decadeIndex > 9) return [];
-  const numbers = [];
+  const numbers: string[] = [];
   for (let i = 0; i < 10; i++) {
     numbers.push(`${decadeIndex}${i}`);
   }

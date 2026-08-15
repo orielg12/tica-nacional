@@ -300,12 +300,13 @@ export default function GranjitaPOS() {
 
         if (targetNum && !isNaN(viles) && viles > 0) {
           handleAddAnimal(targetNum);
+          setNumpadMode('num');
         } else if (targetNum && (isNaN(viles) || viles <= 0)) {
           setNumpadMode('amount');
         } else if (!targetNum && granjitaCart.length > 0) {
           setShowCheckoutModal(true);
         } else if (!targetNum) {
-          alert('⚠️ Selecciona o ingresa un número de animal primero.');
+          setNumpadMode('num');
         }
       }
     };
@@ -522,11 +523,17 @@ export default function GranjitaPOS() {
                   type="button"
                   onClick={() => {
                     const targetNum = numpadNumber ? numpadNumber.padStart(2, '0') : '';
-                    if (targetNum) handleAddAnimal(targetNum);
-                    else alert('⚠️ Selecciona o ingresa un número de animal primero.');
+                    const viles = parseFloat(currentAmount);
+                    if (targetNum && !isNaN(viles) && viles > 0) {
+                      handleAddAnimal(targetNum);
+                      setNumpadMode('num');
+                    } else if (targetNum && (isNaN(viles) || viles <= 0)) {
+                      setNumpadMode('amount');
+                    } else {
+                      setNumpadMode('num');
+                    }
                   }}
-                  disabled={!numpadNumber}
-                  className={`w-full h-full min-h-[184px] ${tc('bg-teal-500 hover:bg-teal-400 active:bg-teal-600 border-b-4 border-teal-700', 'bg-[#0d9488] hover:bg-[#0f766e] active:bg-[#115e59] border-b-4 border-[#0f766e]')} disabled:opacity-40 text-white font-black rounded-xl shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 active:border-b-0`}
+                  className={`w-full h-full min-h-[184px] ${tc('bg-teal-500 hover:bg-teal-400 active:bg-teal-600 border-b-4 border-teal-700', 'bg-[#0d9488] hover:bg-[#0f766e] active:bg-[#115e59] border-b-4 border-[#0f766e]')} text-white font-black rounded-xl shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 active:border-b-0`}
                 >
                   <Plus size={36} className="animate-pulse" />
                   <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold">AÑADIR</span>
