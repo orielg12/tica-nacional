@@ -46,11 +46,28 @@ export function useDashboardData(selectedDateStr?: string) {
       thirtyDaysAgo.setDate(today.getDate() - 29);
       const thirtyDaysAgoStr = getLocalISODate(thirtyDaysAgo);
 
+      // Check if logged in user is Sub-Admin to scope metrics to their vendors only
+      const storeState = useStore.getState();
+      const currentUser = storeState.currentUser;
+      const isSubAdmin = currentUser?.isSubAdmin;
+      const subAdminVendorIds = isSubAdmin
+        ? storeState.users
+            .filter(u => u.parentAdminId === currentUser?.username)
+            .map(u => u.username)
+            .concat(currentUser?.username || '')
+        : null;
+
       // 1. Gross Sales (Tickets de últimos 30 días para el gráfico mensual)
-      const { data: ticketsData, error: ticketsErr } = await supabase
+      let query = supabase
         .from('tickets')
-        .select('created_at, total_amount, status, vendor_id')
+        .select('id, created_at, total_amount, status, vendor_id')
         .gte('created_at', getStartOfDayUTC(thirtyDaysAgoStr));
+
+      if (subAdminVendorIds && subAdminVendorIds.length > 0) {
+        query = query.in('vendor_id', subAdminVendorIds);
+      }
+
+      const { data: ticketsData, error: ticketsErr } = await query;
 
       if (ticketsErr) throw ticketsErr;
 

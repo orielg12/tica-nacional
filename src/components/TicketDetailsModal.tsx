@@ -191,28 +191,51 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
 
       lines.push(`${flag} Sorteo: ${drawName}${drawTime ? ` ${drawTime}` : ''}`);
 
-      // Jugaste line: [monto_jugado] al [numero_que_gano]
       const drawItems = items.filter(item => item.draw_id === drawId);
       const winningItemsForDraw = drawItems.filter(item => itemWins[item.id]);
       const isGranjita = isGranjitaLottery(lotConfig);
 
-      const jugadasText = winningItemsForDraw.map(item => {
-        const numDisp = isGranjita ? formatAnimalDisplay(item.number_played) : String(item.number_played).padStart(2, '0');
-        const amtDisp = parseFloat(item.amount) || item.amount;
-        return `${amtDisp} al ${numDisp}`;
-      }).join(', ');
-
+      // ── JUGASTE: agrupar por número, sumar viles ──────────────────
+      const jugadaMap: Record<string, number> = {};
+      winningItemsForDraw.forEach(item => {
+        const numKey = isGranjita
+          ? formatAnimalDisplay(item.number_played)
+          : String(item.number_played).padStart(2, '0');
+        const amt = parseFloat(item.amount) || 0;
+        jugadaMap[numKey] = (jugadaMap[numKey] || 0) + amt;
+      });
+      const jugadasText = Object.entries(jugadaMap)
+        .map(([num, amt]) => `${amt} al ${num}`)
+        .join(', ');
       lines.push(`🎫 Jugaste: ${jugadasText}`);
 
-      // Premio line(s)
+      // ── PREMIOS: agrupar por tier+número, sumar montos, ordenar 1→2→3 ──
+      const tierOrder: Record<string, number> = { '1er Premio': 1, '2do Premio': 2, '3er Premio': 3 };
+      const prizeMap: Record<string, { tier: string; winNum: string; amount: number; viles: number }> = {};
+
       winningItemsForDraw.forEach(item => {
         const win = itemWins[item.id];
-        if (win && win.details) {
-          win.details.forEach(d => {
-            lines.push(`🏆 ${d.tier}: $${d.prize.toFixed(2)}`);
-          });
-        }
+        if (!win || !win.details) return;
+        win.details.forEach(d => {
+          const numKey = isGranjita
+            ? formatAnimalDisplay(item.number_played)
+            : String(item.number_played).padStart(2, '0');
+          const key = `${d.tier}__${numKey}`;
+          const amt = parseFloat(item.amount) || 0;
+          if (!prizeMap[key]) {
+            prizeMap[key] = { tier: d.tier, winNum: numKey, amount: 0, viles: 0 };
+          }
+          prizeMap[key].amount += d.prize;
+          prizeMap[key].viles += amt;
+        });
       });
+
+      Object.values(prizeMap)
+        .sort((a, b) => (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9))
+        .forEach(p => {
+          const tierEmoji = p.tier.startsWith('1er') ? '🥇' : p.tier.startsWith('2do') ? '🥈' : '🥉';
+          lines.push(`${tierEmoji} ${p.tier} (${p.winNum}) · ${p.viles} viles → $${p.amount.toFixed(2)}`);
+        });
 
       lines.push('');
     });

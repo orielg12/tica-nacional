@@ -56,6 +56,11 @@ export default function AdminLayout() {
     };
   }, []);
 
+  const store = useStore();
+  const currentUser = store.currentUser;
+  const isSuperAdmin = !currentUser?.isSubAdmin;
+  const canManageLotteries = isSuperAdmin || currentUser?.allowManageLotteries === true;
+
   const navLinks = [
     { group: 'PRINCIPAL', items: [
       { to: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} />, exact: true },
@@ -64,17 +69,19 @@ export default function AdminLayout() {
     ]},
     { group: 'GESTIÓN', items: [
       { to: '/admin/tickets', label: 'Control de Tickets', icon: <Ticket size={18} /> },
-      { to: '/admin/users', label: 'Usuarios', icon: <Users size={18} /> },
+      { to: '/admin/users', label: isSuperAdmin ? 'Usuarios / Sub-Admins' : 'Mis Vendedores', icon: <Users size={18} /> },
       { to: '/admin/risk', label: 'Bancas (Respaldo)', icon: <Building size={18} /> },
-      { to: '/admin/lotteries', label: 'Sorteos', icon: <Calendar size={18} /> },
+      ...(canManageLotteries ? [{ to: '/admin/lotteries', label: 'Sorteos', icon: <Calendar size={18} /> }] : []),
     ]},
     { group: 'FINANCIERO', items: [
       { to: '/admin/reports', label: 'Reportes', icon: <FileText size={18} /> },
       { to: '/admin/manual-sale', label: 'Venta Manual', icon: <Plus size={18} /> },
     ]},
-    { group: 'SISTEMA', items: [
-      { to: '/admin/settings', label: 'Configuración', icon: <Settings size={18} /> },
-    ]},
+    ...(isSuperAdmin ? [{
+      group: 'SISTEMA', items: [
+        { to: '/admin/settings', label: 'Configuración', icon: <Settings size={18} /> },
+      ]
+    }] : []),
   ];
 
   const SidebarContent = () => (
@@ -82,8 +89,22 @@ export default function AdminLayout() {
       {/* Logo */}
       <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h2 style={{ fontSize: '1.1rem', margin: 0, color: '#3399ff', fontWeight: 800 }}>GO</h2>
-          <span style={{ fontSize: '0.7rem', color: '#8b9bb4' }}>Panel Administrativo v1.0</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.1rem', margin: 0, color: '#3399ff', fontWeight: 800 }}>GO</h2>
+            <span style={{ 
+              fontSize: '0.65rem', 
+              backgroundColor: isSuperAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(3, 105, 161, 0.2)', 
+              color: isSuperAdmin ? '#f59e0b' : '#38bdf8', 
+              padding: '0.15rem 0.45rem', 
+              borderRadius: '4px', 
+              fontWeight: 'bold' 
+            }}>
+              {isSuperAdmin ? '👑 MADRE' : '🏢 SUB-ADMIN'}
+            </span>
+          </div>
+          <span style={{ fontSize: '0.7rem', color: '#8b9bb4' }}>
+            {currentUser?.username ? `@${currentUser.username}` : 'Panel Admin'}
+          </span>
         </div>
         {/* Botón cerrar en móvil */}
         <button 
@@ -124,12 +145,12 @@ export default function AdminLayout() {
       {/* Footer */}
       <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-           <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#3399ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-             A
+           <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: isSuperAdmin ? '#3399ff' : '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+             {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'A'}
            </div>
            <div>
-             <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>Administrador</div>
-             <div style={{ fontSize: '0.7rem', color: '#8b9bb4' }}>Activo</div>
+             <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{currentUser?.name || 'Administrador'}</div>
+             <div style={{ fontSize: '0.7rem', color: '#8b9bb4' }}>{isSuperAdmin ? 'Admin Madre' : `Sub-Admin (@${currentUser?.username})`}</div>
            </div>
          </div>
          <button 

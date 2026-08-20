@@ -18,15 +18,30 @@ export default function AdminReports() {
   const [selectedVendor, setSelectedVendor] = useState<string>('all');
   const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
 
+  const currentUser = store.currentUser;
+  const isSubAdmin = currentUser?.isSubAdmin;
+  const subAdminVendorIds = isSubAdmin
+    ? store.users
+        .filter(u => u.parentAdminId === currentUser?.username)
+        .map(u => u.username)
+        .concat(currentUser?.username || '')
+    : null;
+
   const fetchGlobalSales = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tickets')
         .select('*, ticket_numbers(amount, draw_id)')
         .gte('created_at', getStartOfDayUTC(startDate))
         .lte('created_at', getEndOfDayUTC(endDate))
         .order('created_at', { ascending: false });
+
+      if (subAdminVendorIds && subAdminVendorIds.length > 0) {
+        query = query.in('vendor_id', subAdminVendorIds);
+      }
+
+      const { data, error } = await query;
         
       const { data: coversData } = await supabase
         .from('covers')

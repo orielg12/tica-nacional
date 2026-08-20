@@ -8,6 +8,8 @@ const ALL_DAYS: LotteryDay[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Vier
 export default function LotteryManager() {
   const store = useStore();
   const lotteries = store.lotteriesMaster;
+  const isSuperAdmin = !store.currentUser?.isSubAdmin;
+  const canManageLotteries = isSuperAdmin || store.currentUser?.allowManageLotteries === true;
 
   // Form state
   const [newName, setNewName] = useState('');
@@ -15,6 +17,19 @@ export default function LotteryManager() {
   const [selectedDays, setSelectedDays] = useState<LotteryDay[]>([]);
   const [closeMinutes, setCloseMinutes] = useState(10);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  if (!canManageLotteries) {
+    return (
+      <div style={{ padding: '3rem', textAlign: 'center', backgroundColor: '#f4f7f6', minHeight: '100%' }}>
+        <div style={{ backgroundColor: '#fff', padding: '2.5rem', borderRadius: '12px', maxWidth: '500px', margin: '0 auto', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ color: '#dc3545', marginBottom: '1rem', fontSize: '1.2rem' }}>⛔ Acceso Restringido</h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5' }}>
+            No tienes permisos para crear o modificar sorteos. Esta función solo puede ser habilitada por el <strong>Administrador Principal</strong>.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const toggle = (id: string) => {
     store.toggleMasterLottery(id);

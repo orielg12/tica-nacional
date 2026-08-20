@@ -282,7 +282,7 @@ export default function PaletPOS() {
   };
 
   const renderCartList = () => {
-    if (store.cart.length === 0) {
+    if (paletCart.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-40 py-12">
           <p className="font-bold text-xs uppercase tracking-widest">SIN APUESTAS EN CARRITO</p>
@@ -291,7 +291,7 @@ export default function PaletPOS() {
     }
     return (
       <div className="space-y-2 pb-6">
-        {store.cart.map((item, index) => (
+        {paletCart.map((item, index) => (
           <div 
             key={item.id} 
             className="flex justify-between items-center bg-[#1e293b]/70 rounded-xl p-3 shadow text-white border-l-4 border-amber-500"
@@ -512,7 +512,7 @@ export default function PaletPOS() {
 
           <button 
             onClick={() => setShowCheckoutModal(true)}
-            disabled={store.cart.length === 0}
+            disabled={paletCart.length === 0}
             className="w-full bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 py-3 rounded-xl font-bold uppercase tracking-wider text-slate-950 text-base"
           >
             PROCESAR PALETS

@@ -78,9 +78,23 @@ export default function VendorLayout() {
     return store.cart;
   }, [store.cart, location.pathname]);
 
-  const cartTotalDollar = activeCart.reduce((sum, item) => sum + (item.amount * (item.lotteries?.length || 1)), 0) * store.saleMode;
+  const cartTotalDollar = useMemo(() => {
+    return activeCart.reduce((sum, item) => {
+      if (item.isPalet) {
+        return sum + (item.amount * (item.lotteries?.length || 1));
+      }
+      return sum + (item.amount * (item.lotteries?.length || 1) * store.saleMode);
+    }, 0);
+  }, [activeCart, store.saleMode]);
+
   const hasCart = activeCart.length > 0;
   const isOnPOS = location.pathname === '/vendor/pos' || location.pathname === '/vendor/palets' || location.pathname === '/vendor/granjita';
+
+  const handleClearCurrentCart = () => {
+    if (window.confirm('¿Vaciar el carrito actual?')) {
+      activeCart.forEach(item => store.removeNumber(item.id));
+    }
+  };
 
   // tc() helper: pick a class based on current theme
   const tc = (darkClass: string, lightClass: string) => isDarkMode ? darkClass : lightClass;
@@ -141,9 +155,7 @@ export default function VendorLayout() {
         <div className="flex items-center gap-2">
           {isOnPOS && hasCart ? (
             <button
-              onClick={() => {
-                if (window.confirm('¿Vaciar todo el carrito?')) store.clearCart();
-              }}
+              onClick={handleClearCurrentCart}
               className={`flex items-center gap-1 px-2.5 py-1.5 border transition-colors active:scale-95 text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-red-400 active:bg-red-900/40 bg-red-950/70 border-red-700/60' : 'text-red-600 active:bg-red-100 bg-red-50 border-red-200 rounded-lg'}`}
               title="Vaciar Carrito"
             >

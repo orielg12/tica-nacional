@@ -101,6 +101,7 @@ export default function POS() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editNumber, setEditNumber] = useState('');
   const [editAmount, setEditAmount] = useState('');
+  const [editFocusField, setEditFocusField] = useState<'number' | 'amount'>('number');
 
   useEffect(() => {
     // Forzar fetch fresco al montar el POS y purgar loterías de La Granjita si las hubiera
@@ -118,9 +119,10 @@ export default function POS() {
       // Purgar loterías que ya no estén disponibles para la fecha elegida
       const validSelected = store.selectedLotteries.filter(sl => available.some(a => a.id === sl.id));
       if (validSelected.length !== store.selectedLotteries.length) {
-        validSelected.forEach(l => {
-          if (!available.some(a => a.id === l.id)) store.toggleLottery(l);
-        });
+        // En lugar de purgar todas, mantenemos las que sigan siendo válidas
+        if (validSelected.length === 0) {
+          store.clearLotteries();
+        }
       }
     };
     
@@ -145,6 +147,19 @@ export default function POS() {
   const handleNumpadPress = (val: string) => {
     if (val === '.') return; // decimales no permitidos en Tiempos
 
+    if (editingItemId !== null) {
+      if (editFocusField === 'number') {
+        if (editNumber.length + val.length <= 2) {
+          setEditNumber(editNumber + val);
+        }
+      } else {
+        if (editAmount.length + val.length <= 6) { 
+          setEditAmount(editAmount + val);
+        }
+      }
+      return;
+    }
+
     if (focusedInput === 'number') {
       if (currentNumber.length + val.length <= 2) {
         const newNumber = currentNumber + val;
@@ -158,6 +173,21 @@ export default function POS() {
   };
 
   const handleBackspace = () => {
+    if (editingItemId !== null) {
+      if (editFocusField === 'number') {
+        if (editNumber === '') {
+          setEditFocusField('amount');
+        } else {
+          setEditNumber(editNumber.slice(0, -1));
+        }
+      } else {
+        if (editAmount !== '') {
+          setEditAmount(editAmount.slice(0, -1));
+        }
+      }
+      return;
+    }
+
     if (focusedInput === 'number') {
       if (currentNumber === '') {
          setFocusedInput('amount');
@@ -895,39 +925,72 @@ export default function POS() {
 
           if (isEditing) {
             return (
-              <div key={item.id} className="bg-teal-900/40 border-l-4 border-teal-400 rounded-xl p-3 shadow-md animate-slide-up">
-                <p className="text-teal-400 text-xs font-bold mb-2">✏️ Editando apunte #{index + 1}</p>
-                <div className="flex gap-2 mb-2">
-                  <div className="flex-1">
-                    <label className="text-gray-400 text-[10px] uppercase font-bold">Número</label>
-                    <input
-                      type="number"
-                      min="0" max="99"
-                      value={editNumber}
-                      onChange={e => setEditNumber(e.target.value.slice(0,2))}
-                      className="w-full bg-gray-800 border border-teal-500 text-white font-mono text-2xl font-bold rounded-lg p-2 text-center outline-none"
-                      autoFocus
-                    />
+              <div key={item.id} className="bg-teal-950/90 border-2 border-teal-400 rounded-xl p-3 shadow-xl animate-slide-up">
+                <div className="flex justify-between items-center mb-2.5">
+                  <p className="text-teal-400 text-xs font-black uppercase tracking-wider">✏️ Modificando Apunte #{index + 1}</p>
+                  <span className="text-[10px] text-teal-300/80 font-medium">Usa el teclado de abajo</span>
+                </div>
+
+                <div className="flex gap-2.5 mb-3">
+                  <div 
+                    onClick={() => setEditFocusField('number')}
+                    className={`flex-1 bg-gray-900 rounded-xl p-2.5 text-center cursor-pointer border-2 transition-all ${
+                      editFocusField === 'number' ? 'border-teal-400 shadow-[0_0_12px_rgba(45,212,191,0.4)] ring-1 ring-teal-400' : 'border-gray-700'
+                    }`}
+                  >
+                    <label className="text-gray-400 text-[10px] uppercase font-bold block mb-1">NÚMERO</label>
+                    <span className="text-white font-mono text-2xl font-black block tracking-wider">
+                      {editNumber || '__'}
+                    </span>
                   </div>
-                  <div className="flex-1">
-                    <label className="text-gray-400 text-[10px] uppercase font-bold">Tiempos</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={editAmount}
-                      onChange={e => setEditAmount(e.target.value)}
-                      className="w-full bg-gray-800 border border-teal-500 text-white font-mono text-2xl font-bold rounded-lg p-2 text-center outline-none"
-                    />
+
+                  <div 
+                    onClick={() => setEditFocusField('amount')}
+                    className={`flex-1 bg-gray-900 rounded-xl p-2.5 text-center cursor-pointer border-2 transition-all ${
+                      editFocusField === 'amount' ? 'border-teal-400 shadow-[0_0_12px_rgba(45,212,191,0.4)] ring-1 ring-teal-400' : 'border-gray-700'
+                    }`}
+                  >
+                    <label className="text-gray-400 text-[10px] uppercase font-bold block mb-1">TIEMPOS (VILES)</label>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const val = Math.max(1, (parseInt(editAmount) || 1) - 1);
+                          setEditAmount(val.toString());
+                        }}
+                        className="w-6 h-6 rounded bg-gray-800 text-gray-300 font-bold flex items-center justify-center active:bg-gray-700 text-sm"
+                      >
+                        -
+                      </button>
+                      <span className="text-teal-400 font-mono text-2xl font-black">
+                        {editAmount || '0'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const val = (parseInt(editAmount) || 0) + 1;
+                          setEditAmount(val.toString());
+                        }}
+                        className="w-6 h-6 rounded bg-gray-800 text-gray-300 font-bold flex items-center justify-center active:bg-gray-700 text-sm"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
+
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setEditingItemId(null)}
-                    className="flex-1 bg-gray-700 text-gray-300 rounded-lg py-2 text-sm font-bold"
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 active:bg-gray-800 text-gray-200 rounded-xl py-2.5 text-xs font-bold transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       const num = editNumber.padStart(2, '0');
                       const amt = parseFloat(editAmount);
@@ -935,10 +998,10 @@ export default function POS() {
                         store.updateNumber(item.id, num, amt);
                         setEditingItemId(null);
                       } else {
-                        alert('Número de 2 dígitos y tiempos mayor a 0.');
+                        alert('Ingresa un número de 2 dígitos y tiempos mayor a 0.');
                       }
                     }}
-                    className="flex-1 bg-teal-500 text-white rounded-lg py-2 text-sm font-bold"
+                    className="flex-1 bg-teal-500 hover:bg-teal-400 active:bg-teal-600 text-slate-950 rounded-xl py-2.5 text-xs font-black uppercase tracking-wider transition-colors shadow-md"
                   >
                     ✓ Guardar
                   </button>
@@ -978,6 +1041,7 @@ export default function POS() {
                     setEditingItemId(item.id);
                     setEditNumber(item.number);
                     setEditAmount(item.amount.toString());
+                    setEditFocusField('number');
                   }}
                 >
                   <span className="text-gray-500 text-[10px] font-mono w-4">#{index + 1}</span>
@@ -993,6 +1057,7 @@ export default function POS() {
                       setEditingItemId(item.id);
                       setEditNumber(item.number);
                       setEditAmount(item.amount.toString());
+                      setEditFocusField('amount');
                     }}
                   >
                     <span className="text-base font-bold font-mono text-white">
@@ -1191,6 +1256,8 @@ export default function POS() {
                     onPointerDown={(e) => handleNumpadLongPressStart(num.toString(), e)}
                     onPointerUp={handleNumpadLongPressEnd}
                     onPointerLeave={handleNumpadLongPressEnd}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
                     className={`${numBtnClass} ${textPrimary}`}
                   >
                     {num}
@@ -1198,6 +1265,8 @@ export default function POS() {
                 ))}
                 <button
                     onClick={() => handleNumpadPress('00')}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
                     className={`${numBtnClass} ${textTeal}`}
                 >
                   00
@@ -1207,12 +1276,16 @@ export default function POS() {
                     onPointerUp={handleNumpadLongPressEnd}
                     onPointerLeave={handleNumpadLongPressEnd}
                     onClick={() => handleNumpadPress('0')}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
                     className={`${numBtnClass} ${textPrimary}`}
                 >
                   0
                 </button>
                 <button
                   onClick={handleBackspace}
+                  onContextMenu={(e) => e.preventDefault()}
+                  style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
                   className={backspaceClass}
                 >
                   <Trash2 size={24} />
@@ -1245,7 +1318,7 @@ export default function POS() {
               <div>
                 <button 
                   onClick={() => setShowCheckoutModal(true)}
-                  disabled={store.cart.length === 0}
+                  disabled={posCart.length === 0}
                   className="w-full bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] text-white rounded-lg h-[60px] flex items-center justify-center shadow-lg transition-colors mt-1 border-b-4 border-[#0369a1] active:translate-y-1 active:border-b-0"
                 >
                   <span className="font-black text-2xl tracking-widest text-shadow">PROCESAR</span>
@@ -1263,9 +1336,9 @@ export default function POS() {
           <div className={`flex-none ${bgPanel} px-4 py-3.5 lg:px-6 lg:py-5 border-b ${borderPanel} flex justify-between items-center`}>
              <span className={`${textPanelLabel} font-bold text-xs lg:text-base uppercase tracking-wider`}>Lista de Jugadas</span>
              <div className="flex items-center gap-3">
-               {store.cart.length > 0 && (
+               {posCart.length > 0 && (
                  <button 
-                   onClick={() => store.clearCart()} 
+                   onClick={() => clearPosCart()} 
                    className="flex items-center gap-1 text-red-400 hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
                    title="Vaciar carrito"
                  >
@@ -1274,7 +1347,7 @@ export default function POS() {
                  </button>
                )}
                <span className="bg-teal-950/40 text-teal-400 text-xs lg:text-sm font-mono font-bold px-2 py-0.5 lg:px-3 lg:py-1 rounded-full border border-teal-800/30">
-                 {store.cart.length} apuntes
+                 {posCart.length} apuntes
                </span>
              </div>
           </div>
@@ -1290,7 +1363,7 @@ export default function POS() {
              </div>
              <button
                 onClick={() => setShowCheckoutModal(true)}
-                disabled={store.cart.length === 0}
+                disabled={posCart.length === 0}
                 className="w-full bg-[#0ea5e9] hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 disabled:border-b-0 text-white rounded-xl h-[55px] flex items-center justify-center font-black text-xl tracking-widest shadow-lg transition-all border-b-4 border-[#0369a1] active:translate-y-0.5 active:border-b-0"
              >
                 PROCESAR

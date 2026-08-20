@@ -1,7 +1,7 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
 import { useState, useEffect } from 'react';
 import { useDashboardData } from '../../hooks/useDashboardData';
-import { DollarSign, Tag, Percent, Trophy, ShieldAlert, RefreshCw, Flame } from 'lucide-react';
+import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../utils/supabase';
 
@@ -12,7 +12,7 @@ export default function Dashboard() {
   const store = useStore();
 
   const [chartView, setChartView] = useState<'weekly' | 'monthly'>('weekly');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const [upcomingDrawsHot, setUpcomingDrawsHot] = useState<{
     drawId: string;
     drawName: string;
@@ -105,7 +105,16 @@ export default function Dashboard() {
         }
       });
 
-      setUpcomingDrawsHot(resultsByDraw);
+        const sortedDraws = resultsByDraw.sort((a, b) => {
+          const parseTime = (t: string) => {
+            const [time, meridiem] = t.split(' ');
+            const [h, m] = time.split(':').map(Number);
+            const hour24 = meridiem === 'PM' && h !== 12 ? h + 12 : meridiem === 'AM' && h === 12 ? 0 : h;
+            return hour24 * 60 + m;
+          };
+          return parseTime(a.drawTime) - parseTime(b.drawTime);
+        });
+        setUpcomingDrawsHot(sortedDraws.slice(0, 1));
     } catch (e) {
       console.error("Error fetching automatic upcoming draw hot numbers:", e);
     } finally {
@@ -113,12 +122,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleManualRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    await fetchHotNumbers();
-    setIsRefreshing(false);
-  };
+
 
     useEffect(() => {
     // Cargar datos iniciales
@@ -177,28 +181,6 @@ export default function Dashboard() {
               value={activeDate}
               onChange={(e) => setActiveDate(e.target.value)}
             />
-            <button
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                backgroundColor: '#0d9488',
-                color: '#fff',
-                border: 'none',
-                padding: '0.45rem 0.9rem',
-                borderRadius: '6px',
-                fontWeight: 'bold',
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                opacity: isRefreshing ? 0.7 : 1
-              }}
-              title="Actualizar datos manualmente"
-            >
-              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-              <span>{isRefreshing ? 'Cargando...' : '↻ Actualizar'}</span>
-            </button>
          </div>
       </div>
 

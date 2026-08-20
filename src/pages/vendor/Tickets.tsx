@@ -18,6 +18,8 @@ export default function Tickets() {
   const [filterLottery, setFilterLottery] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
+  const [payoutsMap, setPayoutsMap] = useState<Record<string, number>>({});
+
   const fetchTickets = async () => {
     try {
       const { data, error } = await supabase
@@ -30,6 +32,25 @@ export default function Tickets() {
       
       if (!error && data) {
         setTickets(data);
+        // Fetch payouts for these tickets
+        const ticketIds = data.map((t: any) => t.id);
+        if (ticketIds.length > 0) {
+          const { data: payData } = await supabase
+            .from('payouts')
+            .select('ticket_id, amount, paid_by')
+            .in('ticket_id', ticketIds);
+          if (payData) {
+            const map: Record<string, number> = {};
+            payData.forEach((p: any) => {
+              if (p.paid_by !== 'EXTERNAL_BANK_REIMBURSEMENT') {
+                map[p.ticket_id] = (map[p.ticket_id] || 0) + (parseFloat(p.amount) || 0);
+              }
+            });
+            setPayoutsMap(map);
+          }
+        } else {
+          setPayoutsMap({});
+        }
       } else {
         console.error("Supabase Error:", error);
       }
@@ -287,11 +308,33 @@ export default function Tickets() {
                   {t.ticket_numbers?.map((n: any) => `${n.number_played} (${n.amount}v)`).join(', ')}
                 </span>
              </div>
-             <div className="flex justify-between items-center text-gray-400 text-xs mt-1">
-                <span>Cliente: <span className="text-white font-bold">{t.client_name || 'General'}</span></span>
-                <span>{new Date(t.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-             </div>
-             
+              <div className="flex justify-between items-center text-gray-400 text-xs mt-1">
+                 <span>Cliente: <span className="text-white font-bold">{t.client_name || 'General'}</span></span>
+                 <span>{new Date(t.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+              </div>
+
+              {/* Monto y comisión del ticket */}
+              {t.status !== 'cancelled' && (() => {
+                const amt = parseFloat(t.total_amount) || 0;
+                const commPct = store.currentUser?.commission || 0;
+                const comm = amt * (commPct / 100);
+                const prize = payoutsMap[t.id] || 0;
+                return (
+                  <div className="flex justify-between items-center text-xs mt-1 px-1">
+                    <span className="text-gray-500">
+                      Total: <span className="text-white font-bold">${amt.toFixed(2)}</span>
+                    </span>
+                    <span className="text-gray-500">
+                      Comisión: <span className="text-yellow-400 font-bold">${comm.toFixed(2)}</span>
+                    </span>
+                    {prize > 0 && (
+                      <span className="text-gray-500">
+                        Premio: <span className="text-red-400 font-bold">-${prize.toFixed(2)}</span>
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
              {/* Acciones del ticket */}
              <div className="flex justify-between gap-sm mt-3 pt-2 border-t border-slate-800/50">
                 {t.status !== 'cancelled' ? (
@@ -321,30 +364,39 @@ export default function Tickets() {
       {!loading && filteredTickets.length > 0 && (
         <div className="flex-none surface flex-col gap-1 text-white p-3 rounded-xl border border-slate-800 bg-slate-900 shadow-md mb-16">
           <h3 className="text-teal-400 font-bold mb-1 text-[11px] uppercase tracking-wider border-b border-slate-800 pb-1">Resumen del Filtro</h3>
-          
-          <div className="flex justify-between items-center text-sm">
-             <span className="text-gray-400">Total Vendido:</span>
-             <span className="font-bold text-white">
-                ${filteredTickets.filter(t => t.status !== 'cancelled').reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0).toFixed(2)}
-             </span>
-          </div>
+          {(() => {
+            const activeTickets = filteredTickets.filter(t => t.status !== 'cancelled');
+            const totalVendido = activeTickets.reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0);
+            const commPct = store.currentUser?.commission || 0;
+            const comision = totalVendido * (commPct / 100);
+            const totalPremios = activeTickets.reduce((acc, t) => acc + (payoutsMap[t.id] || 0), 0);
+            const totalEntregar = totalVendido - comision - totalPremios;
+            return (
+              <>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-400">Total Vendido:</span>
+                  <span className="font-bold text-white">${totalVendido.toFixed(2)}</span>
+                </div>
 
-          <div className="flex justify-between items-center text-sm">
-             <span className="text-gray-400">Comisión ({store.currentUser?.commission || 0}%):</span>
-             <span className="font-bold text-yellow-500">
-                ${(filteredTickets.filter(t => t.status !== 'cancelled').reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0) * ((store.currentUser?.commission || 0) / 100)).toFixed(2)}
-             </span>
-          </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-400">Comisión ({commPct}%):</span>
+                  <span className="font-bold text-yellow-500">${comision.toFixed(2)}</span>
+                </div>
 
-          <div className="flex justify-between items-center text-sm mt-1 pt-1 border-t border-slate-800">
-             <span className="text-gray-300 font-bold">Total a Entregar:</span>
-             <span className="font-bold text-teal-400">
-                ${(
-                  filteredTickets.filter(t => t.status !== 'cancelled').reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0) - 
-                  (filteredTickets.filter(t => t.status !== 'cancelled').reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0) * ((store.currentUser?.commission || 0) / 100))
-                ).toFixed(2)}
-             </span>
-          </div>
+                {totalPremios > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-400">Premios Pagados:</span>
+                    <span className="font-bold text-red-400">-${totalPremios.toFixed(2)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center text-sm mt-1 pt-1 border-t border-slate-800">
+                  <span className="text-gray-300 font-bold">Total a Entregar:</span>
+                  <span className={`font-bold ${totalEntregar >= 0 ? 'text-teal-400' : 'text-red-400'}`}>${totalEntregar.toFixed(2)}</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

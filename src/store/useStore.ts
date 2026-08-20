@@ -35,6 +35,9 @@ export interface User {
   id: string | number;
   name: string;
   role: string;
+  isSubAdmin?: boolean;
+  parentAdminId?: string;
+  allowManageLotteries?: boolean;
   commission: number;
   status: 'Activo' | 'Inactivo';
   username: string;
@@ -93,7 +96,7 @@ interface State {
   fetchUsers: () => Promise<void>;
   addUser: (user: Omit<User, 'id'>) => Promise<boolean>;
   deleteUser: (id: string | number) => Promise<boolean>;
-  editUser: (id: string | number, newName: string, newCommission: number, newStatus: 'Activo' | 'Inactivo', newUsername: string, newPassword?: string, newSaleModeAccess?: '0.20' | '0.25' | 'Ambos', allowPalet?: boolean, allowGranjita?: boolean) => Promise<boolean>;
+  editUser: (id: string | number, newName: string, newCommission: number, newStatus: 'Activo' | 'Inactivo', newUsername: string, newPassword?: string, newSaleModeAccess?: '0.20' | '0.25' | 'Ambos', allowPalet?: boolean, allowGranjita?: boolean, isSubAdmin?: boolean, parentAdminId?: string, allowManageLotteries?: boolean) => Promise<boolean>;
   
   fetchLotteries: () => Promise<void>;
   toggleMasterLottery: (id: string) => Promise<void>;
@@ -224,12 +227,32 @@ export const useStore = create<State>()(
          if (!error && data) {
             const mappedUsers: User[] = data.map((d: any) => {
                const parts = (d.name || '').split('||');
+               const rawName = parts[0] || '';
+               const saleModeAccess = (parts[1] || 'Ambos') as '0.20' | '0.25' | 'Ambos';
+               const allowPalet = parts[2] !== 'palet_off';
+               const allowGranjita = parts[3] !== 'granjita_off';
+
+               // Parent admin
+               const parentPart = parts.find((p: string) => p.startsWith('parent:'));
+               const rawParent = parentPart ? parentPart.replace('parent:', '') : undefined;
+               const parentAdminId = rawParent && rawParent !== 'none' ? rawParent : undefined;
+
+               // SubAdmin detection
+               const isSubAdmin = parts.includes('type_subadmin') || (d.role === 'admin' && Boolean(parentAdminId));
+
+               // Lottery permission
+               const lotteryPart = parts.find((p: string) => p === 'lotteries_on' || p === 'lotteries_off');
+               const allowManageLotteries = lotteryPart ? lotteryPart === 'lotteries_on' : (d.role === 'admin' && !isSubAdmin);
+
                return {
                   id: d.id,
-                  name: parts[0],
-                  saleModeAccess: (parts[1] || 'Ambos') as '0.20' | '0.25' | 'Ambos',
-                  allowPalet: parts[2] !== 'palet_off',
-                  allowGranjita: parts[3] !== 'granjita_off',
+                  name: rawName,
+                  saleModeAccess,
+                  allowPalet,
+                  allowGranjita,
+                  isSubAdmin,
+                  parentAdminId,
+                  allowManageLotteries,
                   role: d.role === 'admin' ? 'Admin' : 'Vendedor',
                   commission: parseFloat(d.commission) || 0,
                   status: d.status === 'inactive' || d.status === 'Inactivo' ? 'Inactivo' : 'Activo',
@@ -240,7 +263,7 @@ export const useStore = create<State>()(
 
             if (mappedUsers.length === 0) {
                set({ users: [
-                 { id: 0, name: 'Administrador', role: 'Admin', commission: 0, status: 'Activo', username: 'admin', password: '123', saleModeAccess: 'Ambos', allowPalet: true, allowGranjita: true }
+                 { id: 0, name: 'Administrador', role: 'Admin', isSubAdmin: false, allowManageLotteries: true, commission: 0, status: 'Activo', username: 'admin', password: '123', saleModeAccess: 'Ambos', allowPalet: true, allowGranjita: true }
                ]});
             } else {
                set({ users: mappedUsers });
@@ -272,7 +295,10 @@ export const useStore = create<State>()(
       addUser: async (user) => {
          const paletTag = user.allowPalet !== false ? 'palet_on' : 'palet_off';
          const granjitaTag = user.allowGranjita !== false ? 'granjita_on' : 'granjita_off';
-         const encodedName = `${user.name}||${user.saleModeAccess || 'Ambos'}||${paletTag}||${granjitaTag}`;
+         const parentTag = `parent:${user.parentAdminId || 'none'}`;
+         const lotteryTag = user.allowManageLotteries === true ? 'lotteries_on' : 'lotteries_off';
+         const subAdminTag = user.isSubAdmin ? 'type_subadmin' : (user.role === 'Admin' ? 'type_admin' : 'type_vendor');
+         const encodedName = `${user.name}||${user.saleModeAccess || 'Ambos'}||${paletTag}||${granjitaTag}||${parentTag}||${lotteryTag}||${subAdminTag}`;
          const { data, error } = await supabase.from('profiles').insert({
             name: encodedName,
             role: user.role === 'Admin' ? 'admin' : 'vendor',
@@ -299,10 +325,13 @@ export const useStore = create<State>()(
          return false;
       },
       
-      editUser: async (id: string | number, name: string, commission: number, status: 'Activo'|'Inactivo', username: string, password?: string, saleModeAccess?: '0.20'|'0.25'|'Ambos', allowPalet?: boolean, allowGranjita?: boolean) => {
+      editUser: async (id: string | number, name: string, commission: number, status: 'Activo'|'Inactivo', username: string, password?: string, saleModeAccess?: '0.20'|'0.25'|'Ambos', allowPalet?: boolean, allowGranjita?: boolean, isSubAdmin?: boolean, parentAdminId?: string, allowManageLotteries?: boolean) => {
          const paletTag = allowPalet !== false ? 'palet_on' : 'palet_off';
          const granjitaTag = allowGranjita !== false ? 'granjita_on' : 'granjita_off';
-         const encodedName = `${name}||${saleModeAccess || 'Ambos'}||${paletTag}||${granjitaTag}`;
+         const parentTag = `parent:${parentAdminId || 'none'}`;
+         const lotteryTag = allowManageLotteries === true ? 'lotteries_on' : 'lotteries_off';
+         const subAdminTag = isSubAdmin ? 'type_subadmin' : 'type_vendor';
+         const encodedName = `${name}||${saleModeAccess || 'Ambos'}||${paletTag}||${granjitaTag}||${parentTag}||${lotteryTag}||${subAdminTag}`;
          const updateData: any = {
             name: encodedName,
             commission,
@@ -315,7 +344,20 @@ export const useStore = create<State>()(
          
          if (!error) {
             set((state) => ({
-               users: state.users.map(u => u.id === id ? { ...u, name, commission, status, username, password: password || u.password, saleModeAccess, allowPalet, allowGranjita } : u)
+               users: state.users.map(u => u.id === id ? { 
+                  ...u, 
+                  name, 
+                  commission, 
+                  status, 
+                  username, 
+                  password: password || u.password, 
+                  saleModeAccess, 
+                  allowPalet, 
+                  allowGranjita,
+                  isSubAdmin: isSubAdmin !== undefined ? isSubAdmin : u.isSubAdmin,
+                  parentAdminId: parentAdminId !== undefined ? parentAdminId : u.parentAdminId,
+                  allowManageLotteries: allowManageLotteries !== undefined ? allowManageLotteries : u.allowManageLotteries
+               } : u)
             }));
             return true;
          }

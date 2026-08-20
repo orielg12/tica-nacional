@@ -14,24 +14,44 @@ export default function TicketsManager() {
   const [vendors, setVendors] = useState<string[]>([]);
   const [viewingTicketId, setViewingTicketId] = useState<string | null>(null);
 
+  const currentUser = store.currentUser;
+  const isSubAdmin = currentUser?.isSubAdmin;
+  const subAdminVendorIds = isSubAdmin
+    ? store.users
+        .filter(u => u.parentAdminId === currentUser?.username)
+        .map(u => u.username)
+        .concat(currentUser?.username || '')
+    : null;
+
   useEffect(() => {
     // Populate vendors dropdown based on users in the system and existing tickets
     const fetchVendors = async () => {
       const vSet = new Set<string>();
-      store.users.filter(u => u.role === 'Vendedor' || u.role === 'Admin').forEach(u => {
+      store.users
+        .filter(u => u.role === 'Vendedor' || u.role === 'Admin')
+        .filter(u => !isSubAdmin || u.parentAdminId === currentUser?.username || u.username === currentUser?.username)
+        .forEach(u => {
           if (u.username) vSet.add(u.username);
-      });
+        });
       
-      const { data } = await supabase.from('tickets').select('vendor_id').gte('created_at', getStartOfDayUTC(filterDate)).lte('created_at', getEndOfDayUTC(filterDate));
+      let query = supabase.from('tickets').select('vendor_id').gte('created_at', getStartOfDayUTC(filterDate)).lte('created_at', getEndOfDayUTC(filterDate));
+      if (subAdminVendorIds && subAdminVendorIds.length > 0) {
+        query = query.in('vendor_id', subAdminVendorIds);
+      }
+      const { data } = await query;
       if (data) {
         data.forEach(t => {
-           if (t.vendor_id) vSet.add(t.vendor_id);
+           if (t.vendor_id) {
+             if (!isSubAdmin || subAdminVendorIds?.includes(t.vendor_id)) {
+               vSet.add(t.vendor_id);
+             }
+           }
         });
       }
       setVendors(Array.from(vSet));
     };
     fetchVendors();
-  }, [filterDate, store.users]);
+  }, [filterDate, store.users, isSubAdmin]);
 
   const loadTickets = async () => {
     setLoading(true);
@@ -46,6 +66,8 @@ export default function TicketsManager() {
         
       if (filterVendor !== 'all') {
          query = query.eq('vendor_id', filterVendor);
+      } else if (subAdminVendorIds && subAdminVendorIds.length > 0) {
+         query = query.in('vendor_id', subAdminVendorIds);
       }
 
       const { data, error } = await query;
