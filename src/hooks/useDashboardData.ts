@@ -77,15 +77,28 @@ export function useDashboardData(selectedDateStr?: string) {
       const ticketsVendidos = todaysTickets.length;
 
       // Extraer Covers y Payouts de últimos 30 días
-      const { data: coversData } = await supabase
+      // Sub-admins no tienen acceso a cubiertas globales
+      const { data: coversData } = isSubAdmin ? { data: [] } : await supabase
         .from('covers')
         .select('created_at, excess_amount')
         .gte('created_at', getStartOfDayUTC(thirtyDaysAgoStr));
 
-      const { data: payoutsData } = await supabase
+      let payoutsQuery = supabase
         .from('payouts')
-        .select('created_at, amount, paid_by')
+        .select('created_at, amount, paid_by, ticket_id')
         .gte('created_at', getStartOfDayUTC(thirtyDaysAgoStr));
+
+      if (isSubAdmin) {
+        if (validTickets.length > 0) {
+          const ticketIds = validTickets.map(t => t.id);
+          payoutsQuery = payoutsQuery.in('ticket_id', ticketIds);
+        } else {
+          // Si el sub-admin no tiene tickets, no tiene premios
+          payoutsQuery = payoutsQuery.eq('ticket_id', '00000000-0000-0000-0000-000000000000');
+        }
+      }
+
+      const { data: payoutsData } = await payoutsQuery;
 
       // Generar Monthly Sales (Últimos 30 días secuenciales)
       const monthMap: Record<string, { sales: number, payouts: number, covers: number, reimb: number }> = {};

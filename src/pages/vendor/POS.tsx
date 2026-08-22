@@ -150,7 +150,12 @@ export default function POS() {
     if (editingItemId !== null) {
       if (editFocusField === 'number') {
         if (editNumber.length + val.length <= 2) {
-          setEditNumber(editNumber + val);
+          const newNum = editNumber + val;
+          setEditNumber(newNum);
+          // Auto-avanzar al campo de viles cuando se completan 2 dígitos
+          if (newNum.length === 2) {
+            setEditFocusField('amount');
+          }
         }
       } else {
         if (editAmount.length + val.length <= 6) { 

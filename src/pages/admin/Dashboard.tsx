@@ -24,6 +24,14 @@ export default function Dashboard() {
   const fetchHotNumbers = async () => {
     setLoadingHotNumbers(true);
     try {
+      const isSubAdmin = store.currentUser?.isSubAdmin;
+      const subAdminVendorIds = isSubAdmin
+        ? store.users
+            .filter(u => u.parentAdminId === store.currentUser?.username)
+            .map(u => u.username)
+            .concat(store.currentUser?.username || '')
+        : null;
+
       const now = new Date();
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       const isToday = activeDate === getLocalISODate();
@@ -31,7 +39,7 @@ export default function Dashboard() {
       // 1. Obtener todas las loterías activas configuradas
       const availableLotteries = store.lotteriesMaster.filter(l => l.isActive);
 
-      // Si es hoy, priorizar loterías abiertas o incluir todas las activas del día
+      // Si es hoy, filtrar por las loterías que aún no han cerrado
       let targetLotteries = availableLotteries;
       if (isToday) {
         const upcoming = availableLotteries.filter(l => {
@@ -50,11 +58,11 @@ export default function Dashboard() {
 
       const startOfDay = getStartOfDayUTC(activeDate);
       const endOfDay = getEndOfDayUTC(activeDate);
-      const targetIds = availableLotteries.map(l => l.id);
+      const targetIds = targetLotteries.map(l => l.id);
 
       const { data, error } = await supabase
         .from('ticket_numbers')
-        .select('number_played, amount, draw_id, ticket:ticket_id(id, status, total_amount)')
+        .select('number_played, amount, draw_id, ticket:ticket_id(id, status, total_amount, vendor_id)')
         .in('draw_id', targetIds)
         .gte('created_at', startOfDay)
         .lte('created_at', endOfDay);
@@ -63,12 +71,18 @@ export default function Dashboard() {
         console.error("Error consultando jugadas de números altos:", error);
       }
 
-      const validPlays = (!error && data) ? data.filter((tn: any) => !tn.ticket || tn.ticket.status !== 'cancelled') : [];
+      const validPlays = (!error && data) ? data.filter((tn: any) => {
+        if (tn.ticket?.status === 'cancelled') return false;
+        if (isSubAdmin && subAdminVendorIds && subAdminVendorIds.length > 0) {
+          return subAdminVendorIds.includes(tn.ticket?.vendor_id);
+        }
+        return true;
+      }) : [];
 
       const resultsByDraw: typeof upcomingDrawsHot = [];
 
-      // Evaluar cada lotería que tenga jugadas
-      availableLotteries.forEach(lotto => {
+      // Evaluar cada lotería objetivo
+      targetLotteries.forEach(lotto => {
         const drawPlays = validPlays.filter((tn: any) => tn.draw_id === lotto.id);
         if (drawPlays.length === 0) return; // Solo mostrar sorteos con jugadas procesadas
 
@@ -105,16 +119,16 @@ export default function Dashboard() {
         }
       });
 
-        const sortedDraws = resultsByDraw.sort((a, b) => {
-          const parseTime = (t: string) => {
-            const [time, meridiem] = t.split(' ');
-            const [h, m] = time.split(':').map(Number);
-            const hour24 = meridiem === 'PM' && h !== 12 ? h + 12 : meridiem === 'AM' && h === 12 ? 0 : h;
-            return hour24 * 60 + m;
-          };
-          return parseTime(a.drawTime) - parseTime(b.drawTime);
-        });
-        setUpcomingDrawsHot(sortedDraws.slice(0, 1));
+      const sortedDraws = resultsByDraw.sort((a, b) => {
+        const parseTime = (t: string) => {
+          const [time, meridiem] = t.split(' ');
+          const [h, m] = time.split(':').map(Number);
+          const hour24 = meridiem === 'PM' && h !== 12 ? h + 12 : meridiem === 'AM' && h === 12 ? 0 : h;
+          return hour24 * 60 + m;
+        };
+        return parseTime(a.drawTime) - parseTime(b.drawTime);
+      });
+      setUpcomingDrawsHot(sortedDraws.slice(0, 3));
     } catch (e) {
       console.error("Error fetching automatic upcoming draw hot numbers:", e);
     } finally {
@@ -122,23 +136,28 @@ export default function Dashboard() {
     }
   };
 
-
-
-    useEffect(() => {
-    // Cargar datos iniciales
+  useEffect(() => {
+    store.fetchUsers();
+    store.fetchLotteries();
     fetchHotNumbers();
+
+    // Auto-refrescar cada 30 segundos para avanzar al siguiente sorteo en cuanto cierre el actual
+    const timer = setInterval(() => {
+      fetchHotNumbers();
+    }, 30000);
+
     // Suscribirse a cambios en tiempo real (ventas y premios)
     const channel = supabase
       .channel('public:ticket_numbers')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticket_numbers' }, payload => {
         console.log('Nuevo ticket:', payload);
-        // Refrescar métricas y números calientes
         refetch();
         fetchHotNumbers();
       })
       .subscribe();
-    // Cleanup on unmount
+
     return () => {
+      clearInterval(timer);
       supabase.removeChannel(channel);
     };
   }, [activeDate]);
@@ -158,7 +177,12 @@ export default function Dashboard() {
     return l.days.includes(selectedDayName as any);
   }).length;
 
-  const activeVendorsCount = store.users.filter(u => u.status === 'Activo' && u.role === 'Vendedor').length;
+  const isSubAdmin = store.currentUser?.isSubAdmin;
+  const activeVendorsCount = store.users.filter(u => {
+    if (u.status !== 'Activo' || u.role !== 'Vendedor') return false;
+    if (isSubAdmin) return u.parentAdminId === store.currentUser?.username;
+    return true;
+  }).length;
 
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
