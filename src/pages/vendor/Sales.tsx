@@ -7,6 +7,7 @@ import {  Search } from 'lucide-react';
 export default function Sales() {
   const store = useStore();
   const [tickets, setTickets] = useState<any[]>([]);
+  const [totalPayouts, setTotalPayouts] = useState(0);
   const [loading, setLoading] = useState(false);
   
   // Rango de fechas por defecto: Hoy
@@ -26,6 +27,19 @@ export default function Sales() {
       
       if (!error && data) {
         setTickets(data);
+        
+        // Fetch payouts for these tickets
+        const activeIds = data.filter(t => t.status !== 'cancelled').map(t => t.id);
+        if (activeIds.length > 0) {
+          const { data: payoutsData } = await supabase
+            .from('payouts')
+            .select('amount')
+            .in('ticket_id', activeIds);
+          const pTotal = (payoutsData || []).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+          setTotalPayouts(pTotal);
+        } else {
+          setTotalPayouts(0);
+        }
       } else {
         console.error("Supabase Error:", error);
       }
@@ -44,7 +58,7 @@ export default function Sales() {
   const totalSales = tickets.filter(t => t.status !== 'cancelled').reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0);
   const commissionPerc = store.currentUser?.commission || 0;
   const commissionCalculated = totalSales * (commissionPerc / 100);
-  const totalNet = totalSales - commissionCalculated;
+  const totalNet = totalSales - commissionCalculated - totalPayouts;
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden" style={{ padding: 'var(--spacing-md)' }}>
@@ -101,9 +115,16 @@ export default function Sales() {
                <span className="font-bold text-yellow-500">${commissionCalculated.toFixed(2)}</span>
             </div>
 
+            {totalPayouts > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                 <span className="text-gray-300">Premios Pagados:</span>
+                 <span className="font-bold text-red-400">-${totalPayouts.toFixed(2)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between items-center text-base mt-1 pt-1 border-t border-slate-700">
                <span className="text-gray-300 font-bold">Total a Entregar:</span>
-               <span className="font-bold text-teal-400">${totalNet.toFixed(2)}</span>
+               <span className={`font-bold ${totalNet >= 0 ? 'text-teal-400' : 'text-red-400'}`}>${totalNet.toFixed(2)}</span>
             </div>
           </div>
           
