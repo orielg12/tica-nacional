@@ -83,6 +83,7 @@ export default function AdminReports() {
   };
 
   useEffect(() => {
+    store.fetchUsers();
     fetchGlobalSales();
   }, []);
 
@@ -177,26 +178,7 @@ export default function AdminReports() {
        vendorTotals[vid].lotterySalesViles[draw] = (vendorTotals[vid].lotterySalesViles[draw] || 0) + viles;
        vendorTotals[vid].lotterySalesUSD[draw] = (vendorTotals[vid].lotterySalesUSD[draw] || 0) + itemUsd;
      });
-  });
 
-  payouts.forEach(p => {
-     const amount = parseFloat(p.amount || '0');
-     if (amount > 0 && p.paid_by) {
-        const rawVid = p.paid_by.toString();
-        const vid = usernameMap[rawVid] || rawVid;
-        initVendor(vid);
-        vendorTotals[vid].prizesPaid += amount;
-     }
-  });
-
-  activeTickets.forEach(t => {
-     const amount = parseFloat(t.total_amount) || 0;
-     const rawVid = t.vendor_id?.toString() || 'desconocido';
-     const vid = usernameMap[rawVid] || rawVid;
-     
-     const tiempos = t.ticket_numbers?.reduce((acc: number, tn: any) => acc + parseFloat(tn.amount || '0'), 0) || 1;
-     const isQuarterMode = (amount / tiempos) >= 0.24;
-     
      const commPerc = commissionMap[vid] || 0;
      const commAmount = amount * (commPerc / 100);
 
@@ -205,6 +187,8 @@ export default function AdminReports() {
      ticketPayouts.forEach(p => {
        ticketPrize += parseFloat(p.amount || '0');
      });
+
+     vendorTotals[vid].prizesPaid += ticketPrize;
 
      if (isQuarterMode) {
         global025Ventas += amount;
@@ -229,7 +213,6 @@ export default function AdminReports() {
      globalGross += amount;
      globalCommission += commAmount;
 
-     initVendor(vid);
      vendorTotals[vid].gross += amount;
      vendorTotals[vid].commission += commAmount;
   });
