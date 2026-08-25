@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase';
 import { X, Loader, Share2, Gift } from 'lucide-react';
 import { formatLotteryTime, isGranjitaLottery } from '../utils/lotteryRules';
 import { formatAnimalDisplay } from '../utils/granjitaAnimals';
+import { getPanamaLocalISODate } from '../utils/dateUtils';
 import { useStore } from '../store/useStore';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -38,8 +39,7 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
            setTicketData(data);
            setItems(data.ticket_numbers || []);
            
-           const d = new Date(data.created_at);
-           const ticketDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+           const ticketDate = getPanamaLocalISODate(new Date(data.created_at));
            
            const { data: resData } = await supabase.from('results').select('*').eq('date', ticketDate);
            if (resData) setResults(resData);

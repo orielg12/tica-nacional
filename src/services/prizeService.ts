@@ -2,6 +2,7 @@ import { supabase } from '../utils/supabase';
 import { useStore } from '../store/useStore';
 import { formatAnimalDisplay } from '../utils/granjitaAnimals';
 import { isGranjitaLottery } from '../utils/lotteryRules';
+import { getPanamaLocalISODate } from '../utils/dateUtils';
 
 export interface PendingWinner {
   key_id: string;
@@ -29,10 +30,7 @@ export async function fetchPendingWinners(vendorId: string): Promise<PendingWinn
   if (tErr) throw tErr;
   if (!tickets || tickets.length === 0) return [];
 
-  const dates = [...new Set(tickets.map((t: any) => {
-    const d = new Date(t.created_at);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }))];
+  const dates = [...new Set(tickets.map((t: any) => getPanamaLocalISODate(new Date(t.created_at))))];
 
   // 2. Fetch results for those dates
   const { data: results, error: rErr } = await supabase
@@ -63,8 +61,7 @@ export async function fetchPendingWinners(vendorId: string): Promise<PendingWinn
   const consolidated: Record<string, PendingWinner> = {};
 
   tickets.forEach((ticket: any) => {
-    const d = new Date(ticket.created_at);
-    const ticketDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const ticketDate = getPanamaLocalISODate(new Date(ticket.created_at));
 
     const totalViles = ticket.ticket_numbers?.reduce((sum: number, tn: any) => sum + parseFloat(tn.amount || '0'), 0) || 1;
     const inferredMode = (ticket.total_amount / totalViles) >= 0.24 ? 0.25 : 0.20;
