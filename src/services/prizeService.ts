@@ -15,16 +15,38 @@ export interface PendingWinner {
   reimbursement: number;    // Cobertura externa
   client: string | null;
   description: string;
+  vendor_id?: string;
+  ticket_date?: string;
+  status?: string;
 }
 
-export async function fetchPendingWinners(vendorId: string): Promise<PendingWinner[]> {
+export async function fetchPendingWinners(vendorId?: string, includePaid: boolean = true): Promise<PendingWinner[]> {
+  const store = useStore.getState();
+  const currentUser = store.currentUser;
+  const isAdmin = currentUser?.role === 'admin' && !currentUser?.isSubAdmin;
+  const isSubAdmin = currentUser?.isSubAdmin;
+
   // 1. Fetch all active + paid tickets (paid could still have partial balance)
-  const { data: tickets, error: tErr } = await supabase
+  let query = supabase
     .from('tickets')
-    .select('id, ticket_number, client_name, total_amount, created_at, status, ticket_numbers(id, draw_id, number_played, amount, covers(excess_amount))')
-    .eq('vendor_id', vendorId)
+    .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id, ticket_numbers(id, draw_id, number_played, amount, covers(excess_amount))')
     .eq('is_bank_prize', false)
-    .in('status', ['active', 'paid']);
+    .in('status', ['active', 'paid'])
+    .order('created_at', { ascending: false });
+
+  if (!isAdmin) {
+    if (isSubAdmin) {
+      const subAdminVendorIds = (store.users || [])
+        .filter(u => u.parentAdminId === currentUser?.username)
+        .map(u => u.username)
+        .concat(currentUser?.username || '');
+      query = query.in('vendor_id', subAdminVendorIds);
+    } else if (vendorId) {
+      query = query.eq('vendor_id', vendorId);
+    }
+  }
+
+  const { data: tickets, error: tErr } = await query;
 
 
   if (tErr) throw tErr;
@@ -127,7 +149,10 @@ export async function fetchPendingWinners(vendorId: string): Promise<PendingWinn
             remainingPrize: 0,
             reimbursement: 0,
             client: ticket.client_name,
-            description: [] as any
+            description: [] as any,
+            vendor_id: ticket.vendor_id,
+            ticket_date: ticketDate,
+            status: ticket.status
           };
         } else {
           consolidated[ticket.id].number = 'Múltiple';
@@ -140,14 +165,21 @@ export async function fetchPendingWinners(vendorId: string): Promise<PendingWinn
     });
   });
 
-  // Calculate remaining prize and filter out fully paid tickets
+  // Calculate remaining prize and sort (pending winners first, then paid)
   const list: PendingWinner[] = [];
   Object.values(consolidated).forEach(c => {
     c.remainingPrize = Math.max(0, c.grossPrize - c.alreadyPaid);
     c.description = (c.description as any as string[]).join(' | ');
-    if (c.remainingPrize > 0) {
+    if (includePaid || c.remainingPrize > 0) {
       list.push(c);
     }
+  });
+
+  // Sort: Pending prizes first, then by date descending
+  list.sort((a, b) => {
+    if (a.remainingPrize > 0 && b.remainingPrize === 0) return -1;
+    if (a.remainingPrize === 0 && b.remainingPrize > 0) return 1;
+    return (b.ticket_number || 0) - (a.ticket_number || 0);
   });
 
   return list;
