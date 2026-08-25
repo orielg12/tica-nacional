@@ -72,26 +72,39 @@ export async function fetchPendingWinners(vendorId: string): Promise<PendingWinn
 
       const [first, second, third] = result.winning_number.split('-');
       const numPlayed = String(item.number_played).trim();
+      const lotteryObj = useStore.getState().lotteriesMaster.find(l => l.id === item.draw_id);
+      const lotteryName = lotteryObj?.name || item.draw_id;
+      const isGranjita = isGranjitaLottery(lotteryObj);
+
+      const isMatch = (played: string, winNum?: string) => {
+        if (!winNum) return false;
+        const p = String(played).trim();
+        const w = String(winNum).trim();
+        if (p === w) return true;
+        if (isGranjita) {
+          if (p === '00' || w === '00') return p === w;
+          if (p.replace(/^0+/, '') === w.replace(/^0+/, '')) return true;
+        }
+        return false;
+      };
+
       let prizeMultiplier = 0;
       const posArr: string[] = [];
 
-      if (numPlayed === String(first).trim()) {
+      if (isMatch(numPlayed, first)) {
         prizeMultiplier += inferredMode === 0.25 ? 14 : 11;
         posArr.push('1er');
       }
-      if (numPlayed === String(second).trim()) {
+      if (!isGranjita && isMatch(numPlayed, second)) {
         prizeMultiplier += 3;
         posArr.push('2do');
       }
-      if (numPlayed === String(third).trim()) {
+      if (!isGranjita && isMatch(numPlayed, third)) {
         prizeMultiplier += 2;
         posArr.push('3er');
       }
 
       if (prizeMultiplier > 0) {
-        const lotteryObj = useStore.getState().lotteriesMaster.find(l => l.id === item.draw_id);
-        const lotteryName = lotteryObj?.name || item.draw_id;
-        const isGranjita = isGranjitaLottery(lotteryObj);
         const awardAmount = parseFloat(item.amount) * prizeMultiplier;
         const pos = isGranjita ? 'Ganador' : posArr.join(' y ');
         const displayPlayed = isGranjita ? formatAnimalDisplay(item.number_played) : item.number_played;

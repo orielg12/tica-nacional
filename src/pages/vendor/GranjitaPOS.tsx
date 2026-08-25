@@ -167,7 +167,7 @@ export default function GranjitaPOS() {
   ) => {
     const timesStr = selectedLots.map(l => formatLotteryTime(l.hour, l.minute)).join(', ');
     
-    let msg = `🐓 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n\n`;
+    let msg = `🚜 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n\n`;
 
     cartItems.forEach(item => {
       const animal = getAnimalByNumber(item.number);
@@ -258,7 +258,7 @@ export default function GranjitaPOS() {
     }
   };
 
-  const displayAnimal = numpadNumber ? getAnimalByNumber(numpadNumber.padStart(2, '0')) : null;
+  const displayAnimal = numpadNumber ? getAnimalByNumber(numpadNumber) : null;
 
   // ── PHYSICAL KEYBOARD SUPPORT FOR PC & MOBILE ──
   useEffect(() => {
@@ -295,7 +295,7 @@ export default function GranjitaPOS() {
         }
       } else if (e.key === 'Enter' || e.key === '+' || e.key === 'Add') {
         e.preventDefault();
-        const targetNum = numpadNumber ? numpadNumber.padStart(2, '0') : '';
+        const targetNum = numpadNumber || '';
         const viles = parseFloat(currentAmount);
 
         if (targetNum && !isNaN(viles) && viles > 0) {
@@ -396,13 +396,13 @@ export default function GranjitaPOS() {
             >
               <span className={`${textPanelLabel} text-xs font-mono`}>Nº ANIMAL</span>
               <span className={`text-3xl font-bold font-mono ${numpadNumber ? tc('text-teal-400', 'text-[#0d9488]') : tc('text-gray-600', 'text-slate-400')}`}>
-                {numpadNumber || '00'}{displayAnimal && <span className="text-2xl ml-1">{displayAnimal.emoji}</span>}
+                {numpadNumber || '--'}{displayAnimal && <span className="text-2xl ml-1">{displayAnimal.emoji}</span>}
               </span>
             </div>
           </div>
           {displayAnimal && (
             <div className={`mt-1 text-center text-xs font-extrabold ${tc('text-teal-300', 'text-[#0d9488]')} tracking-wider uppercase`}>
-              {numpadNumber} – {displayAnimal.name} {displayAnimal.emoji}
+              {displayAnimal.number} – {displayAnimal.name} {displayAnimal.emoji}
             </div>
           )}
         </div>
@@ -418,7 +418,7 @@ export default function GranjitaPOS() {
                 return (
                   <div key={item.id} className={`flex-none flex items-center gap-1.5 ${tc('bg-teal-950 text-white', 'bg-white text-[#1f2937]')} text-xs px-3 py-1.5 rounded-xl border-2 ${tc('border-teal-500', 'border-[#0d9488]')} font-extrabold whitespace-nowrap shadow`}>
                     <span className="text-base">{animal?.emoji}</span>
-                    <span className={`font-mono ${tc('text-teal-300', 'text-[#0d9488]')}`}>#{item.number}</span>
+                    <span className={`font-mono ${tc('text-teal-300', 'text-[#0d9488]')}`}>#{animal?.number || item.number}</span>
                     <span className={`${tc('text-amber-300', 'text-[#d97706]')} font-mono font-black`}>{item.amount}v</span>
                     <button onClick={() => store.removeNumber(item.id)} className={`${tc('text-red-400 active:text-red-200 bg-red-950/60', 'text-red-500 active:text-red-600 bg-red-50')} p-0.5 ml-1 rounded-full`}>
                       <X size={14} />
@@ -432,8 +432,8 @@ export default function GranjitaPOS() {
           {/* Grilla de animales */}
           <div className="grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-10 gap-1">
             {GRANJITA_ANIMALS.map(animal => {
-              const isInCart = granjitaCart.some(item => item.number === animal.number);
-              const isSelected = numpadNumber.padStart(2, '0') === animal.number;
+              const isInCart = granjitaCart.some(item => String(item.number).replace(/^0+/, '') === animal.number || item.number === animal.number);
+              const isSelected = numpadNumber === animal.number || (numpadNumber.length === 1 && '0' + numpadNumber === animal.number);
               return (
                 <button
                   key={animal.id}
@@ -522,7 +522,7 @@ export default function GranjitaPOS() {
                 <button
                   type="button"
                   onClick={() => {
-                    const targetNum = numpadNumber ? numpadNumber.padStart(2, '0') : '';
+                    const targetNum = numpadNumber || '';
                     const viles = parseFloat(currentAmount);
                     if (targetNum && !isNaN(viles) && viles > 0) {
                       handleAddAnimal(targetNum);
@@ -573,7 +573,7 @@ export default function GranjitaPOS() {
         <div className="flex-1 overflow-y-auto p-3 space-y-2 no-scrollbar">
           {granjitaCart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
-              <span className="text-4xl mb-2">🐓</span>
+              <span className="text-4xl mb-2">🚜</span>
               <p className="font-bold text-xs uppercase">Sin apuestas</p>
             </div>
           ) : (
@@ -620,7 +620,7 @@ export default function GranjitaPOS() {
 
             <div className={`p-4 ${tc('bg-gray-900 border-gray-700', 'bg-[#f9fafb] border-[#e5e7eb]')} border-b flex justify-between items-center`}>
               <h3 className={`text-lg font-bold ${tc('text-white', 'text-[#1f2937]')} flex items-center gap-2`}>
-                <span>🐓</span> Confirmar Transacción
+                <span>🚜</span> Confirmar Transacción
               </h3>
               <button onClick={() => setShowCheckoutModal(false)} className={`${tc('text-gray-400 hover:text-white', 'text-[#9ca3af] hover:text-[#1f2937]')}`}>
                 <X size={20} />

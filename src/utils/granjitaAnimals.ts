@@ -8,15 +8,15 @@ export interface GranjitaAnimal {
 export const GRANJITA_ANIMALS: GranjitaAnimal[] = [
   { id: '00', number: '00', name: 'Ballena',  emoji: '🐋' },
   { id: '0',  number: '0',  name: 'Delfín',   emoji: '🐬' },
-  { id: '01', number: '01', name: 'Carnero',  emoji: '🐏' },
-  { id: '02', number: '02', name: 'Toro',     emoji: '🐂' },
-  { id: '03', number: '03', name: 'Ciempiés', emoji: '🐛' },
-  { id: '04', number: '04', name: 'Alacrán',  emoji: '🦂' },
-  { id: '05', number: '05', name: 'León',     emoji: '🦁' },
-  { id: '06', number: '06', name: 'Rana',     emoji: '🐸' },
-  { id: '07', number: '07', name: 'Perico',   emoji: '🦜' },
-  { id: '08', number: '08', name: 'Ratón',    emoji: '🐭' },
-  { id: '09', number: '09', name: 'Águila',   emoji: '🦅' },
+  { id: '1',  number: '1',  name: 'Carnero',  emoji: '🐏' },
+  { id: '2',  number: '2',  name: 'Toro',     emoji: '🐂' },
+  { id: '3',  number: '3',  name: 'Ciempiés', emoji: '🐛' },
+  { id: '4',  number: '4',  name: 'Alacrán',  emoji: '🦂' },
+  { id: '5',  number: '5',  name: 'León',     emoji: '🦁' },
+  { id: '6',  number: '6',  name: 'Rana',     emoji: '🐸' },
+  { id: '7',  number: '7',  name: 'Perico',   emoji: '🦜' },
+  { id: '8',  number: '8',  name: 'Ratón',    emoji: '🐭' },
+  { id: '9',  number: '9',  name: 'Águila',   emoji: '🦅' },
   { id: '10', number: '10', name: 'Tigre',    emoji: '🐅' },
   { id: '11', number: '11', name: 'Gato',     emoji: '🐈' },
   { id: '12', number: '12', name: 'Caballo',  emoji: '🐎' },
@@ -49,9 +49,25 @@ export const GRANJITA_ANIMALS: GranjitaAnimal[] = [
 /**
  * Busca un animal por su número (como texto).
  * IMPORTANTE: Las cadenas "0" y "00" son distintas.
+ * También acepta dígito simple: "8" → encuentra Ratón ('8'), y "08" → encuentra Ratón ('8').
  */
 export function getAnimalByNumber(numStr: string): GranjitaAnimal | undefined {
-  return GRANJITA_ANIMALS.find(a => a.number === String(numStr).trim());
+  if (numStr === undefined || numStr === null) return undefined;
+  const s = String(numStr).trim();
+  if (s === '00') return GRANJITA_ANIMALS.find(a => a.number === '00');
+  if (s === '0') return GRANJITA_ANIMALS.find(a => a.number === '0');
+
+  // Coincidencia directa
+  const exact = GRANJITA_ANIMALS.find(a => a.number === s);
+  if (exact) return exact;
+
+  // Si viene con cero delante ej. "08", buscar "8"
+  if (s.startsWith('0') && s.length === 2) {
+    const unpadded = s.substring(1);
+    return GRANJITA_ANIMALS.find(a => a.number === unpadded);
+  }
+
+  return undefined;
 }
 
 /**

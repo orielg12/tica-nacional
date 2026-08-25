@@ -65,30 +65,44 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
   items.forEach(n => {
      const result = results.find(r => r.draw_id === n.draw_id);
      if (result && result.winning_number) {
+        const lotConfig = store.lotteriesMaster.find(l => l.id === n.draw_id);
+        const isGranjita = isGranjitaLottery(lotConfig);
         const [first, second, third] = result.winning_number.split('-');
         const numPlayed = String(n.number_played).trim();
         const tiempos = parseFloat(n.amount) || 0;
 
+        const isMatch = (played: string, winNum?: string) => {
+          if (!winNum) return false;
+          const p = String(played).trim();
+          const w = String(winNum).trim();
+          if (p === w) return true;
+          if (isGranjita) {
+            if (p === '00' || w === '00') return p === w;
+            if (p.replace(/^0+/, '') === w.replace(/^0+/, '')) return true;
+          }
+          return false;
+        };
+
         let prizeMultiplier = 0;
         const details: { tier: string, prize: number }[] = [];
 
-        if (numPlayed === String(first).trim()) {
+        if (isMatch(numPlayed, first)) {
            const mult = (unitPrice === 0.25 ? 14 : 11);
            prizeMultiplier += mult;
-           details.push({ tier: '1er Premio', prize: tiempos * mult });
+           details.push({ tier: isGranjita ? 'Ganador' : '1er Premio', prize: tiempos * mult });
         }
-        if (numPlayed === String(second).trim()) {
+        if (!isGranjita && isMatch(numPlayed, second)) {
            prizeMultiplier += 3;
            details.push({ tier: '2do Premio', prize: tiempos * 3 });
         }
-        if (numPlayed === String(third).trim()) {
+        if (!isGranjita && isMatch(numPlayed, third)) {
            prizeMultiplier += 2;
            details.push({ tier: '3er Premio', prize: tiempos * 2 });
         }
 
         if (prizeMultiplier > 0) {
            const prize = tiempos * prizeMultiplier;
-           const posStr = details.map(d => d.tier.replace(' Premio', '')).join(' y ') + ' Premio';
+           const posStr = details.map(d => d.tier.replace(' Premio', '')).join(' y ') + (isGranjita ? '' : ' Premio');
            itemWins[n.id] = { tier: posStr, prize, multiplier: prizeMultiplier, winNum: first || second || third, details };
            totalPrizesWon += prize;
         }
@@ -168,7 +182,7 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
     if (lower.includes('nacional')) return '🇵🇦';
     if (lower.includes('anguilla')) return '🇦🇮';
     if (lower.includes('new york') || lower.includes('florida')) return '🇺🇸';
-    if (lower.includes('granjita')) return '🐓';
+    if (lower.includes('granjita')) return '🚜';
     return '🇨🇷';
   };
 
