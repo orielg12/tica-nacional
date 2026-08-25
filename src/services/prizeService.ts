@@ -36,7 +36,12 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
 
   if (!isAdmin) {
     if (isSubAdmin) {
-      const subAdminVendorIds = (store.users || [])
+      let users = store.users;
+      if (!users || users.length === 0) {
+        await store.fetchUsers();
+        users = useStore.getState().users;
+      }
+      const subAdminVendorIds = (users || [])
         .filter(u => u.parentAdminId === currentUser?.username)
         .map(u => u.username)
         .concat(currentUser?.username || '');

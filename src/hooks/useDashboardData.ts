@@ -50,8 +50,15 @@ export function useDashboardData(selectedDateStr?: string) {
       const storeState = useStore.getState();
       const currentUser = storeState.currentUser;
       const isSubAdmin = currentUser?.isSubAdmin;
+
+      let users = storeState.users;
+      if (isSubAdmin && (!users || users.length === 0)) {
+        await storeState.fetchUsers();
+        users = useStore.getState().users;
+      }
+
       const subAdminVendorIds = isSubAdmin
-        ? storeState.users
+        ? (users || [])
             .filter(u => u.parentAdminId === currentUser?.username)
             .map(u => u.username)
             .concat(currentUser?.username || '')
