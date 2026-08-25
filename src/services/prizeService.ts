@@ -179,12 +179,12 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
     });
   });
 
-  // Calculate remaining prize and sort (pending winners first, then paid)
+  // Calculate remaining prize and sort (only return pending prizes)
   const list: PendingWinner[] = [];
   Object.values(consolidated).forEach(c => {
     c.remainingPrize = Math.max(0, c.grossPrize - c.alreadyPaid);
     c.description = (c.description as any as string[]).join(' | ');
-    if (includePaid || c.remainingPrize > 0) {
+    if (includePaid ? true : c.remainingPrize > 0.001) {
       list.push(c);
     }
   });
