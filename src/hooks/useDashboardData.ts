@@ -166,9 +166,9 @@ export function useDashboardData(selectedDateStr?: string) {
       });
 
       // 2. Comisiones (Cálculo real por vendedor según su configuración)
-      const users = useStore.getState().users;
+      const storeUsers = useStore.getState().users;
       const commissionMap: Record<string, number> = {};
-      users.forEach(u => {
+      storeUsers.forEach(u => {
          if (u.username) commissionMap[u.username] = u.commission;
          commissionMap[u.id.toString()] = u.commission;
       });
