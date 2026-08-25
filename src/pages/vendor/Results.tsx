@@ -145,19 +145,23 @@ export default function Results() {
             </div>
 
             {/* Acciones de Payout */}
-            <div className="flex gap-2 mt-3 pt-2 border-t border-slate-800/50">
+            <div className="flex gap-2.5 mt-3.5 pt-2.5 border-t border-slate-800/80">
               <button
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-gray-300 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-95"
+                className="flex-1 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm border border-slate-600 shadow-sm transition-all active:scale-95"
                 onClick={() => setViewingTicketId(w.ticket_id)}
               >
                 Detalles
               </button>
               <button
-                className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 rounded-lg text-xs transition-all shadow-md active:scale-95"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black py-3 rounded-xl text-sm transition-all shadow-lg border border-emerald-400/50 active:scale-95 flex items-center justify-center gap-1.5"
                 onClick={() => handlePay(w)}
                 disabled={payingId === w.ticket_id}
               >
-                {payingId === w.ticket_id ? 'Procesando...' : `💰 PAGAR $${w.remainingPrize.toFixed(2)}`}
+                {payingId === w.ticket_id ? (
+                  <span className="text-white font-bold">Procesando...</span>
+                ) : (
+                  <span className="text-white font-black tracking-wide text-sm">💰 PAGAR ${w.remainingPrize.toFixed(2)}</span>
+                )}
               </button>
             </div>
           </div>
