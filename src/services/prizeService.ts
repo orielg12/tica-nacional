@@ -26,7 +26,7 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
   const isAdmin = currentUser?.role === 'admin' && !currentUser?.isSubAdmin;
   const isSubAdmin = currentUser?.isSubAdmin;
 
-  // 1. Fetch all active + paid tickets (paid could still have partial balance)
+  // 1. Fetch all active + paid tickets (No limits, supports unlimited tickets)
   let query = supabase
     .from('tickets')
     .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id, ticket_numbers(id, draw_id, number_played, amount, covers(excess_amount))')
@@ -53,28 +53,37 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
 
   const { data: tickets, error: tErr } = await query;
 
-
   if (tErr) throw tErr;
   if (!tickets || tickets.length === 0) return [];
 
   const dates = [...new Set(tickets.map((t: any) => getPanamaLocalISODate(new Date(t.created_at))))];
 
-  // 2. Fetch results for those dates
-  const { data: results, error: rErr } = await supabase
-    .from('results')
-    .select('draw_id, date, winning_number')
-    .in('date', dates);
+  // 2. Fetch results for those dates in safe batches (max 50 dates per query)
+  let results: any[] = [];
+  const dateBatchSize = 50;
+  for (let i = 0; i < dates.length; i += dateBatchSize) {
+    const dateChunk = dates.slice(i, i + dateBatchSize);
+    const { data: rData, error: rErr } = await supabase
+      .from('results')
+      .select('draw_id, date, winning_number')
+      .in('date', dateChunk);
+    if (rErr) throw rErr;
+    if (rData) results = results.concat(rData);
+  }
 
-  if (rErr) throw rErr;
-
-  // 3. Fetch all payouts for these tickets to calculate already-paid amounts
+  // 3. Fetch all payouts for these tickets in safe batches (max 50 tickets per query) to support UNLIMITED tickets
   const ticketIds = tickets.map((t: any) => t.id);
-  const { data: payouts, error: pErr } = await supabase
-    .from('payouts')
-    .select('ticket_id, amount, paid_by')
-    .in('ticket_id', ticketIds);
-
-  if (pErr) throw pErr;
+  let payouts: any[] = [];
+  const payoutBatchSize = 50;
+  for (let i = 0; i < ticketIds.length; i += payoutBatchSize) {
+    const idChunk = ticketIds.slice(i, i + payoutBatchSize);
+    const { data: pData, error: pErr } = await supabase
+      .from('payouts')
+      .select('ticket_id, amount, paid_by')
+      .in('ticket_id', idChunk);
+    if (pErr) throw pErr;
+    if (pData) payouts = payouts.concat(pData);
+  }
 
   // Build a map of paid amounts per ticket (excluding external bank reimbursements)
   const paidMap: Record<string, number> = {};
