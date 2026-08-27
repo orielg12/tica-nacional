@@ -20,19 +20,26 @@ export interface PendingWinner {
   status?: string;
 }
 
-export async function fetchPendingWinners(vendorId?: string, includePaid: boolean = true): Promise<PendingWinner[]> {
+export async function fetchPendingWinners(vendorId?: string, includePaid: boolean = false): Promise<PendingWinner[]> {
   const store = useStore.getState();
   const currentUser = store.currentUser;
   const isAdmin = currentUser?.role === 'admin' && !currentUser?.isSubAdmin;
   const isSubAdmin = currentUser?.isSubAdmin;
 
-  // 1. Fetch all active + paid tickets (No limits, supports unlimited tickets)
+  // 1. Fetch tickets from the last 14 days (active tickets for pending prizes, or active+paid if includePaid is true)
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   let query = supabase
     .from('tickets')
     .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id, ticket_numbers(id, draw_id, number_played, amount, covers(excess_amount))')
     .eq('is_bank_prize', false)
-    .in('status', ['active', 'paid'])
+    .gte('created_at', fourteenDaysAgo)
     .order('created_at', { ascending: false });
+
+  if (includePaid) {
+    query = query.in('status', ['active', 'paid']);
+  } else {
+    query = query.eq('status', 'active');
+  }
 
   if (!isAdmin) {
     if (isSubAdmin) {
@@ -58,42 +65,15 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
 
   const dates = [...new Set(tickets.map((t: any) => getPanamaLocalISODate(new Date(t.created_at))))];
 
-  // 2. Fetch results for those dates in safe batches (max 50 dates per query)
-  let results: any[] = [];
-  const dateBatchSize = 50;
-  for (let i = 0; i < dates.length; i += dateBatchSize) {
-    const dateChunk = dates.slice(i, i + dateBatchSize);
-    const { data: rData, error: rErr } = await supabase
-      .from('results')
-      .select('draw_id, date, winning_number')
-      .in('date', dateChunk);
-    if (rErr) throw rErr;
-    if (rData) results = results.concat(rData);
-  }
+  // 2. Fetch results for those dates in a single fast query
+  const { data: results, error: rErr } = await supabase
+    .from('results')
+    .select('draw_id, date, winning_number')
+    .in('date', dates);
 
-  // 3. Fetch all payouts for these tickets in safe batches (max 50 tickets per query) to support UNLIMITED tickets
-  const ticketIds = tickets.map((t: any) => t.id);
-  let payouts: any[] = [];
-  const payoutBatchSize = 50;
-  for (let i = 0; i < ticketIds.length; i += payoutBatchSize) {
-    const idChunk = ticketIds.slice(i, i + payoutBatchSize);
-    const { data: pData, error: pErr } = await supabase
-      .from('payouts')
-      .select('ticket_id, amount, paid_by')
-      .in('ticket_id', idChunk);
-    if (pErr) throw pErr;
-    if (pData) payouts = payouts.concat(pData);
-  }
+  if (rErr) throw rErr;
 
-  // Build a map of paid amounts per ticket (excluding external bank reimbursements)
-  const paidMap: Record<string, number> = {};
-  payouts?.forEach((p: any) => {
-    if (p.paid_by !== 'EXTERNAL_BANK_REIMBURSEMENT') {
-      paidMap[p.ticket_id] = (paidMap[p.ticket_id] || 0) + parseFloat(p.amount || '0');
-    }
-  });
-
-  // 4. Process matches
+  // 3. Process matches in memory FIRST to identify ONLY winning tickets
   const consolidated: Record<string, PendingWinner> = {};
 
   tickets.forEach((ticket: any) => {
@@ -179,9 +159,29 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
     });
   });
 
-  // Calculate remaining prize and sort (only return pending prizes)
+  // 4. Fetch payouts ONLY for actual winning tickets in 1 single instant query
+  const winningTicketIds = Object.keys(consolidated);
+  const paidMap: Record<string, number> = {};
+
+  if (winningTicketIds.length > 0) {
+    const { data: payouts, error: pErr } = await supabase
+      .from('payouts')
+      .select('ticket_id, amount, paid_by')
+      .in('ticket_id', winningTicketIds);
+
+    if (!pErr && payouts) {
+      payouts.forEach((p: any) => {
+        if (p.paid_by !== 'EXTERNAL_BANK_REIMBURSEMENT') {
+          paidMap[p.ticket_id] = (paidMap[p.ticket_id] || 0) + parseFloat(p.amount || '0');
+        }
+      });
+    }
+  }
+
+  // 5. Calculate remaining prize and filter
   const list: PendingWinner[] = [];
   Object.values(consolidated).forEach(c => {
+    c.alreadyPaid = paidMap[c.ticket_id] || 0;
     c.remainingPrize = Math.max(0, c.grossPrize - c.alreadyPaid);
     c.description = (c.description as any as string[]).join(' | ');
     if (includePaid ? true : c.remainingPrize > 0.001) {
