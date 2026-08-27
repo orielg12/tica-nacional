@@ -64,12 +64,15 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
   if (!tickets || tickets.length === 0) return [];
 
   const dates = [...new Set(tickets.map((t: any) => getPanamaLocalISODate(new Date(t.created_at))))];
+  const minDate = dates[dates.length - 1]; // dates are desc, so last is oldest
+  const maxDate = dates[0]; // first is newest (today)
 
-  // 2. Fetch results for those dates in a single fast query
+  // 2. Fetch results for the date range (more reliable than .in() with many dates)
   const { data: results, error: rErr } = await supabase
     .from('results')
     .select('draw_id, date, winning_number')
-    .in('date', dates);
+    .gte('date', minDate)
+    .lte('date', maxDate);
 
   if (rErr) throw rErr;
 
