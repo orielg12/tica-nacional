@@ -35,11 +35,10 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
     .gte('created_at', fourteenDaysAgo)
     .order('created_at', { ascending: false });
 
-  if (includePaid) {
-    query = query.in('status', ['active', 'paid']);
-  } else {
-    query = query.eq('status', 'active');
-  }
+  // Always fetch active + paid: a ticket can be 'paid' after a partial payout but still have remaining prize
+  // The Results page filters by remainingPrize > 0, so fully-paid tickets won't show
+  query = query.in('status', ['active', 'paid']);
+
 
   if (!isAdmin) {
     if (isSubAdmin) {
