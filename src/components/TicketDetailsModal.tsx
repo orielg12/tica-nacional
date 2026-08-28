@@ -24,6 +24,8 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
   const [results, setResults] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [showPrizeShareMenu, setShowPrizeShareMenu] = useState(false);
+
 
   useEffect(() => {
     if (!store.lotteriesMaster || store.lotteriesMaster.length === 0) {
@@ -186,92 +188,102 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
     return '🇨🇷';
   };
 
-  const handleSharePrizeMessage = async () => {
-    if (!ticketData) return;
-
-    // Aggregate wins per draw
-    const winningDrawIds = [...new Set(items.filter(item => itemWins[item.id]).map(item => item.draw_id))];
-    if (winningDrawIds.length === 0) return;
+  // Build message for one specific draw (or all draws if drawId not provided)
+  const buildPrizeMessageForDraw = (drawId: string): string => {
+    const lotConfig = store.lotteriesMaster.find(l => l.id === drawId);
+    const drawName = lotConfig?.name || String(drawId).toUpperCase();
+    const drawTime = lotConfig ? formatLotteryTime(lotConfig.hour, lotConfig.minute) : '';
+    const flag = getFlag(drawName);
+    const isGranjita = isGranjitaLottery(lotConfig);
+    const drawItems = items.filter(item => item.draw_id === drawId);
+    const winningItemsForDraw = drawItems.filter(item => itemWins[item.id]);
 
     const lines: string[] = [];
     lines.push('🎉 ¡Felicidades! Tienes un Premio 🎉');
     lines.push('');
+    lines.push(`${flag} Sorteo: ${drawName}${drawTime ? ` ${drawTime}` : ''}`);
 
-    winningDrawIds.forEach(drawId => {
-      const lotConfig = store.lotteriesMaster.find(l => l.id === drawId);
-      const drawName = lotConfig?.name || String(drawId).toUpperCase();
-      const drawTime = lotConfig ? formatLotteryTime(lotConfig.hour, lotConfig.minute) : '';
-      const flag = getFlag(drawName);
+    // JUGASTE
+    const jugadaMap: Record<string, number> = {};
+    winningItemsForDraw.forEach(item => {
+      const numKey = isGranjita
+        ? formatAnimalDisplay(item.number_played)
+        : String(item.number_played).padStart(2, '0');
+      const amt = parseFloat(item.amount) || 0;
+      jugadaMap[numKey] = (jugadaMap[numKey] || 0) + amt;
+    });
+    const jugadasText = Object.entries(jugadaMap).map(([num, amt]) => `${amt} al ${num}`).join(', ');
+    lines.push(`🎫 Jugaste: ${jugadasText}`);
 
-      lines.push(`${flag} Sorteo: ${drawName}${drawTime ? ` ${drawTime}` : ''}`);
+    // PREMIOS por sorteo individual
+    const tierOrder: Record<string, number> = { '1er Premio': 1, '2do Premio': 2, '3er Premio': 3 };
+    const prizeMap: Record<string, { tier: string; winNum: string; amount: number; viles: number }> = {};
+    let drawTotal = 0;
 
-      const drawItems = items.filter(item => item.draw_id === drawId);
-      const winningItemsForDraw = drawItems.filter(item => itemWins[item.id]);
-      const isGranjita = isGranjitaLottery(lotConfig);
-
-      // ── JUGASTE: agrupar por número, sumar viles ──────────────────
-      const jugadaMap: Record<string, number> = {};
-      winningItemsForDraw.forEach(item => {
+    winningItemsForDraw.forEach(item => {
+      const win = itemWins[item.id];
+      if (!win || !win.details) return;
+      win.details.forEach(d => {
         const numKey = isGranjita
           ? formatAnimalDisplay(item.number_played)
           : String(item.number_played).padStart(2, '0');
+        const key = `${d.tier}__${numKey}`;
         const amt = parseFloat(item.amount) || 0;
-        jugadaMap[numKey] = (jugadaMap[numKey] || 0) + amt;
+        if (!prizeMap[key]) {
+          prizeMap[key] = { tier: d.tier, winNum: numKey, amount: 0, viles: 0 };
+        }
+        prizeMap[key].amount += d.prize;
+        prizeMap[key].viles += amt;
+        drawTotal += d.prize;
       });
-      const jugadasText = Object.entries(jugadaMap)
-        .map(([num, amt]) => `${amt} al ${num}`)
-        .join(', ');
-      lines.push(`🎫 Jugaste: ${jugadasText}`);
-
-      // ── PREMIOS: agrupar por tier+número, sumar montos, ordenar 1→2→3 ──
-      const tierOrder: Record<string, number> = { '1er Premio': 1, '2do Premio': 2, '3er Premio': 3 };
-      const prizeMap: Record<string, { tier: string; winNum: string; amount: number; viles: number }> = {};
-
-      winningItemsForDraw.forEach(item => {
-        const win = itemWins[item.id];
-        if (!win || !win.details) return;
-        win.details.forEach(d => {
-          const numKey = isGranjita
-            ? formatAnimalDisplay(item.number_played)
-            : String(item.number_played).padStart(2, '0');
-          const key = `${d.tier}__${numKey}`;
-          const amt = parseFloat(item.amount) || 0;
-          if (!prizeMap[key]) {
-            prizeMap[key] = { tier: d.tier, winNum: numKey, amount: 0, viles: 0 };
-          }
-          prizeMap[key].amount += d.prize;
-          prizeMap[key].viles += amt;
-        });
-      });
-
-      Object.values(prizeMap)
-        .sort((a, b) => (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9))
-        .forEach(p => {
-          const tierEmoji = p.tier.startsWith('1er') ? '🥇' : p.tier.startsWith('2do') ? '🥈' : '🥉';
-          lines.push(`${tierEmoji} ${p.tier} (${p.winNum}) · ${p.viles} viles → $${p.amount.toFixed(2)}`);
-        });
-
-      lines.push('');
     });
 
-    lines.push(`💵 TOTAL GANADO: $${totalPrizesWon.toFixed(2)}`);
+    Object.values(prizeMap)
+      .sort((a, b) => (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9))
+      .forEach(p => {
+        const tierEmoji = p.tier.startsWith('1er') ? '🥇' : p.tier.startsWith('2do') ? '🥈' : '🥉';
+        lines.push(`${tierEmoji} ${p.tier} (${p.winNum}) · ${p.viles} viles → $${p.amount.toFixed(2)}`);
+      });
 
-    const prizeMsg = lines.join('\n');
+    lines.push('');
+    lines.push(`💵 TOTAL GANADO: $${drawTotal.toFixed(2)}`);
+    return lines.join('\n');
+  };
+
+  const handleSharePrizeMessage = async (drawId?: string) => {
+    if (!ticketData) return;
+
+    const winningDrawIds = [...new Set(items.filter(item => itemWins[item.id]).map(item => item.draw_id))];
+    if (winningDrawIds.length === 0) return;
+
+    // If multiple draws and no specific draw chosen → show selector menu
+    if (!drawId && winningDrawIds.length > 1) {
+      setShowPrizeShareMenu(true);
+      return;
+    }
+
+    const targetDrawId = drawId || winningDrawIds[0];
+    const prizeMsg = buildPrizeMessageForDraw(targetDrawId);
+
     try {
       if (Capacitor.isNativePlatform()) {
         await Share.share({ title: 'Premio', text: prizeMsg, dialogTitle: 'Compartir Premio' });
+        setShowPrizeShareMenu(false);
         return;
       }
       if (navigator.share) {
         await navigator.share({ title: 'Premio', text: prizeMsg });
+        setShowPrizeShareMenu(false);
         return;
       }
       await navigator.clipboard.writeText(prizeMsg);
       alert('Mensaje de premio copiado al portapapeles.');
+      setShowPrizeShareMenu(false);
     } catch (e: any) {
       console.warn('Error sharing prize message:', e);
     }
   };
+
 
   // Group items by draw
   const groupedItems: Record<string, { lotteryName: string; timeStr: string; items: any[] }> = {};
@@ -518,33 +530,107 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
                 : <><Share2 size={18} /><span>Compartir Ticket</span></>
               }
             </button>
-            {isWinner && (
-              <button
-                onClick={handleSharePrizeMessage}
-                disabled={isGeneratingImage}
-                style={{
-                  width: '100%',
-                  backgroundColor: '#ff9800',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.65rem',
-                  marginTop: '0.5rem',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.9rem',
-                  boxShadow: '0 2px 6px rgba(255,152,0,0.3)',
-                  transition: 'background-color 0.2s'
-                }}
-              >
-                <Gift size={18} />
-                <span>Compartir Premio</span>
-              </button>
-            )}
+            {isWinner && (() => {
+              const winningDrawIds = [...new Set(items.filter(item => itemWins[item.id]).map(item => item.draw_id))];
+              if (winningDrawIds.length <= 1) {
+                // Single winning draw → share directly
+                return (
+                  <button
+                    onClick={() => handleSharePrizeMessage()}
+                    disabled={isGeneratingImage}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#ff9800',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.65rem',
+                      marginTop: '0.5rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.9rem',
+                      boxShadow: '0 2px 6px rgba(255,152,0,0.3)',
+                      transition: 'background-color 0.2s'
+                    }}
+                  >
+                    <Gift size={18} />
+                    <span>Compartir Premio</span>
+                  </button>
+                );
+              }
+              // Multiple winning draws → show selector
+              if (showPrizeShareMenu) {
+                return (
+                  <div style={{ marginTop: '0.5rem', border: '2px solid #ff9800', borderRadius: '8px', overflow: 'hidden' }}>
+                    <div style={{ backgroundColor: '#ff9800', color: 'white', padding: '0.4rem 0.7rem', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🏆 ¿Cuál sorteo compartir?</span>
+                      <button onClick={() => setShowPrizeShareMenu(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', padding: 0 }}>✕</button>
+                    </div>
+                    {winningDrawIds.map(drawId => {
+                      const lotConfig = store.lotteriesMaster.find(l => l.id === drawId);
+                      const drawName = lotConfig?.name || String(drawId).toUpperCase();
+                      const drawTime = lotConfig ? formatLotteryTime(lotConfig.hour, lotConfig.minute) : '';
+                      return (
+                        <button
+                          key={drawId}
+                          onClick={() => handleSharePrizeMessage(drawId)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#fff8f0',
+                            color: '#b45309',
+                            border: 'none',
+                            borderTop: '1px solid #fed7aa',
+                            padding: '0.6rem 0.8rem',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.9rem',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <Gift size={16} />
+                          <span>{drawName}{drawTime ? ` ${drawTime}` : ''}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  onClick={() => handleSharePrizeMessage()}
+                  disabled={isGeneratingImage}
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#ff9800',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.65rem',
+                    marginTop: '0.5rem',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.9rem',
+                    boxShadow: '0 2px 6px rgba(255,152,0,0.3)',
+                    transition: 'background-color 0.2s'
+                  }}
+                >
+                  <Gift size={18} />
+                  <span>Compartir Premio ▾</span>
+                </button>
+              );
+            })()}
+
           </div>
         )}
 
