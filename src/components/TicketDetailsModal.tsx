@@ -262,8 +262,56 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
       return;
     }
 
-    const targetDrawId = drawId || winningDrawIds[0];
-    const prizeMsg = buildPrizeMessageForDraw(targetDrawId);
+    let prizeMsg: string;
+    if (drawId === 'all') {
+      // Build combined message with all draws + grand total
+      const lines: string[] = [];
+      lines.push('🎉 ¡Felicidades! Tienes un Premio 🎉');
+      lines.push('');
+      winningDrawIds.forEach(dId => {
+        const lotConfig = store.lotteriesMaster.find(l => l.id === dId);
+        const drawName = lotConfig?.name || String(dId).toUpperCase();
+        const drawTime = lotConfig ? formatLotteryTime(lotConfig.hour, lotConfig.minute) : '';
+        const flag = getFlag(drawName);
+        const isGranjita = isGranjitaLottery(lotConfig);
+        const winningItemsForDraw = items.filter(item => item.draw_id === dId && itemWins[item.id]);
+
+        lines.push(`${flag} Sorteo: ${drawName}${drawTime ? ` ${drawTime}` : ''}`);
+
+        const jugadaMap: Record<string, number> = {};
+        winningItemsForDraw.forEach(item => {
+          const numKey = isGranjita ? formatAnimalDisplay(item.number_played) : String(item.number_played).padStart(2, '0');
+          jugadaMap[numKey] = (jugadaMap[numKey] || 0) + (parseFloat(item.amount) || 0);
+        });
+        lines.push(`🎫 Jugaste: ${Object.entries(jugadaMap).map(([n, a]) => `${a} al ${n}`).join(', ')}`);
+
+        const tierOrder: Record<string, number> = { '1er Premio': 1, '2do Premio': 2, '3er Premio': 3 };
+        const prizeMap: Record<string, { tier: string; winNum: string; amount: number; viles: number }> = {};
+        winningItemsForDraw.forEach(item => {
+          const win = itemWins[item.id];
+          if (!win?.details) return;
+          win.details.forEach(d => {
+            const numKey = isGranjita ? formatAnimalDisplay(item.number_played) : String(item.number_played).padStart(2, '0');
+            const key = `${d.tier}__${numKey}`;
+            if (!prizeMap[key]) prizeMap[key] = { tier: d.tier, winNum: numKey, amount: 0, viles: 0 };
+            prizeMap[key].amount += d.prize;
+            prizeMap[key].viles += parseFloat(item.amount) || 0;
+          });
+        });
+        Object.values(prizeMap)
+          .sort((a, b) => (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9))
+          .forEach(p => {
+            const emoji = p.tier.startsWith('1er') ? '🥇' : p.tier.startsWith('2do') ? '🥈' : '🥉';
+            lines.push(`${emoji} ${p.tier} (${p.winNum}) · ${p.viles} viles → $${p.amount.toFixed(2)}`);
+          });
+        lines.push('');
+      });
+      lines.push(`💵 TOTAL GANADO: $${totalPrizesWon.toFixed(2)}`);
+      prizeMsg = lines.join('\n');
+    } else {
+      const targetDrawId = drawId || winningDrawIds[0];
+      prizeMsg = buildPrizeMessageForDraw(targetDrawId);
+    }
 
     try {
       if (Capacitor.isNativePlatform()) {
@@ -283,6 +331,7 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
       console.warn('Error sharing prize message:', e);
     }
   };
+
 
 
   // Group items by draw
@@ -599,8 +648,30 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
                         </button>
                       );
                     })}
+                    {/* Compartir Todo combinado */}
+                    <button
+                      onClick={() => handleSharePrizeMessage('all')}
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#ff9800',
+                        color: 'white',
+                        border: 'none',
+                        borderTop: '2px solid #e65100',
+                        padding: '0.65rem 0.8rem',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      <Gift size={16} />
+                      <span>Compartir Todo (${totalPrizesWon.toFixed(2)})</span>
+                    </button>
                   </div>
                 );
+
               }
               return (
                 <button
