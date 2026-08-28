@@ -17,7 +17,9 @@ export default function Results() {
     setIsFetching(true);
     try {
       await store.fetchLotteries();
-      const vendorId = store.currentUser?.username || 'vendedor_desconocido';
+      const currentUser = store.currentUser;
+      const isVendor = currentUser?.role === 'vendor' || currentUser?.role === 'Vendedor';
+      const vendorId = isVendor ? currentUser?.username : undefined;
       const winners = await fetchPendingWinners(vendorId);
       setPendingWinners(winners);
     } catch (e: any) {

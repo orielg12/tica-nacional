@@ -102,6 +102,8 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
         if (isGranjita) {
           if (p === '00' || w === '00') return p === w;
           if (p.replace(/^0+/, '') === w.replace(/^0+/, '')) return true;
+        } else {
+          if (p.padStart(2, '0') === w.padStart(2, '0')) return true;
         }
         return false;
       };
