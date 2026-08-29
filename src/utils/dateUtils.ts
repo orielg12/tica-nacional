@@ -30,17 +30,27 @@ export function getEndOfLocalDayUTC(dateStr: string): string {
 }
 
 // Panama timezone helpers (UTC‑5, no DST)
-export function getPanamaLocalISODate(dateParam?: Date): string {
+export function getPanamaLocalISODate(dateParam?: Date | string): string {
   const d = dateParam ? new Date(dateParam) : new Date();
-  // Convert current time to UTC then offset to Panama (UTC‑5)
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60 * 1000;
-  const panamaMs = utcMs - 5 * 60 * 60 * 1000;
-  const panamaDate = new Date(panamaMs);
-  const year = panamaDate.getFullYear();
-  const month = String(panamaDate.getMonth() + 1).padStart(2, '0');
-  const day = String(panamaDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Panama',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d);
+  } catch (e) {
+    // Fallback if Intl timeZone is unavailable
+    const utcMs = d.getTime();
+    const panamaMs = utcMs - 5 * 60 * 60 * 1000;
+    const pDate = new Date(panamaMs);
+    const year = pDate.getUTCFullYear();
+    const month = String(pDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(pDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 }
+
 
 export function getStartOfPanamaDayUTC(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number);
