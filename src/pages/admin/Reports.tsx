@@ -90,7 +90,22 @@ export default function AdminReports() {
   useEffect(() => {
     store.fetchUsers();
     fetchGlobalSales();
-  }, []);
+
+    // Suscripción Realtime para actualizar reportes en vivo
+    const channel = supabase.channel('reports-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchGlobalSales();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
+        fetchGlobalSales();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [startDate, endDate]);
+
 
   // --- CALCULOS GLOBALES ---
   // Mapa de comisiones por id o username de vendedor para búsqueda rápida

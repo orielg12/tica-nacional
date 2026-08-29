@@ -201,7 +201,25 @@ export function useDashboardData(selectedDateStr?: string) {
 
   useEffect(() => {
     fetchMetrics();
+
+    // Supabase Realtime live sync for instant dashboard updates
+    const channel = supabase.channel('dashboard-live-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchMetrics();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
+        fetchMetrics();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'covers' }, () => {
+        fetchMetrics();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedDateStr]);
 
   return { metrics, loading, refetch: fetchMetrics };
 }
+
