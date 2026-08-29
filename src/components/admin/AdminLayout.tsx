@@ -200,116 +200,18 @@ export default function AdminLayout() {
 
         /* ── RESPONSIVE GLOBAL PARA TODAS LAS PÁGINAS DEL ADMIN ── */
         @media (max-width: 768px) {
-
-          /* Reducir padding general de páginas */
-          main > div[style*="padding: '2rem'"],
-          main > div[style*='padding: "2rem"'],
-          main > div {
-            padding: 0.75rem !important;
-            padding-bottom: 3.5rem !important;
+          main {
+            padding: 0 !important;
+            padding-bottom: 2rem !important;
           }
-
-          /* Grids de tarjetas: forzar columna única o 2 cols máximo */
-          main div[style*="grid-template-columns"] {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* Headers de página: apilar verticalmente */
-          main div[style*="justifyContent: 'space-between'"],
-          main div[style*='justifyContent: "space-between"'] {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 0.75rem !important;
-          }
-
-          /* Botones de acción en headers: ocupar ancho completo */
-          main div[style*="justifyContent: 'space-between'"] > div[style*="display: 'flex'"],
-          main div[style*='justifyContent: "space-between"'] > div {
-            width: 100% !important;
-            flex-wrap: wrap !important;
-          }
-
-          /* Filtro de fecha: apilar en columna */
-          main div[style*="alignItems: 'flex-end'"] {
-            flex-direction: column !important;
-            align-items: stretch !important;
-          }
-
-          /* Tablas: scroll horizontal */
+          /* Asegurar que las tablas tengan scroll horizontal suave sin romper el layout */
           main table {
-            display: block !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            white-space: nowrap !important;
-          }
-
-          /* Tabla de desglose de cajero - reducir padding celdas */
-          main th, main td {
-            padding: 0.6rem 0.75rem !important;
-            font-size: 0.8rem !important;
-          }
-
-          /* Bloques financieros de modalidad: apilar */
-          main div[style*="minmax(250px"] {
-            grid-template-columns: 1fr !important;
-          }
-          main div[style*="minmax(300px"] {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* Texto largo: permitir wrap */
-          main h2, main h3, main h4 {
-            font-size: 0.95rem !important;
-            white-space: normal !important;
-          }
-          main span[style*="fontSize: '0.85rem'"] {
-            display: none;
-          }
-
-          /* Tarjetas de resumen: ajustar tamaño de cifras */
-          main h3[style*="1.5rem"], main h3[style*="1.8rem"], main h3[style*="2rem"] {
-            font-size: 1.3rem !important;
-          }
-
-          /* Panel expandible del cajero: una sola columna */
-          main div[style*="gridTemplateColumns: '1fr 1fr'"] {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* Fila de banca 0.20/0.25: apilar en lugar de side-by-side */
-          main div[style*="display: 'flex'"][style*="gap: '1rem'"] > div[style*="flex: 1"] {
-            min-width: 0 !important;
-          }
-
-          /* Inputs de fecha: ancho completo */
-          main input[type="date"],
-          main select {
-            width: 100% !important;
-            font-size: 0.9rem !important;
-          }
-
-          /* Botones: no rebasar pantalla */
-          main button {
-            font-size: 0.8rem !important;
-          }
-
-          /* Dashboard cards wrap */
-          .admin-card-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-          }
-        }
-
-        /* Pantallas muy pequeñas (< 400px) */
-        @media (max-width: 400px) {
-          main > div {
-            padding: 0.5rem !important;
-          }
-          main th, main td {
-            padding: 0.4rem 0.5rem !important;
-            font-size: 0.72rem !important;
+            display: table !important;
+            min-width: 100% !important;
           }
         }
       `}</style>
+
 
       <div className="admin-layout-root" style={{ display: 'flex', width: '100vw', backgroundColor: '#f0f4f8', color: '#333', overflow: 'hidden' }}>
         

@@ -4,7 +4,7 @@ import { useStore } from '../../store/useStore';
 import { formatLotteryTime } from '../../utils/lotteryRules';
 import { getLocalISODate } from '../../utils/dateUtils';
 import { getDecadeNumbers } from '../../utils/math';
-import { Trash2, Save, AlertCircle, Edit } from 'lucide-react';
+import { Trash2, Save, AlertCircle, Edit, Clipboard, X, CheckCircle, FileText } from 'lucide-react';
 
 interface ManualPlay {
   number: string;
@@ -24,22 +24,15 @@ export default function ManualSale() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [savedTicketId, setSavedTicketId] = useState<string | null>(null);
-  const [, setIsAdmin] = useState(false);
+
+  // Import Text Modal State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchRole = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      if (!error && data) {
-        setIsAdmin(data.role === 'Admin');
-      }
-    };
-    fetchRole();
+    store.fetchLotteries();
+    store.fetchUsers();
   }, []);
 
   const allLotteries = store.lotteriesMaster.filter(l => l.isActive);
@@ -97,6 +90,119 @@ export default function ManualSale() {
     setCurrentAmount('');
     setEditIdx(null);
   };
+
+  const cancelEdit = () => {
+    setCurrentNumber('');
+    setCurrentAmount('');
+    setEditIdx(null);
+  };
+
+  const removePlay = (idx: number) => {
+    setPlays(plays.filter((_, i) => i !== idx));
+  };
+
+  // --- PARSEADOR DE TEXTO / IMPORTACIÓN RÁPIDA ---
+  const handleProcessImport = () => {
+    setImportError(null);
+    if (!importText.trim()) {
+      setImportError('Por favor pega o escribe la lista de jugadas.');
+      return;
+    }
+
+    const rawLines = importText.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
+    const parsedPlays: ManualPlay[] = [];
+    let detectedClient = '';
+
+    for (const raw of rawLines) {
+      let line = raw.trim();
+      if (!line) continue;
+
+      // Detectar si es cabecera de cliente
+      const clientMatch = line.match(/^(?:cliente|nombre|jugador|name)\s*[:\-=]\s*(.+)$/i);
+      if (clientMatch) {
+        detectedClient = clientMatch[1].trim();
+        continue;
+      }
+
+      // Limpiar viles / v al final
+      line = line.replace(/\s*v(?:iles)?\s*$/i, '').trim();
+
+      // Formato Decena: D3x5 o D3-5 o Decena 3 con 5
+      const decadeMatch = line.match(/^(?:d|decena)\s*(\d)\s*[-x*=:\s]\s*(\d+)$/i);
+      if (decadeMatch) {
+        const dNum = parseInt(decadeMatch[1], 10);
+        const amt = parseFloat(decadeMatch[2]);
+        if (dNum >= 0 && dNum <= 9 && amt > 0) {
+          getDecadeNumbers(dNum).forEach(n => parsedPlays.push({ number: n, amount: amt }));
+          continue;
+        }
+      }
+
+      let num = '';
+      let amt = 0;
+      let matched = false;
+
+      // 1. "25x10" / "25*10" / "25 x 10"
+      let m = line.match(/^(\d{1,2})\s*[x*X]\s*(\d+(?:\.\d+)?)$/);
+      if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+
+      // 2. "25-10" / "25/10"
+      if (!matched) {
+        m = line.match(/^(\d{1,2})\s*[-–—\/]\s*(\d+(?:\.\d+)?)$/);
+        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+      }
+
+      // 3. "25=10" / "25:10"
+      if (!matched) {
+        m = line.match(/^(\d{1,2})\s*[:=]\s*(\d+(?:\.\d+)?)$/);
+        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+      }
+
+      // 4. "10 del 25" / "10 al 25" (monto primero, número después)
+      if (!matched) {
+        m = line.match(/^(\d+(?:\.\d+)?)\s+(?:del|al|de|el)\s+(\d{1,2})$/i);
+        if (m) { amt = parseFloat(m[1]); num = m[2]; matched = true; }
+      }
+
+      // 5. "25 con 10" / "25 por 10"
+      if (!matched) {
+        m = line.match(/^(\d{1,2})\s+(?:con|por|de)\s+(\d+(?:\.\d+)?)$/i);
+        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+      }
+
+      // 6. "25(10)" / "25 (10)"
+      if (!matched) {
+        m = line.match(/^(\d{1,2})\s*\((\d+(?:\.\d+)?)\)$/);
+        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+      }
+
+      // 7. "25 10" (espacio simple)
+      if (!matched) {
+        m = line.match(/^(\d{1,2})\s+(\d+(?:\.\d+)?)$/);
+        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+      }
+
+      if (matched && !isNaN(amt) && amt > 0) {
+        parsedPlays.push({
+          number: num.padStart(2, '0'),
+          amount: amt
+        });
+      }
+    }
+
+    if (parsedPlays.length === 0) {
+      setImportError('No se reconocieron jugadas válidas. Revisa los formatos aceptados.');
+      return;
+    }
+
+    setPlays(prev => [...prev, ...parsedPlays]);
+    if (detectedClient && !clientName) {
+      setClientName(detectedClient);
+    }
+    setImportText('');
+    setShowImportModal(false);
+  };
+
 
   const cancelEdit = () => {
     setCurrentNumber('');
@@ -220,69 +326,58 @@ export default function ManualSale() {
   const vendors = store.users.filter(u => u.role === 'Vendedor' || u.role === 'Admin');
 
   return (
-    <div style={{ padding: '2rem', backgroundColor: '#f4f7f6', minHeight: '100%', color: '#333' }}>
-      <style>{`
-        @media (max-width: 768px) {
-          .ms-root { padding: 0.75rem !important; }
-          .ms-form-row { flex-direction: column !important; }
-          .ms-form-row > div { width: 100% !important; min-width: 0 !important; }
-        }
-      `}</style>
+    <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
+      {/* Header Banner */}
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+            <Save size={22} className="text-teal-600" /> Registro de Venta Manual
+          </h2>
+          <p className="text-xs md:text-sm text-slate-500 mt-1">
+            Ingresa ventas fuera del sistema (WhatsApp, papel o sorteos cerrados). Aparecerán en los reportes contables.
+          </p>
+        </div>
 
-      <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#17233D', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Save size={20} color="#3399ff" /> Registro de Venta Manual
-        </h2>
-        <p style={{ fontSize: '0.85rem', color: '#6c757d', margin: '0.5rem 0 0 0' }}>
-          Registra ventas que se realizaron fuera del sistema (WhatsApp, por teléfono, o cuando el sorteo ya estaba cerrado). Aparecerán en los reportes como ventas normales.
-        </p>
+        {/* Botón Pegar Lista */}
+        <button
+          type="button"
+          onClick={() => setShowImportModal(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95"
+        >
+          <Clipboard size={18} />
+          <span>Pegar Lista de Números</span>
+        </button>
       </div>
 
       {result && (
-        <div style={{
-          padding: '1rem 1.5rem',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          backgroundColor: result.success ? '#ecfdf5' : '#fef2f2',
-          color: result.success ? '#065f46' : '#991b1b',
-          border: `1px solid ${result.success ? '#a7f3d0' : '#fecaca'}`,
-          fontWeight: 'bold'
-        }}>
-          {result.message}
+        <div className={`p-4 rounded-xl mb-6 font-bold text-sm flex items-center gap-2 ${result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          {result.success ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span>{result.message}</span>
         </div>
       )}
 
       {savedTicketId && (
-        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-          <button onClick={handleHideTicket} style={{ padding: '0.55rem 0.8rem', borderRadius: '6px', border: '1px solid #0284c7', backgroundColor: '#fff', color: '#0284c7', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <AlertCircle size={16} /> Ocultar ticket
+        <div className="mb-6 flex flex-wrap gap-2">
+          <button onClick={handleHideTicket} className="px-3 py-2 rounded-lg border border-sky-600 bg-white text-sky-700 font-bold text-xs flex items-center gap-1.5 shadow-sm">
+            <AlertCircle size={15} /> Ocultar ticket
           </button>
-          <button onClick={handleDeleteTicket} style={{
-            padding: '0.55rem 0.8rem',
-            borderRadius: '6px',
-            border: '1px solid #ef4444',
-            backgroundColor: '#fff',
-            color: '#ef4444',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '0.85rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}>
-            <Trash2 size={16} /> Eliminar ticket (error)
+          <button onClick={handleDeleteTicket} className="px-3 py-2 rounded-lg border border-red-600 bg-white text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-sm">
+            <Trash2 size={15} /> Eliminar ticket
           </button>
         </div>
       )}
 
-      <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem' }}>
-        <div className="ms-form-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Sorteo</label>
+      {/* Main Card Container */}
+      <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 mb-6 space-y-5">
+        
+        {/* Row 1: Sorteo & Vendedor */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Sorteo *</label>
             <select
               value={selectedLotteryId}
               onChange={e => setSelectedLotteryId(e.target.value)}
-              style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem', backgroundColor: '#fff' }}
+              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
             >
               <option value="">-- Selecciona Sorteo --</option>
               {allLotteries.map(l => (
@@ -292,12 +387,13 @@ export default function ManualSale() {
               ))}
             </select>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Vendedor</label>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Vendedor *</label>
             <select
               value={vendorId}
               onChange={e => setVendorId(e.target.value)}
-              style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem', backgroundColor: '#fff' }}
+              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
             >
               <option value="">-- Selecciona Vendedor --</option>
               {vendors.map(v => (
@@ -307,77 +403,251 @@ export default function ManualSale() {
           </div>
         </div>
 
-        <div className="ms-form-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Denominación</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="button" onClick={() => setSaleMode(0.20)} style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: `2px solid ${saleMode === 0.20 ? '#0d9488' : '#e2e8f0'}`, backgroundColor: saleMode === 0.20 ? '#f0fdfa' : '#fff', color: saleMode === 0.20 ? '#0d9488' : '#64748b', fontWeight: 'bold', cursor: 'pointer' }}>$0.20 / vil</button>
-              <button type="button" onClick={() => setSaleMode(0.25)} style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: `2px solid ${saleMode === 0.25 ? '#0284c7' : '#e2e8f0'}`, backgroundColor: saleMode === 0.25 ? '#f0f9ff' : '#fff', color: saleMode === 0.25 ? '#0284c7' : '#64748b', fontWeight: 'bold', cursor: 'pointer' }}>$0.25 / vil</button>
+        {/* Row 2: Modalidad, Cliente, Fecha */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Denominación</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSaleMode(0.20)}
+                className={`flex-1 py-2.5 px-3 rounded-xl font-black text-sm border-2 transition-all ${saleMode === 0.20 ? 'border-teal-600 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+              >
+                $0.20 / vil
+              </button>
+              <button
+                type="button"
+                onClick={() => setSaleMode(0.25)}
+                className={`flex-1 py-2.5 px-3 rounded-xl font-black text-sm border-2 transition-all ${saleMode === 0.25 ? 'border-sky-600 bg-sky-50 text-sky-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+              >
+                $0.25 / vil
+              </button>
             </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Cliente (opcional)</label>
-            <input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nombre" style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem' }} />
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Cliente (Opcional)</label>
+            <input
+              type="text"
+              value={clientName}
+              onChange={e => setClientName(e.target.value)}
+              placeholder="Nombre del cliente"
+              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
+            />
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Fecha</label>
-            <input type="date" value={saleDate} onChange={e => setSaleDate(e.target.value)} style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem', backgroundColor: '#fff' }} />
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Fecha de Venta</label>
+            <input
+              type="date"
+              value={saleDate}
+              onChange={e => setSaleDate(e.target.value)}
+              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
+            />
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.2rem', marginBottom: '1.2rem' }}>
-          <div className="ms-form-row" style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ width: '120px' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.3rem' }}>Viles</label>
-              <input type="number" value={currentAmount} onChange={e => setCurrentAmount(e.target.value)} placeholder="0" min={1} style={{ padding: '0.75rem', borderRadius: '6px', border: '2px solid #3b82f6', width: '100%', fontSize: '1.1rem', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#f0f9ff' }} />
+        {/* Input Bar: Viles, Número, Decena */}
+        <div className="pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            
+            {/* Viles */}
+            <div className="sm:col-span-3">
+              <label className="block text-xs font-bold text-slate-600 mb-1">Viles (Cantidad)</label>
+              <input
+                type="number"
+                value={currentAmount}
+                onChange={e => setCurrentAmount(e.target.value)}
+                placeholder="Ej. 5"
+                min={1}
+                className="w-full p-3 rounded-xl border-2 border-teal-500 bg-teal-50/50 text-slate-900 font-black text-center text-lg outline-none focus:bg-white transition-colors"
+              />
             </div>
-            <div style={{ flex: '1 1 200px', display: 'flex', gap: '0.4rem', alignItems: 'flex-end', backgroundColor: '#f8fafc', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <div style={{ width: '90px' }}>
-                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.2rem' }}>Número</label>
-                <input type="text" value={currentNumber} onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="00" maxLength={2} onKeyDown={e => { if (e.key === 'Enter') addPlay(); }} style={{ padding: '0.65rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '1.1rem', textAlign: 'center', fontWeight: 'bold' }} />
+
+            {/* Número individual */}
+            <div className="sm:col-span-5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex gap-2 items-center">
+              <div className="w-24">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">Número</label>
+                <input
+                  type="text"
+                  value={currentNumber}
+                  onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="00"
+                  maxLength={2}
+                  onKeyDown={e => { if (e.key === 'Enter') addPlay(); }}
+                  className="w-full p-2 rounded-lg border border-slate-300 text-slate-900 font-mono font-black text-center text-lg outline-none bg-white"
+                />
               </div>
+
               {editIdx === null ? (
-                <button type="button" onClick={addPlay} style={{ padding: '0.65rem 1rem', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: '#fff', cursor: 'pointer', fontWeight: 'bold', height: '42px' }}>+ Número</button>
+                <button
+                  type="button"
+                  onClick={addPlay}
+                  className="flex-1 py-3 px-3 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-sm rounded-lg transition-all"
+                >
+                  + Agregar
+                </button>
               ) : (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" onClick={confirmEdit} style={{ padding: '0.55rem 0.8rem', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>Guardar</button>
-                  <button type="button" onClick={cancelEdit} style={{ padding: '0.55rem 0.8rem', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fff', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+                <div className="flex-1 flex gap-1.5">
+                  <button type="button" onClick={confirmEdit} className="flex-1 py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg">Guardar</button>
+                  <button type="button" onClick={cancelEdit} className="flex-1 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-lg">Cancelar</button>
                 </div>
               )}
             </div>
-            <div style={{ flex: '1 1 260px', display: 'flex', gap: '0.4rem', alignItems: 'flex-end', backgroundColor: '#f0fdf4', padding: '0.6rem', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-              <select onChange={e => { if (e.target.value !== '') { addDecade(e.target.value); e.target.value = ''; } }} style={{ padding: '0.65rem', borderRadius: '6px', border: '1px solid #86efac', width: '100%', cursor: 'pointer' }}>
-                <option value="">+ Seleccionar Decena</option>
-                {[...Array(10)].map((_, i) => <option key={i} value={i}>Decena del {i} ({i}0 a {i}9)</option>)}
+
+            {/* Decenas Rápidas */}
+            <div className="sm:col-span-4 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200">
+              <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">Rápido por Decenas</label>
+              <select
+                onChange={e => { if (e.target.value !== '') { addDecade(e.target.value); e.target.value = ''; } }}
+                className="w-full p-2.5 rounded-lg border border-emerald-300 text-emerald-900 bg-white font-bold text-xs outline-none cursor-pointer"
+              >
+                <option value="">+ Seleccionar Decena...</option>
+                {[...Array(10)].map((_, i) => (
+                  <option key={i} value={i}>Decena del {i} ({i}0 al {i}9)</option>
+                ))}
               </select>
             </div>
+
           </div>
         </div>
 
-        {plays.length > 0 && (
-          <div style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                {plays.map((p, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '0.6rem' }}>{p.number}</td>
-                    <td style={{ padding: '0.6rem' }}>{p.amount} viles</td>
-                    <td style={{ padding: '0.6rem', textAlign: 'right' }}>
-                      <button onClick={() => startEdit(idx)} style={{ color: '#0284c7', border: 'none', background: 'none' }}><Edit size={16} /></button>
-                      <button onClick={() => removePlay(idx)} style={{ color: '#ef4444', border: 'none', background: 'none' }}><Trash2 size={16} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Plays Table / Chips */}
+        {plays.length > 0 ? (
+          <div className="border border-slate-200 rounded-xl overflow-hidden mt-4">
+            <div className="bg-slate-100 px-4 py-2.5 flex justify-between items-center border-b border-slate-200">
+              <span className="text-xs font-bold text-slate-700 uppercase">
+                {plays.length} Jugadas Agregadas ({totalViles} Viles)
+              </span>
+              <button
+                type="button"
+                onClick={() => setPlays([])}
+                className="text-xs text-red-600 hover:text-red-700 font-bold"
+              >
+                Vaciar lista
+              </button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
+              {plays.map((p, idx) => (
+                <div key={idx} className="flex justify-between items-center px-4 py-2.5 hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
+                    <span className="px-2.5 py-1 bg-teal-50 border border-teal-200 text-teal-800 font-mono font-black rounded-lg text-base">
+                      {p.number}
+                    </span>
+                    <span className="text-xs font-bold text-slate-600">
+                      {p.amount} viles (${(p.amount * saleMode).toFixed(2)})
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => startEdit(idx)} className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg"><Edit size={16} /></button>
+                    <button type="button" onClick={() => removePlay(idx)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
+            <FileText size={32} className="mx-auto text-slate-300 mb-2" />
+            <p className="text-sm font-bold text-slate-500">No hay jugadas agregadas aún</p>
+            <p className="text-xs text-slate-400 mt-1">Ingresa números arriba o haz clic en "Pegar Lista de Números".</p>
           </div>
         )}
 
-        <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: '1rem', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-          {saving ? 'Registrando...' : 'Finalizar Venta'}
-        </button>
+        {/* Submit Bar */}
+        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase block">Total Viles</span>
+              <span className="text-xl font-black text-slate-800 font-mono">{totalViles}</span>
+            </div>
+            <div className="h-8 w-px bg-slate-200" />
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase block">Total a Pagar</span>
+              <span className="text-2xl font-black text-emerald-600 font-mono">${totalUSD.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={saving || plays.length === 0}
+            className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-base rounded-xl shadow-lg transition-all active:scale-95"
+          >
+            {saving ? 'Guardando en Base de Datos...' : `Finalizar Venta ($${totalUSD.toFixed(2)})`}
+          </button>
+        </div>
+
       </div>
+
+      {/* ── MODAL: PEGAR LISTA DE NÚMEROS ── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-slideUp">
+            
+            <div className="bg-teal-700 text-white p-4 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Clipboard size={20} />
+                <h3 className="font-bold text-base">Pegar Lista de Jugadas</h3>
+              </div>
+              <button onClick={() => setShowImportModal(false)} className="text-white/80 hover:text-white"><X size={20} /></button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-600">
+                Pega directamente el mensaje de WhatsApp o lista de números. Acepta cualquier formato común:
+              </p>
+              
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-500 font-mono space-y-1">
+                <div>• <span className="text-teal-700 font-bold">14x5, 27x10, 05x2</span> (con comas o renglón)</div>
+                <div>• <span className="text-teal-700 font-bold">14-5</span> ó <span className="text-teal-700 font-bold">14 5</span> ó <span className="text-teal-700 font-bold">14=5</span> ó <span className="text-teal-700 font-bold">14(5)</span></div>
+                <div>• <span className="text-teal-700 font-bold">5 del 14</span> ó <span className="text-teal-700 font-bold">14 con 5</span></div>
+                <div>• <span className="text-teal-700 font-bold">D3x5</span> (Decena del 3 a 5 viles)</div>
+              </div>
+
+              <textarea
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                placeholder="Pega aquí el texto... Ej:&#10;Cliente: Carlos&#10;14x5&#10;27x10&#10;05x2&#10;D4x5"
+                rows={7}
+                className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-teal-500 transition-colors resize-none bg-slate-50"
+                autoFocus
+              />
+
+              {importError && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle size={16} />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProcessImport}
+                  className="flex-1 py-3 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 shadow-md"
+                >
+                  Importar Jugadas
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
+}
+
 }
 
