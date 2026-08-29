@@ -54,20 +54,25 @@ export default function AdminReports() {
         
         if (data.length > 0) {
           const ticketIds = data.map(t => t.id);
-          const { data: payoutsData } = await supabase
-            .from('payouts')
-            .select('ticket_id, amount, paid_by')
-            .in('ticket_id', ticketIds);
-
-          if (payoutsData) {
-            setPayouts(payoutsData);
-          } else {
-            setPayouts([]);
+          const chunkSize = 50;
+          const chunks: string[][] = [];
+          for (let i = 0; i < ticketIds.length; i += chunkSize) {
+            chunks.push(ticketIds.slice(i, i + chunkSize));
           }
+          const payoutPromises = chunks.map(chunk =>
+            supabase
+              .from('payouts')
+              .select('ticket_id, amount, paid_by')
+              .in('ticket_id', chunk)
+          );
+          const results = await Promise.all(payoutPromises);
+          const allPayouts = results.flatMap(r => r.data || []);
+          setPayouts(allPayouts);
         } else {
           setPayouts([]);
         }
       } else {
+
         setTickets([]);
         setPayouts([]);
       }
@@ -410,8 +415,8 @@ export default function AdminReports() {
       )}
 
       {/* GLOBAL TICKERS */}
-      <div className="rpt-money-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '4px solid #cbd5e1' }}>
+      <div className="rpt-money-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '4px solid #3b82f6' }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#6c757d', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {isGlobal ? "Venta Bruta Global" : "Venta Bruta Cajero"}
             </p>
@@ -423,6 +428,12 @@ export default function AdminReports() {
             </p>
             <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.8rem', color: '#f59e0b' }}>${displayCommission.toFixed(2)}</h3>
          </div>
+         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '4px solid #ef4444' }}>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#6c757d', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+               {isGlobal ? "Premios Pagados" : "Premios Cajero"}
+            </p>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.8rem', color: '#ef4444' }}>${displayPrizes.toFixed(2)}</h3>
+         </div>
          <div style={{ backgroundColor: '#17233D', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 12px rgba(23,35,61,0.2)', borderLeft: '4px solid #10b981', color: '#fff' }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {isGlobal ? "Utilidad Liquida a Recibir" : "Utilidad Liquida Cajero"}
@@ -430,6 +441,7 @@ export default function AdminReports() {
             <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#10b981' }}>${displayNet.toFixed(2)}</h3>
          </div>
       </div>
+
 
       {/* ANALYTICS BY MODALITY */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
