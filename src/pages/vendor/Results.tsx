@@ -31,7 +31,25 @@ export default function Results() {
 
   useEffect(() => {
     loadWinners();
+
+    // Supabase Realtime live sync for instant prize updates when results or tickets are added
+    const channel = supabase.channel('vendor-results-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => {
+        loadWinners();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        loadWinners();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
+        loadWinners();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
 
   const handlePay = async (w: PendingWinner) => {
     const shortId = w.ticket_id.split('-')[0].toUpperCase();

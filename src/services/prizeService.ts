@@ -53,7 +53,7 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
         .concat(currentUser?.username || '');
       query = query.in('vendor_id', subAdminVendorIds);
     } else if (vendorId) {
-      query = query.eq('vendor_id', vendorId);
+      query = query.ilike('vendor_id', vendorId);
     }
   }
 
@@ -127,15 +127,10 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
 
       if (prizeMultiplier > 0) {
         const awardAmount = parseFloat(item.amount) * prizeMultiplier;
+        const coveredAmount = item.covers?.reduce((sum: number, c: any) => sum + parseFloat(c.excess_amount || '0'), 0) || 0;
+        const coveredAward = coveredAmount * prizeMultiplier;
         const pos = isGranjita ? 'Ganador' : posArr.join(' y ');
-        const displayPlayed = isGranjita ? formatAnimalDisplay(item.number_played) : item.number_played;
-        const desc = `${displayPlayed} (${pos} en ${lotteryName})`;
-
-        let coveredAward = 0;
-        if (item.covers && item.covers.length > 0) {
-          const totalCoverForNumber = item.covers.reduce((sum: number, cov: any) => sum + parseFloat(cov.excess_amount || 0), 0);
-          coveredAward = totalCoverForNumber * prizeMultiplier;
-        }
+        const desc = `${item.number_played} (${pos} en ${lotteryName})`;
 
         if (!consolidated[ticket.id]) {
           consolidated[ticket.id] = {
@@ -144,7 +139,7 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
             ticket_number: ticket.ticket_number,
             number: item.number_played,
             grossPrize: 0,
-            alreadyPaid: paidMap[ticket.id] || 0,
+            alreadyPaid: 0,
             remainingPrize: 0,
             reimbursement: 0,
             client: ticket.client_name,
@@ -164,23 +159,30 @@ export async function fetchPendingWinners(vendorId?: string, includePaid: boolea
     });
   });
 
-  // 4. Fetch payouts ONLY for actual winning tickets in 1 single instant query
+  // 4. Fetch payouts in safe parallel batches of 30 to prevent oversized URLs
   const winningTicketIds = Object.keys(consolidated);
   const paidMap: Record<string, number> = {};
 
   if (winningTicketIds.length > 0) {
-    const { data: payouts, error: pErr } = await supabase
-      .from('payouts')
-      .select('ticket_id, amount, paid_by')
-      .in('ticket_id', winningTicketIds);
-
-    if (!pErr && payouts) {
-      payouts.forEach((p: any) => {
-        if (p.paid_by !== 'EXTERNAL_BANK_REIMBURSEMENT') {
-          paidMap[p.ticket_id] = (paidMap[p.ticket_id] || 0) + parseFloat(p.amount || '0');
-        }
-      });
+    const chunkSize = 30;
+    const chunks: string[][] = [];
+    for (let i = 0; i < winningTicketIds.length; i += chunkSize) {
+      chunks.push(winningTicketIds.slice(i, i + chunkSize));
     }
+    const resultsArr = await Promise.all(
+      chunks.map(chunk =>
+        supabase.from('payouts').select('ticket_id, amount, paid_by').in('ticket_id', chunk)
+      )
+    );
+    resultsArr.forEach(({ data: payouts }) => {
+      if (payouts) {
+        payouts.forEach((p: any) => {
+          if (p.paid_by !== 'EXTERNAL_BANK_REIMBURSEMENT') {
+            paidMap[p.ticket_id] = (paidMap[p.ticket_id] || 0) + parseFloat(p.amount || '0');
+          }
+        });
+      }
+    });
   }
 
   // 5. Calculate remaining prize and filter
