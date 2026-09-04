@@ -41,7 +41,7 @@ export default function ManualSale() {
     const num = currentNumber.padStart(2, '0');
     const amt = parseFloat(currentAmount);
     if (!num || num.length < 2 || isNaN(amt) || amt <= 0) {
-      alert('Ingresa un número válido (2 dígitos) y una cantidad de viles mayor a 0.');
+      alert('Ingresa un nÃºmero vÃ¡lido (2 dÃ­gitos) y una cantidad de viles mayor a 0.');
       return;
     }
     setPlays(prev => [...prev, { number: num, amount: amt }]);
@@ -78,7 +78,7 @@ export default function ManualSale() {
     const num = currentNumber.padStart(2, '0');
     const amt = parseFloat(currentAmount);
     if (!num || num.length < 2 || isNaN(amt) || amt <= 0) {
-      alert('Ingresa un número válido (2 dígitos) y una cantidad de viles mayor a 0.');
+      alert('Ingresa un nÃºmero vÃ¡lido (2 dÃ­gitos) y una cantidad de viles mayor a 0.');
       return;
     }
     setPlays(prev => {
@@ -101,7 +101,7 @@ export default function ManualSale() {
     setPlays(plays.filter((_, i) => i !== idx));
   };
 
-  // --- PARSEADOR DE TEXTO / IMPORTACIÓN RÁPIDA ---
+  // --- PARSEADOR DE TEXTO / IMPORTACIÃ“N RÃPIDA ---
   const handleProcessImport = () => {
     setImportError(null);
     if (!importText.trim()) {
@@ -148,7 +148,7 @@ export default function ManualSale() {
 
       // 2. "25-10" / "25/10"
       if (!matched) {
-        m = line.match(/^(\d{1,2})\s*[-–—\/]\s*(\d+(?:\.\d+)?)$/);
+        m = line.match(/^(\d{1,2})\s*[-â€“â€”\/]\s*(\d+(?:\.\d+)?)$/);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
@@ -158,7 +158,7 @@ export default function ManualSale() {
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
-      // 4. "10 del 25" / "10 al 25" (monto primero, número después)
+      // 4. "10 del 25" / "10 al 25" (monto primero, nÃºmero despuÃ©s)
       if (!matched) {
         m = line.match(/^(\d+(?:\.\d+)?)\s+(?:del|al|de|el)\s+(\d{1,2})$/i);
         if (m) { amt = parseFloat(m[1]); num = m[2]; matched = true; }
@@ -191,7 +191,7 @@ export default function ManualSale() {
     }
 
     if (parsedPlays.length === 0) {
-      setImportError('No se reconocieron jugadas válidas. Revisa los formatos aceptados.');
+      setImportError('No se reconocieron jugadas vÃ¡lidas. Revisa los formatos aceptados.');
       return;
     }
 
@@ -204,15 +204,7 @@ export default function ManualSale() {
   };
 
 
-  const cancelEdit = () => {
-    setCurrentNumber('');
-    setCurrentAmount('');
-    setEditIdx(null);
-  };
 
-  const removePlay = (idx: number) => {
-    setPlays(plays.filter((_, i) => i !== idx));
-  };
 
 
 
@@ -221,7 +213,7 @@ export default function ManualSale() {
 
   const handleDeleteTicket = async () => {
     if (!savedTicketId) return;
-    if (!window.confirm('¿Estás seguro de eliminar este ticket? Esta acción es irreversible.')) return;
+    if (!window.confirm('Â¿EstÃ¡s seguro de eliminar este ticket? Esta acciÃ³n es irreversible.')) return;
     try {
       const { error: tnError } = await supabase
         .from('ticket_numbers')
@@ -233,11 +225,11 @@ export default function ManualSale() {
         .delete()
         .eq('id', savedTicketId);
       if (ticketError) throw ticketError;
-      setResult({ success: true, message: '✅ Ticket eliminado correctamente.' });
+      setResult({ success: true, message: 'âœ… Ticket eliminado correctamente.' });
       setSavedTicketId(null);
     } catch (err: any) {
       console.error('Error eliminando ticket:', err);
-      setResult({ success: false, message: `❌ Error al eliminar ticket: ${err.message || err}` });
+      setResult({ success: false, message: `âŒ Error al eliminar ticket: ${err.message || err}` });
     }
   };
 
@@ -251,7 +243,7 @@ export default function ManualSale() {
       return;
     }
     if (!vendorId) {
-      alert('Selecciona el vendedor que realizó la venta.');
+      alert('Selecciona el vendedor que realizÃ³ la venta.');
       return;
     }
 
@@ -291,7 +283,7 @@ export default function ManualSale() {
 
       if (tnError) throw tnError;
 
-      setResult({ success: true, message: `✅ Venta registrada exitosamente. Ticket ID: ${ticket.id.split('-')[0].toUpperCase()} (${plays.length} jugadas - $${totalUSD.toFixed(2)})` });
+      setResult({ success: true, message: `âœ… Venta registrada exitosamente. Ticket ID: ${ticket.id.split('-')[0].toUpperCase()} (${plays.length} jugadas - $${totalUSD.toFixed(2)})` });
       setSavedTicketId(ticket.id);
       
       setPlays([]);
@@ -301,7 +293,7 @@ export default function ManualSale() {
 
     } catch (err: any) {
       console.error('Error registrando venta manual:', err);
-      setResult({ success: false, message: `❌ Error: ${err.message || JSON.stringify(err)}` });
+      setResult({ success: false, message: `âŒ Error: ${err.message || JSON.stringify(err)}` });
     } finally {
       setSaving(false);
     }
@@ -315,11 +307,11 @@ export default function ManualSale() {
         .update({ is_bank_prize: true })
         .eq('id', savedTicketId);
       if (error) throw error;
-      setResult({ success: true, message: '✅ Ticket ocultado de la vista.' });
+      setResult({ success: true, message: 'âœ… Ticket ocultado de la vista.' });
       setSavedTicketId(null);
     } catch (err: any) {
       console.error('Error ocultando ticket:', err);
-      setResult({ success: false, message: `❌ Error al ocultar ticket: ${err.message || err}` });
+      setResult({ success: false, message: `âŒ Error al ocultar ticket: ${err.message || err}` });
     }
   };
 
@@ -334,18 +326,18 @@ export default function ManualSale() {
             <Save size={22} className="text-teal-600" /> Registro de Venta Manual
           </h2>
           <p className="text-xs md:text-sm text-slate-500 mt-1">
-            Ingresa ventas fuera del sistema (WhatsApp, papel o sorteos cerrados). Aparecerán en los reportes contables.
+            Ingresa ventas fuera del sistema (WhatsApp, papel o sorteos cerrados). AparecerÃ¡n en los reportes contables.
           </p>
         </div>
 
-        {/* Botón Pegar Lista */}
+        {/* BotÃ³n Pegar Lista */}
         <button
           type="button"
           onClick={() => setShowImportModal(true)}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95"
         >
           <Clipboard size={18} />
-          <span>Pegar Lista de Números</span>
+          <span>Pegar Lista de NÃºmeros</span>
         </button>
       </div>
 
@@ -406,7 +398,7 @@ export default function ManualSale() {
         {/* Row 2: Modalidad, Cliente, Fecha */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Denominación</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">DenominaciÃ³n</label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -447,7 +439,7 @@ export default function ManualSale() {
           </div>
         </div>
 
-        {/* Input Bar: Viles, Número, Decena */}
+        {/* Input Bar: Viles, NÃºmero, Decena */}
         <div className="pt-4 border-t border-slate-100">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
             
@@ -464,10 +456,10 @@ export default function ManualSale() {
               />
             </div>
 
-            {/* Número individual */}
+            {/* NÃºmero individual */}
             <div className="sm:col-span-5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex gap-2 items-center">
               <div className="w-24">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase">Número</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">NÃºmero</label>
                 <input
                   type="text"
                   value={currentNumber}
@@ -495,9 +487,9 @@ export default function ManualSale() {
               )}
             </div>
 
-            {/* Decenas Rápidas */}
+            {/* Decenas RÃ¡pidas */}
             <div className="sm:col-span-4 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200">
-              <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">Rápido por Decenas</label>
+              <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">RÃ¡pido por Decenas</label>
               <select
                 onChange={e => { if (e.target.value !== '') { addDecade(e.target.value); e.target.value = ''; } }}
                 className="w-full p-2.5 rounded-lg border border-emerald-300 text-emerald-900 bg-white font-bold text-xs outline-none cursor-pointer"
@@ -552,8 +544,8 @@ export default function ManualSale() {
         ) : (
           <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
             <FileText size={32} className="mx-auto text-slate-300 mb-2" />
-            <p className="text-sm font-bold text-slate-500">No hay jugadas agregadas aún</p>
-            <p className="text-xs text-slate-400 mt-1">Ingresa números arriba o haz clic en "Pegar Lista de Números".</p>
+            <p className="text-sm font-bold text-slate-500">No hay jugadas agregadas aÃºn</p>
+            <p className="text-xs text-slate-400 mt-1">Ingresa nÃºmeros arriba o haz clic en "Pegar Lista de NÃºmeros".</p>
           </div>
         )}
 
@@ -582,7 +574,7 @@ export default function ManualSale() {
 
       </div>
 
-      {/* ── MODAL: PEGAR LISTA DE NÚMEROS ── */}
+      {/* â”€â”€ MODAL: PEGAR LISTA DE NÃšMEROS â”€â”€ */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-slideUp">
@@ -597,20 +589,20 @@ export default function ManualSale() {
 
             <div className="p-5 space-y-4">
               <p className="text-xs text-slate-600">
-                Pega directamente el mensaje de WhatsApp o lista de números. Acepta cualquier formato común:
+                Pega directamente el mensaje de WhatsApp o lista de nÃºmeros. Acepta cualquier formato comÃºn:
               </p>
               
               <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-500 font-mono space-y-1">
-                <div>• <span className="text-teal-700 font-bold">14x5, 27x10, 05x2</span> (con comas o renglón)</div>
-                <div>• <span className="text-teal-700 font-bold">14-5</span> ó <span className="text-teal-700 font-bold">14 5</span> ó <span className="text-teal-700 font-bold">14=5</span> ó <span className="text-teal-700 font-bold">14(5)</span></div>
-                <div>• <span className="text-teal-700 font-bold">5 del 14</span> ó <span className="text-teal-700 font-bold">14 con 5</span></div>
-                <div>• <span className="text-teal-700 font-bold">D3x5</span> (Decena del 3 a 5 viles)</div>
+                <div>â€¢ <span className="text-teal-700 font-bold">14x5, 27x10, 05x2</span> (con comas o renglÃ³n)</div>
+                <div>â€¢ <span className="text-teal-700 font-bold">14-5</span> Ã³ <span className="text-teal-700 font-bold">14 5</span> Ã³ <span className="text-teal-700 font-bold">14=5</span> Ã³ <span className="text-teal-700 font-bold">14(5)</span></div>
+                <div>â€¢ <span className="text-teal-700 font-bold">5 del 14</span> Ã³ <span className="text-teal-700 font-bold">14 con 5</span></div>
+                <div>â€¢ <span className="text-teal-700 font-bold">D3x5</span> (Decena del 3 a 5 viles)</div>
               </div>
 
               <textarea
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
-                placeholder="Pega aquí el texto... Ej:&#10;Cliente: Carlos&#10;14x5&#10;27x10&#10;05x2&#10;D4x5"
+                placeholder="Pega aquÃ­ el texto... Ej:&#10;Cliente: Carlos&#10;14x5&#10;27x10&#10;05x2&#10;D4x5"
                 rows={7}
                 className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-teal-500 transition-colors resize-none bg-slate-50"
                 autoFocus
@@ -648,6 +640,3 @@ export default function ManualSale() {
     </div>
   );
 }
-
-}
-
