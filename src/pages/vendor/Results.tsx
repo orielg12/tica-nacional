@@ -198,6 +198,7 @@ export default function Results() {
               <div className="flex flex-col">
                 <span className="text-xs">
                   Ticket: <span className="text-white font-mono font-bold">#{w.ticket_number || w.ticket_id.split('-')[0].toUpperCase()}</span>
+                  {w.ticket_date && <span className="text-teal-400 font-bold ml-2">({w.ticket_date})</span>}
                 </span>
                 <span className="text-xs text-sky-400 font-bold mt-0.5">{w.description}</span>
                 <span className="text-xs mt-0.5">Cliente: <span className="text-white font-bold">{w.client || 'General'}</span></span>

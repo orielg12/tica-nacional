@@ -31,42 +31,92 @@ export async function fetchPendingWinners(
   const isAdmin = (rawRole === 'admin') && !currentUser?.isSubAdmin;
   const isSubAdmin = currentUser?.isSubAdmin;
 
-  // Filtrar exclusivamente los tickets del día solicitado (por defecto HOY en Panamá)
-  const targetDay = targetDate || getPanamaLocalISODate();
-  const startOfDay = getStartOfPanamaDayUTC(targetDay);
-  const endOfDay = getEndOfPanamaDayUTC(targetDay);
+  // Si se especifica una fecha histórica puntual (distinta de hoy), se consulta solo esa fecha.
+  // Por defecto (hoy), se consultan los tickets de HOY + tickets ANTERIORES que NO se hayan cobrado aún (status = 'active')
+  const todayPanama = getPanamaLocalISODate();
+  const isHistoricalSpecificDate = targetDate && targetDate !== todayPanama;
 
-  let ticketQuery = supabase
-    .from('tickets')
-    .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
-    .eq('is_bank_prize', false)
-    .gte('created_at', startOfDay)
-    .lte('created_at', endOfDay)
-    .in('status', ['active', 'paid'])
-    .order('created_at', { ascending: false });
+  let tickets: any[] = [];
 
-  if (!isAdmin) {
-    if (isSubAdmin) {
-      let users = store.users;
-      if (!users || users.length === 0) {
-        await store.fetchUsers();
-        users = useStore.getState().users;
+  if (isHistoricalSpecificDate) {
+    const startOfDay = getStartOfPanamaDayUTC(targetDate!);
+    const endOfDay = getEndOfPanamaDayUTC(targetDate!);
+    let q = supabase
+      .from('tickets')
+      .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
+      .eq('is_bank_prize', false)
+      .gte('created_at', startOfDay)
+      .lte('created_at', endOfDay)
+      .in('status', ['active', 'paid'])
+      .order('created_at', { ascending: false });
+
+    if (!isAdmin) {
+      if (isSubAdmin) {
+        let users = store.users;
+        if (!users || users.length === 0) {
+          await store.fetchUsers();
+          users = useStore.getState().users;
+        }
+        const subAdminVendorIds = (users || [])
+          .filter((u: any) => u.parentAdminId === currentUser?.username)
+          .map((u: any) => u.username)
+          .concat(currentUser?.username || '');
+        q = q.in('vendor_id', subAdminVendorIds);
+      } else if (vendorId) {
+        q = q.eq('vendor_id', vendorId);
       }
-      const subAdminVendorIds = (users || [])
-        .filter((u: any) => u.parentAdminId === currentUser?.username)
-        .map((u: any) => u.username)
-        .concat(currentUser?.username || '');
-      ticketQuery = ticketQuery.in('vendor_id', subAdminVendorIds);
-    } else if (vendorId) {
-      ticketQuery = ticketQuery.eq('vendor_id', vendorId);
     }
+    const { data, error } = await q;
+    if (error) throw error;
+    tickets = data || [];
+  } else {
+    // Modo normal: HOY + ANTERIORES PENDIENTES DE COBRO (status='active')
+    const startOfToday = getStartOfPanamaDayUTC(todayPanama);
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+    let todayQuery = supabase
+      .from('tickets')
+      .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
+      .eq('is_bank_prize', false)
+      .gte('created_at', startOfToday)
+      .in('status', ['active', 'paid']);
+
+    let pastPendingQuery = supabase
+      .from('tickets')
+      .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
+      .eq('is_bank_prize', false)
+      .lt('created_at', startOfToday)
+      .gte('created_at', fourteenDaysAgo)
+      .eq('status', 'active'); // SOLO NO COBRADOS de días anteriores
+
+    if (!isAdmin) {
+      if (isSubAdmin) {
+        let users = store.users;
+        if (!users || users.length === 0) {
+          await store.fetchUsers();
+          users = useStore.getState().users;
+        }
+        const subAdminVendorIds = (users || [])
+          .filter((u: any) => u.parentAdminId === currentUser?.username)
+          .map((u: any) => u.username)
+          .concat(currentUser?.username || '');
+        todayQuery = todayQuery.in('vendor_id', subAdminVendorIds);
+        pastPendingQuery = pastPendingQuery.in('vendor_id', subAdminVendorIds);
+      } else if (vendorId) {
+        todayQuery = todayQuery.eq('vendor_id', vendorId);
+        pastPendingQuery = pastPendingQuery.eq('vendor_id', vendorId);
+      }
+    }
+
+    const [todayRes, pastRes] = await Promise.all([todayQuery, pastPendingQuery]);
+    if (todayRes.error) throw todayRes.error;
+    if (pastRes.error) throw pastRes.error;
+    tickets = [...(todayRes.data || []), ...(pastRes.data || [])];
   }
 
-  const { data: tickets, error: tErr } = await ticketQuery;
-  if (tErr) { console.error('[prizeService] tickets error:', tErr); throw tErr; }
   if (!tickets || tickets.length === 0) return [];
 
-  console.log('[prizeService] tickets today:', tickets.length, 'vendorId:', vendorId, 'date:', targetDay);
+  console.log('[prizeService] tickets fetched:', tickets.length, 'vendorId:', vendorId);
 
   const allTicketIds = tickets.map((t: any) => t.id);
   const ticketNumbersAll: any[] = [];
@@ -75,12 +125,19 @@ export async function fetchPendingWinners(
     chunks.push(allTicketIds.slice(i, i + 100));
   }
 
-  // Ejecución en paralelo de números de tickets y resultados del día
+  // Rango de fechas de los tickets obtenidos para traer los resultados correspondientes
+  const rawDates = tickets.map((t: any) => getPanamaLocalISODate(new Date(t.created_at)));
+  const dates = [...new Set(rawDates)].sort() as string[];
+  const minDate = dates[0];
+  const maxDate = dates[dates.length - 1];
+
+  // Ejecución en paralelo de números de tickets y resultados
   const [resultsRes, ...tnResults] = await Promise.all([
     supabase
       .from('results')
       .select('draw_id, date, winning_number')
-      .eq('date', targetDay),
+      .gte('date', minDate)
+      .lte('date', maxDate),
     ...chunks.map(chunk =>
       supabase
         .from('ticket_numbers')
@@ -88,6 +145,7 @@ export async function fetchPendingWinners(
         .in('ticket_id', chunk)
     )
   ]);
+
 
   if (resultsRes.error) {
     console.error('[prizeService] results error:', resultsRes.error);
