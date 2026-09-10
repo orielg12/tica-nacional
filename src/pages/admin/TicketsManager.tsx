@@ -4,6 +4,8 @@ import { supabase } from '../../utils/supabase';
 import { Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import TicketDetailsModal from '../../components/TicketDetailsModal';
+import { isGranjitaLottery } from '../../utils/lotteryRules';
+import { formatAnimalDisplay } from '../../utils/granjitaAnimals';
 
 export default function TicketsManager() {
   const store = useStore();
@@ -11,6 +13,7 @@ export default function TicketsManager() {
   const [loading, setLoading] = useState(false);
   const [filterDate, setFilterDate] = useState(() => getLocalISODate());
   const [filterVendor, setFilterVendor] = useState<string>('all');
+  const [filterModality, setFilterModality] = useState<'all' | 'regular' | 'granjita'>('all');
   const [vendors, setVendors] = useState<string[]>([]);
   const [viewingTicketId, setViewingTicketId] = useState<string | null>(null);
 
@@ -58,7 +61,7 @@ export default function TicketsManager() {
     try {
       let query = supabase
         .from('tickets')
-        .select('*, ticket_numbers(number_played, amount)')
+        .select('*, ticket_numbers(draw_id, number_played, amount)')
         .gte('created_at', getStartOfDayUTC(filterDate))
         .lte('created_at', getEndOfDayUTC(filterDate))
         .eq('is_bank_prize', false)
@@ -183,10 +186,18 @@ export default function TicketsManager() {
     }, 50);
   };
 
+  // Filter by modality (Granjita vs Tradicional)
+  const filteredTickets = tickets.filter(t => {
+    const hasGranjita = t.ticket_numbers?.some((tn: any) => isGranjitaLottery(tn.draw_id));
+    if (filterModality === 'granjita') return hasGranjita;
+    if (filterModality === 'regular') return !hasGranjita;
+    return true;
+  });
+
   // Metrics
-  const validTickets = tickets.filter(t => t.status !== 'cancelled');
+  const validTickets = filteredTickets.filter(t => t.status !== 'cancelled');
   const totalSales = validTickets.reduce((sum, t) => sum + parseFloat(t.total_amount), 0);
-  const cancelledTickets = tickets.filter(t => t.status === 'cancelled');
+  const cancelledTickets = filteredTickets.filter(t => t.status === 'cancelled');
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -196,8 +207,8 @@ export default function TicketsManager() {
       </header>
 
       {/* Control Panel */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', background: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-        <div style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', background: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold', color: '#8b9bb4', marginBottom: '0.5rem' }}>Fecha de Operación</label>
           <input 
             type="date" 
@@ -206,7 +217,7 @@ export default function TicketsManager() {
             style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #e2e8f0', outline: 'none' }}
           />
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold', color: '#8b9bb4', marginBottom: '0.5rem' }}>Listar por Vendedor</label>
           <select 
             value={filterVendor}
@@ -217,6 +228,18 @@ export default function TicketsManager() {
             {vendors.map(v => (
                <option key={v} value={v}>{v.toUpperCase()}</option>
             ))}
+          </select>
+        </div>
+        <div style={{ flex: '1 1 200px' }}>
+          <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold', color: '#8b9bb4', marginBottom: '0.5rem' }}>Modalidad / Lotería</label>
+          <select 
+            value={filterModality}
+            onChange={e => setFilterModality(e.target.value as any)}
+            style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #e2e8f0', outline: 'none', fontWeight: 'bold', color: '#1e293b' }}
+          >
+            <option value="all">TODAS LAS MODALIDADES</option>
+            <option value="regular">🎲 TIEMPOS / TRADICIONAL</option>
+            <option value="granjita">🚜 LA GRANJITA</option>
           </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -261,20 +284,38 @@ export default function TicketsManager() {
           <tbody>
             {loading ? (
                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>Cargando datos del servidor...</td></tr>
-            ) : tickets.length === 0 ? (
-               <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>No hay transacciones guardadas.</td></tr>
+            ) : filteredTickets.length === 0 ? (
+               <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>No hay transacciones guardadas para este filtro.</td></tr>
             ) : (
-              tickets.map(t => (
+              filteredTickets.map(t => {
+                const isGranjita = t.ticket_numbers?.some((tn: any) => isGranjitaLottery(tn.draw_id));
+                return (
                 <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9', background: t.status === 'cancelled' ? '#fef2f2' : 'white', opacity: t.status === 'cancelled' ? 0.8 : 1 }}>
                   <td style={{ padding: '1rem', color: '#1e293b' }}>{new Date(t.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#3399ff', fontWeight: 'bold' }}>{t.id.split('-')[0].toUpperCase()}</td>
+                  <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#3399ff', fontWeight: 'bold' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span>{t.id.split('-')[0].toUpperCase()}</span>
+                      {isGranjita ? (
+                        <span style={{ background: '#ecfdf5', color: '#0d9488', border: '1px solid #99f6e4', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                          🚜 GRANJITA
+                        </span>
+                      ) : (
+                        <span style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                          🎲 TIEMPOS
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ padding: '1rem', color: '#1e293b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t.vendor_id || 'Anónimo'}</td>
                   <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.85rem' }}>{t.client_name || '—'}</td>
                   <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: t.status === 'cancelled' ? '#dc2626' : '#10b981', fontSize: '0.95rem' }}>
                     ${parseFloat(t.total_amount || '0').toFixed(2)}
                   </td>
-                  <td style={{ padding: '1rem', color: t.status === 'cancelled' ? '#dc2626' : '#3399ff', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                    {t.ticket_numbers?.map((n: any) => `${n.number_played} (${n.amount}t)`).join(', ')}
+                  <td style={{ padding: '1rem', color: t.status === 'cancelled' ? '#dc2626' : (isGranjita ? '#0d9488' : '#3399ff'), fontWeight: 'bold', fontSize: '0.85rem' }}>
+                    {isGranjita
+                      ? t.ticket_numbers?.map((n: any) => `${formatAnimalDisplay(n.number_played)} (${n.amount}v)`).join(', ')
+                      : t.ticket_numbers?.map((n: any) => `${n.number_played} (${n.amount}t)`).join(', ')
+                    }
                   </td>
                   <td style={{ padding: '1rem' }}>
                      {t.status === 'cancelled' ? (
@@ -308,7 +349,7 @@ export default function TicketsManager() {
                     )}
                   </td>
                 </tr>
-              ))
+              ); })
             )}
           </tbody>
         </table>
