@@ -1,5 +1,5 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabase';
 import { Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
@@ -81,9 +81,31 @@ export default function TicketsManager() {
     }
   };
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     loadTickets();
+
+    const channel = supabase
+      .channel('tickets-manager-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tickets' },
+        () => {
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          debounceRef.current = setTimeout(() => {
+            loadTickets();
+          }, 600);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
   }, [filterDate, filterVendor]);
+
 
   const handleAnular = async (id: string) => {
     if (!window.confirm('¿Confirmas que deseas anular este ticket administrativamente?')) return;
@@ -229,6 +251,8 @@ export default function TicketsManager() {
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Hora</th>
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Ticket ID</th>
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Vendedor</th>
+              <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Cliente</th>
+              <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0', textAlign: 'right' }}>Monto</th>
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Detalle de Apuntes</th>
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Estado</th>
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0', textAlign: 'right' }}>Acción</th>
@@ -236,15 +260,19 @@ export default function TicketsManager() {
           </thead>
           <tbody>
             {loading ? (
-               <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>Cargando datos del servidor...</td></tr>
+               <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>Cargando datos del servidor...</td></tr>
             ) : tickets.length === 0 ? (
-               <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>No hay transacciones guardadas.</td></tr>
+               <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#8b9bb4' }}>No hay transacciones guardadas.</td></tr>
             ) : (
               tickets.map(t => (
                 <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9', background: t.status === 'cancelled' ? '#fef2f2' : 'white', opacity: t.status === 'cancelled' ? 0.8 : 1 }}>
                   <td style={{ padding: '1rem', color: '#1e293b' }}>{new Date(t.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
                   <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#3399ff', fontWeight: 'bold' }}>{t.id.split('-')[0].toUpperCase()}</td>
                   <td style={{ padding: '1rem', color: '#1e293b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t.vendor_id || 'Anónimo'}</td>
+                  <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.85rem' }}>{t.client_name || '—'}</td>
+                  <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: t.status === 'cancelled' ? '#dc2626' : '#10b981', fontSize: '0.95rem' }}>
+                    ${parseFloat(t.total_amount || '0').toFixed(2)}
+                  </td>
                   <td style={{ padding: '1rem', color: t.status === 'cancelled' ? '#dc2626' : '#3399ff', fontWeight: 'bold', fontSize: '0.85rem' }}>
                     {t.ticket_numbers?.map((n: any) => `${n.number_played} (${n.amount}t)`).join(', ')}
                   </td>
