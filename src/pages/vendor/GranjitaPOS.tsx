@@ -160,13 +160,12 @@ export default function GranjitaPOS() {
   };
 
   const generateGranjitaShareMessage = (
-    ticketId: string,
+    _ticketId: string,
     cartItems: typeof granjitaCart,
     selectedLots: LotteryConfig[],
     client: string
   ) => {
     const timesStr = selectedLots.map(l => formatLotteryTime(l.hour, l.minute)).join(', ');
-    const shortId = ticketId ? ticketId.split('-')[0].toUpperCase() : '';
     
     let msg = `🚜 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n`;
     if (client && client.trim()) {
@@ -186,9 +185,6 @@ export default function GranjitaPOS() {
     });
 
     msg += `\n💰 *Total:* $${totalAmount.toFixed(2)}`;
-    if (shortId) {
-      msg += `\n🆔 *Ticket:* #${shortId}`;
-    }
 
     return msg.trim();
   };
