@@ -4,7 +4,7 @@ import { isGranjitaLottery, type LotteryConfig, formatLotteryTime, getAvailableL
 import { processSale } from '../../services/saleService';
 import { fetchPendingWinners, type PendingWinner } from '../../services/prizeService';
 import { getDecadeNumbers } from '../../utils/math';
-import { Trash2, Copy, Plus, X, Printer as PrinterIcon, FileText, MessageCircle } from 'lucide-react';
+import { Trash2, Copy, Plus, X, Printer as PrinterIcon, FileText, MessageCircle, Lock, Unlock } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { BluetoothSerial } from '@e-is/capacitor-bluetooth-serial';
 import { supabase } from '../../utils/supabase';
@@ -54,6 +54,7 @@ export default function POS() {
   // Form State
   const [currentNumber, setCurrentNumber] = useState('');
   const [currentAmount, setCurrentAmount] = useState('');
+  const [isAmountFrozen, setIsAmountFrozen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [ticketDate, setTicketDate] = useState(() => {
     const today = new Date();
@@ -171,6 +172,8 @@ export default function POS() {
         setCurrentNumber(newNumber);
       }
     } else {
+      // Si tiempos está congelado, no modificar el monto
+      if (isAmountFrozen) return;
       if (currentAmount.length + val.length <= 6) { 
         setCurrentAmount(currentAmount + val);
       }
@@ -195,11 +198,14 @@ export default function POS() {
 
     if (focusedInput === 'number') {
       if (currentNumber === '') {
-         setFocusedInput('amount');
+         if (!isAmountFrozen) {
+           setFocusedInput('amount');
+         }
       } else {
          setCurrentNumber(currentNumber.slice(0, -1));
       }
     } else {
+      if (isAmountFrozen) return;
       if (currentAmount !== '') {
          setCurrentAmount(currentAmount.slice(0, -1));
       }
@@ -234,8 +240,13 @@ export default function POS() {
 
     store.addNumber(currentNumber, amount);
     setCurrentNumber('');
-    setCurrentAmount('');
-    setFocusedInput('amount'); // Volver a empezar en TIEMPOS
+    if (isAmountFrozen) {
+      // Conservar el monto y mantener el foco en número para seguir jugando rápido
+      setFocusedInput('number');
+    } else {
+      setCurrentAmount('');
+      setFocusedInput('amount'); // Volver a empezar en TIEMPOS
+    }
   };
 
   // ── PHYSICAL KEYBOARD SUPPORT ──
@@ -902,8 +913,12 @@ export default function POS() {
     if (!isNaN(amount) && amount > 0 && store.selectedLotteries.length > 0) {
       const nums = getDecadeNumbers(parseInt(digit));
       nums.forEach(n => store.addNumber(n, amount));
-      setCurrentAmount('');
-      setFocusedInput('amount');
+      if (isAmountFrozen) {
+        setFocusedInput('number');
+      } else {
+        setCurrentAmount('');
+        setFocusedInput('amount');
+      }
     }
     setDecadePopup(null);
   };
@@ -1112,6 +1127,50 @@ export default function POS() {
     return () => window.removeEventListener('resize', checkSize);
   }, []);
 
+  const renderPreparationControls = () => (
+    <div className="px-1 py-1 flex gap-2 w-full items-center">
+       <input 
+         type="text" 
+         dir="ltr"
+         autoComplete="off"
+         autoCorrect="off"
+         spellCheck={false}
+         placeholder="Nombre del cliente (Opcional)" 
+         value={clientName}
+         onChange={(e) => setClientName(e.target.value)}
+         onFocus={(e) => {
+           setTimeout(() => {
+             e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+           }, 300);
+         }}
+         onKeyDown={(e) => {
+           if (e.key === 'Enter') {
+             e.currentTarget.blur();
+           }
+         }}
+         className={`flex-1 ${bgInput} border ${borderNumpad} ${textInputValue} rounded-lg p-2.5 text-sm outline-none focus:border-sky-500 transition-colors ${tc('placeholder-gray-600','placeholder-slate-400')}`}
+       />
+       <button
+         type="button"
+         onClick={() => setShowRepeatModal(true)}
+         className={`${tc('bg-teal-600 hover:bg-teal-500 active:bg-teal-700', 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap`}
+         title="Repetir jugada anterior"
+       >
+         <Copy size={16} />
+         <span>Repetir</span>
+       </button>
+       <button
+         type="button"
+         onClick={() => setShowImportModal(true)}
+         className={`${tc('bg-[#0284c7] hover:bg-sky-500 active:bg-sky-700', 'bg-sky-600 hover:bg-sky-500 active:bg-sky-700')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm font-sans whitespace-nowrap`}
+         title="Importar jugada desde WhatsApp / Texto"
+       >
+         <FileText size={16} />
+         <span>Importar</span>
+       </button>
+    </div>
+  );
+
   return (
     <div className={`flex w-full h-full ${bgBase} overflow-hidden ${textPrimary} ${isDesktop ? 'flex-row' : 'flex-col'}`}>
       
@@ -1170,33 +1229,58 @@ export default function POS() {
              {/* ENTRADA DE DATOS TRADICIONAL */}
              <div className={`flex-none p-3 lg:p-6 lg:py-6 ${bgBase} border-b ${borderNumpad} shadow-sm z-10 w-full relative`}>
                <div className="flex items-center gap-3 lg:gap-6">
-                 <div 
-                   onClick={() => setFocusedInput('amount')}
-                   className={`flex-[1.5] p-3 lg:px-6 lg:py-6 rounded-lg flex justify-between items-center ${bgInput} border-2 transition-colors cursor-pointer ${
-                     focusedInput === 'amount' ? 'border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]' : borderInput
-                   }`}
-                 >
-                   <span className={`${textInputLabel} font-medium text-xs lg:text-lg font-mono`}>TIEMPOS</span>
-                   <div className="flex items-center gap-1">
-                     <span className={`text-3xl lg:text-6xl font-bold font-mono ${currentAmount ? textInputValue : textMutedInput}`}>
-                       {currentAmount || '0'}
-                     </span>
-                   </div>
-                 </div>
+                  <div 
+                    onClick={() => setFocusedInput('amount')}
+                    className={`flex-[1.4] p-2.5 lg:px-5 lg:py-6 rounded-lg flex justify-between items-center ${bgInput} border-2 transition-colors cursor-pointer ${
+                      isAmountFrozen
+                        ? tc('border-amber-400 bg-amber-500/10 shadow-[0_0_8px_rgba(251,191,36,0.3)]', 'border-amber-400 bg-amber-50/50 shadow-[0_0_8px_rgba(251,191,36,0.2)]')
+                        : focusedInput === 'amount'
+                          ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-sky-500 bg-sky-50/40 shadow-[0_0_8px_rgba(14,165,233,0.2)]')
+                          : borderInput
+                    }`}
+                  >
+                    <span className={`${textInputLabel} font-medium text-xs lg:text-lg font-mono`}>TIEMPOS</span>
+                    <div className="flex items-center gap-1.5 lg:gap-3">
+                      <span className={`text-3xl lg:text-6xl font-bold font-mono ${currentAmount ? (isAmountFrozen ? tc('text-amber-300', 'text-amber-800') : textInputValue) : textMutedInput}`}>
+                        {currentAmount || '0'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isAmountFrozen && (!currentAmount || parseFloat(currentAmount) <= 0)) {
+                            alert('⚠️ Ingresa una cantidad de tiempos antes de congelar.');
+                            return;
+                          }
+                          setIsAmountFrozen(prev => !prev);
+                        }}
+                        title={isAmountFrozen ? "Tiempos congelados (clic para desbloquear)" : "Congelar cantidad de tiempos"}
+                        className={`p-1.5 lg:p-2 rounded-md border transition-all flex items-center justify-center ${
+                          isAmountFrozen
+                            ? tc('bg-amber-500/25 text-amber-300 border-amber-400 shadow-sm', 'bg-amber-100 text-amber-800 border-amber-400 shadow-sm')
+                            : tc('bg-gray-800/80 text-gray-400 border-gray-700 hover:text-white', 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600')
+                        }`}
+                      >
+                        {isAmountFrozen ? <Lock size={15} /> : <Unlock size={15} />}
+                      </button>
+                    </div>
+                  </div>
 
-                 <div className={`${textMuted} font-bold text-xl lg:text-4xl lg:mx-4`}>x</div>
+                  <div className={`${textMuted} font-bold text-xl lg:text-4xl lg:mx-4`}>x</div>
 
-                 <div 
-                   onClick={() => setFocusedInput('number')}
-                   className={`flex-1 p-3 lg:px-6 lg:py-6 rounded-lg flex justify-between items-center ${bgInput} border-2 transition-colors cursor-pointer ${
-                     focusedInput === 'number' ? 'border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]' : borderInput
-                   }`}
-                 >
-                   <span className={`${textInputLabel} font-medium text-xs lg:text-lg font-mono`}>NÚMERO</span>
-                   <span className={`text-3xl lg:text-6xl font-bold font-mono ${currentNumber ? textTeal : textMutedInput}`}>
-                     {currentNumber || '00'}
-                   </span>
-                 </div>
+                  <div 
+                    onClick={() => setFocusedInput('number')}
+                    className={`flex-1 p-3 lg:px-6 lg:py-6 rounded-lg flex justify-between items-center ${bgInput} border-2 transition-colors cursor-pointer ${
+                      focusedInput === 'number'
+                        ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-sky-500 bg-sky-50/40 shadow-[0_0_8px_rgba(14,165,233,0.2)]')
+                        : borderInput
+                    }`}
+                  >
+                    <span className={`${textInputLabel} font-medium text-xs lg:text-lg font-mono`}>NÚMERO</span>
+                    <span className={`text-3xl lg:text-6xl font-bold font-mono ${currentNumber ? textTeal : textMutedInput}`}>
+                      {currentNumber || '00'}
+                    </span>
+                  </div>
                </div>
              </div>
 
@@ -1210,50 +1294,9 @@ export default function POS() {
         {/* SPACER PARA ESCRITORIO - EMPUJA EL TECLADO HACIA ABAJO */}
         {isDesktop && <div className="flex-1"></div>}
 
-        {/* CLIENT NAME & TECLADO NUMÉRICO */}
+        {/* TECLADO NUMÉRICO & CONTROLES DE VENTA */}
         <div className={`flex-none ${isDesktop ? 'bg-transparent p-6 flex flex-col justify-end mt-auto w-full' : `${bgNumpad} pb-safe border-t ${borderNumpad} shadow-[0_-10px_30px_rgba(0,0,0,0.3)] w-full relative z-20`}`}>
-          <div className={`w-full mx-auto flex flex-col gap-3 ${isDesktop ? `${bgPanel} p-6 rounded-2xl border ${borderPanel} shadow-xl` : ''}`}>
-            <div className="px-1 py-1 flex gap-2">
-               <input 
-                 type="text" 
-                 dir="ltr"
-                 autoComplete="off"
-                 autoCorrect="off"
-                 spellCheck={false}
-                 placeholder="Nombre del cliente (Opcional)" 
-                 value={clientName}
-                 onChange={(e) => setClientName(e.target.value)}
-                 onFocus={(e) => {
-                   setTimeout(() => {
-                     e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                   }, 300);
-                 }}
-                 onKeyDown={(e) => {
-                   if (e.key === 'Enter') {
-                     e.currentTarget.blur();
-                   }
-                 }}
-                 className={`flex-1 ${bgInput} border ${borderNumpad} ${textInputValue} rounded p-2 text-sm outline-none focus:border-teal-500 transition-colors ${tc('placeholder-gray-600','placeholder-gray-400')}`}
-               />
-               <button
-                 type="button"
-                 onClick={() => setShowRepeatModal(true)}
-                 className="bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white rounded px-3 py-2 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
-                 title="Repetir jugada anterior"
-               >
-                 <Copy size={16} />
-                 <span>Repetir</span>
-               </button>
-               <button
-                 type="button"
-                 onClick={() => setShowImportModal(true)}
-                 className="bg-[#0284c7] hover:bg-sky-500 active:bg-sky-700 text-white rounded px-3 py-2 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm font-sans"
-                 title="Importar jugada desde WhatsApp / Texto"
-               >
-                 <FileText size={16} />
-                 <span>Importar</span>
-               </button>
-            </div>
+          <div className={`w-full mx-auto flex flex-col gap-2.5 ${isDesktop ? `${bgPanel} p-6 rounded-2xl border ${borderPanel} shadow-xl` : ''}`}>
             
             <div className="flex gap-2 w-full">
               {/* Keypad numbers */}
@@ -1308,19 +1351,22 @@ export default function POS() {
                   className={`rounded-lg h-full flex items-center justify-center shadow-lg transition-colors overflow-hidden relative text-white ${
                     (focusedInput === 'amount' && parseFloat(currentAmount) > 0) ||
                     (focusedInput === 'number' && currentNumber.length === 2 && parseFloat(currentAmount) > 0 && store.selectedLotteries.length > 0)
-                      ? 'bg-teal-500 active:bg-teal-400 scale-100 active:scale-95'
-                      : 'bg-teal-800 opacity-70'
+                      ? tc('bg-teal-500 active:bg-teal-400 scale-100 active:scale-95', 'bg-emerald-600 active:bg-emerald-700 scale-100 active:scale-95 shadow-md')
+                      : tc('bg-teal-800 opacity-70', 'bg-slate-200 text-slate-400')
                   }`}
                 >
                   <Plus size={40} className={
                     (focusedInput === 'amount' && parseFloat(currentAmount) > 0) ||
                     (focusedInput === 'number' && currentNumber.length === 2 && parseFloat(currentAmount) > 0)
                       ? 'animate-pulse text-white' 
-                      : 'text-teal-600'
+                      : tc('text-teal-600', 'text-slate-400')
                   } />
                 </button>
               </div>
             </div>
+
+            {/* PREPARACIÓN MÓVIL: [ Nombre ] [ Repetir ] [ Importar ] (justo encima de PROCESAR) */}
+            {!isDesktop && renderPreparationControls()}
             
             {/* EL BOTON MÁS GRANDE - PROCESAR MÓVIL (Solo visible si !isDesktop) */}
             {!isDesktop && (
@@ -1328,7 +1374,7 @@ export default function POS() {
                 <button 
                   onClick={() => setShowCheckoutModal(true)}
                   disabled={posCart.length === 0}
-                  className="w-full bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] text-white rounded-lg h-[60px] flex items-center justify-center shadow-lg transition-colors mt-1 border-b-4 border-[#0369a1] active:translate-y-1 active:border-b-0"
+                  className={`w-full ${tc('bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] border-[#0369a1]', 'bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 active:bg-emerald-700 border-emerald-800')} text-white rounded-lg h-[60px] flex items-center justify-center shadow-lg transition-colors mt-0.5 border-b-4 active:translate-y-1 active:border-b-0`}
                 >
                   <span className="font-black text-2xl tracking-widest text-shadow">PROCESAR</span>
                 </button>
@@ -1365,15 +1411,19 @@ export default function POS() {
              {renderCartList(true)}
           </div>
           
-          <div className={`flex-none p-4 ${bgPanel} border-t ${borderPanel} shadow-[0_-8px_25px_rgba(0,0,0,0.1)]`}>
-             <div className="flex justify-between items-center mb-3.5">
+          <div className={`flex-none p-4 ${bgPanel} border-t ${borderPanel} shadow-[0_-8px_25px_rgba(0,0,0,0.1)] flex flex-col gap-3`}>
+             <div className="flex justify-between items-center mb-1">
                 <span className={`${textPanelLabel} font-bold text-xs uppercase tracking-wider`}>Total a pagar</span>
                 <span className={`text-2xl font-black ${tc('text-teal-400','text-white')} font-mono`}>${calculateTotal().toFixed(2)}</span>
              </div>
+             
+             {/* PREPARACIÓN DESKTOP: [ Nombre ] [ Repetir ] [ Importar ] */}
+             {renderPreparationControls()}
+
              <button
                 onClick={() => setShowCheckoutModal(true)}
                 disabled={posCart.length === 0}
-                className="w-full bg-[#0ea5e9] hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 disabled:border-b-0 text-white rounded-xl h-[55px] flex items-center justify-center font-black text-xl tracking-widest shadow-lg transition-all border-b-4 border-[#0369a1] active:translate-y-0.5 active:border-b-0"
+                className={`w-full ${tc('bg-[#0ea5e9] hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 border-[#0369a1]', 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 border-emerald-800')} text-white rounded-xl h-[55px] flex items-center justify-center font-black text-xl tracking-widest shadow-lg transition-all border-b-4 disabled:border-b-0 active:translate-y-0.5 active:border-b-0`}
              >
                 PROCESAR
              </button>
