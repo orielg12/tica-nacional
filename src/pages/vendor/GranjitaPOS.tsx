@@ -163,15 +163,11 @@ export default function GranjitaPOS() {
     _ticketId: string,
     cartItems: typeof granjitaCart,
     selectedLots: LotteryConfig[],
-    client: string
+    _client: string
   ) => {
     const timesStr = selectedLots.map(l => formatLotteryTime(l.hour, l.minute)).join(', ');
     
-    let msg = `🚜 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n`;
-    if (client && client.trim()) {
-      msg += `👤 *Cliente:* ${client.trim().toUpperCase()}\n`;
-    }
-    msg += `\n`;
+    let msg = `🚜 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n\n`;
 
     let totalAmount = 0;
     cartItems.forEach(item => {
