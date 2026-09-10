@@ -160,20 +160,35 @@ export default function GranjitaPOS() {
   };
 
   const generateGranjitaShareMessage = (
-    _ticketId: string,
+    ticketId: string,
     cartItems: typeof granjitaCart,
     selectedLots: LotteryConfig[],
-    _client: string
+    client: string
   ) => {
     const timesStr = selectedLots.map(l => formatLotteryTime(l.hour, l.minute)).join(', ');
+    const shortId = ticketId ? ticketId.split('-')[0].toUpperCase() : '';
     
-    let msg = `🚜 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n\n`;
+    let msg = `🚜 *Jugada confirmada - La Granjita ${timesStr ? `(${timesStr})` : ''}* ✅\n`;
+    if (client && client.trim()) {
+      msg += `👤 *Cliente:* ${client.trim().toUpperCase()}\n`;
+    }
+    msg += `\n`;
 
+    let totalAmount = 0;
     cartItems.forEach(item => {
       const animal = getAnimalByNumber(item.number);
       const animalLabel = animal ? `${item.number} ${animal.name.toUpperCase()} ${animal.emoji}` : item.number;
-      msg += `${animalLabel}\n`;
+      const lotCount = (item.lotteries && item.lotteries.length > 0) ? item.lotteries.length : (selectedLots.length || 1);
+      const itemCost = item.amount * store.saleMode * lotCount;
+      totalAmount += itemCost;
+      const vilesStr = `${item.amount} ${item.amount === 1 ? 'vil' : 'viles'}`;
+      msg += `${animalLabel} ➔ ${vilesStr} ($${itemCost.toFixed(2)})\n`;
     });
+
+    msg += `\n💰 *Total:* $${totalAmount.toFixed(2)}`;
+    if (shortId) {
+      msg += `\n🆔 *Ticket:* #${shortId}`;
+    }
 
     return msg.trim();
   };
@@ -467,6 +482,10 @@ export default function GranjitaPOS() {
             <div className="flex gap-2">
               <input
                 type="text"
+                dir="ltr"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="Nombre del cliente (Opcional)"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}

@@ -421,6 +421,10 @@ export default function ManualSale() {
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Cliente (Opcional)</label>
             <input
               type="text"
+              dir="ltr"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               value={clientName}
               onChange={e => setClientName(e.target.value)}
               placeholder="Nombre del cliente"

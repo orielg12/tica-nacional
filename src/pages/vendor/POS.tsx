@@ -1216,6 +1216,10 @@ export default function POS() {
             <div className="px-1 py-1 flex gap-2">
                <input 
                  type="text" 
+                 dir="ltr"
+                 autoComplete="off"
+                 autoCorrect="off"
+                 spellCheck={false}
                  placeholder="Nombre del cliente (Opcional)" 
                  value={clientName}
                  onChange={(e) => setClientName(e.target.value)}
