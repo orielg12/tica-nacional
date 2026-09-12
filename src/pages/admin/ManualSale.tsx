@@ -4,7 +4,11 @@ import { useStore } from '../../store/useStore';
 import { formatLotteryTime } from '../../utils/lotteryRules';
 import { getLocalISODate } from '../../utils/dateUtils';
 import { getDecadeNumbers } from '../../utils/math';
-import { Trash2, Save, AlertCircle, Edit, Clipboard, X, CheckCircle, FileText, Plus, Check, Layers } from 'lucide-react';
+import { 
+  Trash2, Save, AlertCircle, Edit, Clipboard, X, CheckCircle, 
+  FileText, Plus, Check, Layers, User, Calendar, DollarSign, 
+  Hash, Sparkles, RefreshCw
+} from 'lucide-react';
 import { SafeTextInput } from '../../components/shared/SafeTextInput';
 
 interface ManualPlay {
@@ -17,7 +21,7 @@ export default function ManualSale() {
   const [selectedLotteryIds, setSelectedLotteryIds] = useState<string[]>([]);
   const [plays, setPlays] = useState<ManualPlay[]>([]);
   const [currentNumber, setCurrentNumber] = useState('');
-  const [currentAmount, setCurrentAmount] = useState('');
+  const [currentAmount, setCurrentAmount] = useState('1');
   const [saleMode, setSaleMode] = useState<number>(store.saleMode || 0.20);
   const [clientName, setClientName] = useState('');
   const [vendorId, setVendorId] = useState('');
@@ -59,7 +63,7 @@ export default function ManualSale() {
   const addPlay = () => {
     const num = currentNumber.padStart(2, '0');
     const amt = parseFloat(currentAmount);
-    if (!num || num.length < 2 || isNaN(amt) || amt <= 0) {
+    if (!currentNumber || num.length < 2 || isNaN(amt) || amt <= 0) {
       alert('Ingresa un número válido de 2 dígitos y una cantidad de viles mayor a 0.');
       return;
     }
@@ -67,15 +71,13 @@ export default function ManualSale() {
     setCurrentNumber('');
   };
 
-  const addDecade = (decadeIdxStr: string) => {
-    const dIdx = parseInt(decadeIdxStr, 10);
+  const addDecade = (decadeIdx: number) => {
     const amt = parseFloat(currentAmount);
-    if (isNaN(dIdx) || dIdx < 0 || dIdx > 9) return;
     if (isNaN(amt) || amt <= 0) {
       alert('Ingresa una cantidad de viles mayor a 0 en la casilla de Viles primero.');
       return;
     }
-    const decadeNums = getDecadeNumbers(dIdx);
+    const decadeNums = getDecadeNumbers(decadeIdx);
     const newPlays = decadeNums.map(num => ({ number: num, amount: amt }));
     setPlays(prev => [...prev, ...newPlays]);
   };
@@ -91,7 +93,7 @@ export default function ManualSale() {
     if (editIdx === null) return;
     const num = currentNumber.padStart(2, '0');
     const amt = parseFloat(currentAmount);
-    if (!num || num.length < 2 || isNaN(amt) || amt <= 0) {
+    if (!currentNumber || num.length < 2 || isNaN(amt) || amt <= 0) {
       alert('Ingresa un número válido (2 dígitos) y una cantidad de viles mayor a 0.');
       return;
     }
@@ -100,250 +102,212 @@ export default function ManualSale() {
       newPlays[editIdx] = { number: num, amount: amt };
       return newPlays;
     });
-    setCurrentNumber('');
     setEditIdx(null);
+    setCurrentNumber('');
   };
 
   const cancelEdit = () => {
-    setCurrentNumber('');
     setEditIdx(null);
+    setCurrentNumber('');
   };
 
   const removePlay = (idx: number) => {
-    setPlays(plays.filter((_, i) => i !== idx));
+    setPlays(prev => prev.filter((_, i) => i !== idx));
     if (editIdx === idx) {
-      cancelEdit();
+      setEditIdx(null);
+      setCurrentNumber('');
     }
   };
 
-  // Import text parser
-  const handleProcessImport = () => {
+  const clearPlays = () => {
+    if (plays.length === 0) return;
+    if (window.confirm('¿Seguro que deseas vaciar todas las jugadas anotadas?')) {
+      setPlays([]);
+      setEditIdx(null);
+      setCurrentNumber('');
+    }
+  };
+
+  // Import parser for WhatsApp text
+  const handleImportPlays = () => {
     setImportError(null);
     if (!importText.trim()) {
-      setImportError('Por favor pega o escribe la lista de jugadas.');
+      setImportError('El texto está vacío.');
       return;
     }
 
-    const rawLines = importText.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
-    const parsedPlays: ManualPlay[] = [];
-    let detectedClient = '';
+    const lines = importText.split('\n');
+    const imported: ManualPlay[] = [];
 
-    for (const raw of rawLines) {
-      let line = raw.trim();
-      if (!line) continue;
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
 
-      const clientMatch = line.match(/^(?:cliente|nombre|jugador|name)\s*[:\-=]\s*(.+)$/i);
-      if (clientMatch) {
-        detectedClient = clientMatch[1].trim();
-        continue;
-      }
-
-      line = line.replace(/\s*v(?:iles)?\s*$/i, '').trim();
-
-      const decadeMatch = line.match(/^(?:d|decena)\s*(\d)\s*[-x*=:\s]\s*(\d+)$/i);
-      if (decadeMatch) {
-        const dNum = parseInt(decadeMatch[1], 10);
-        const amt = parseFloat(decadeMatch[2]);
-        if (dNum >= 0 && dNum <= 9 && amt > 0) {
-          getDecadeNumbers(dNum).forEach(n => parsedPlays.push({ number: n, amount: amt }));
-          continue;
+      const match = trimmed.match(/^(\d{1,2})[\s\-:=xX]+(\d+(?:\.\d+)?)\s*v?$/i);
+      if (match) {
+        const num = match[1].padStart(2, '0');
+        const amt = parseFloat(match[2]);
+        if (!isNaN(amt) && amt > 0) {
+          imported.push({ number: num, amount: amt });
+          return;
         }
       }
 
-      let num = '';
-      let amt = 0;
-      let matched = false;
-
-      let m = line.match(/^(\d{1,2})\s*[x*X]\s*(\d+(?:\.\d+)?)$/);
-      if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
-
-      if (!matched) {
-        m = line.match(/^(\d{1,2})\s*[-–—\/]\s*(\d+(?:\.\d+)?)$/);
-        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
+      const matchRev = trimmed.match(/^(\d+(?:\.\d+)?)\s*v?[\s\-:=xX]+(\d{1,2})$/i);
+      if (matchRev) {
+        const amt = parseFloat(matchRev[1]);
+        const num = matchRev[2].padStart(2, '0');
+        if (!isNaN(amt) && amt > 0) {
+          imported.push({ number: num, amount: amt });
+        }
       }
+    });
 
-      if (!matched) {
-        m = line.match(/^(\d{1,2})\s*[:=]\s*(\d+(?:\.\d+)?)$/);
-        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
-      }
-
-      if (!matched) {
-        m = line.match(/^(\d+(?:\.\d+)?)\s+(?:del|al|de|el)\s+(\d{1,2})$/i);
-        if (m) { amt = parseFloat(m[1]); num = m[2]; matched = true; }
-      }
-
-      if (!matched) {
-        m = line.match(/^(\d{1,2})\s+(?:con|por|de)\s+(\d+(?:\.\d+)?)$/i);
-        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
-      }
-
-      if (!matched) {
-        m = line.match(/^(\d{1,2})\s*\((\d+(?:\.\d+)?)\)$/);
-        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
-      }
-
-      if (!matched) {
-        m = line.match(/^(\d{1,2})\s+(\d+(?:\.\d+)?)$/);
-        if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
-      }
-
-      if (matched && !isNaN(amt) && amt > 0) {
-        parsedPlays.push({
-          number: num.padStart(2, '0'),
-          amount: amt
-        });
-      }
-    }
-
-    if (parsedPlays.length === 0) {
-      setImportError('No se reconocieron jugadas válidas. Revisa los formatos aceptados.');
+    if (imported.length === 0) {
+      setImportError('No se encontraron jugadas válidas. Formato esperado: "45 10v", "45-10" o "10x45".');
       return;
     }
 
-    setPlays(prev => [...prev, ...parsedPlays]);
-    if (detectedClient && !clientName) {
-      setClientName(detectedClient);
-    }
-    setImportText('');
+    setPlays(prev => [...prev, ...imported]);
     setShowImportModal(false);
+    setImportText('');
   };
 
+  // Final sale calculations
   const numSelectedLotteries = selectedLotteryIds.length;
-  const totalViles = plays.reduce((sum, p) => sum + p.amount, 0);
-  const totalUSD = (totalViles * saleMode) * (numSelectedLotteries > 0 ? numSelectedLotteries : 1);
+  const totalVilesPerLottery = plays.reduce((acc, p) => acc + p.amount, 0);
+  const totalVilesAllLotteries = totalVilesPerLottery * numSelectedLotteries;
+  const totalDollarsAllLotteries = totalVilesAllLotteries * saleMode;
 
-  const handleDeleteTicket = async () => {
-    if (!savedTicketId) return;
-    if (!window.confirm('¿Estás seguro de eliminar este ticket? Esta acción es irreversible.')) return;
-    try {
-      const { error: tnError } = await supabase
-        .from('ticket_numbers')
-        .delete()
-        .eq('ticket_id', savedTicketId);
-      if (tnError) throw tnError;
-      const { error: ticketError } = await supabase
-        .from('tickets')
-        .delete()
-        .eq('id', savedTicketId);
-      if (ticketError) throw ticketError;
-      setResult({ success: true, message: '✅ Ticket eliminado correctamente.' });
-      setSavedTicketId(null);
-    } catch (err: any) {
-      console.error('Error eliminando ticket:', err);
-      setResult({ success: false, message: `❌ Error al eliminar ticket: ${err.message || err}` });
+  const handleSaveSale = async () => {
+    if (!vendorId) {
+      alert('Debes seleccionar el Vendedor Responsable.');
+      return;
     }
-  };
-
-  const handleSave = async () => {
     if (selectedLotteryIds.length === 0) {
-      alert('Selecciona al menos un sorteo.');
+      alert('Debes seleccionar al menos un Sorteo a jugar.');
       return;
     }
     if (plays.length === 0) {
-      alert('Agrega al menos una jugada.');
+      alert('Debes ingresar al menos una jugada.');
       return;
     }
-    if (!vendorId) {
-      alert('Selecciona el vendedor que realizó la venta.');
-      return;
-    }
+
+    const confirmMsg = `¿Confirmas el registro de esta VENTA MANUAL?\n\n` +
+      `• Sorteos: ${numSelectedLotteries}\n` +
+      `• Jugadas: ${plays.length}\n` +
+      `• Viles Totales: ${totalVilesAllLotteries}\n` +
+      `• TOTAL A COBRAR: $${totalDollarsAllLotteries.toFixed(2)}\n` +
+      `• Vendedor: ${vendorId}\n` +
+      `• Fecha: ${saleDate}`;
+
+    if (!window.confirm(confirmMsg)) return;
 
     setSaving(true);
     setResult(null);
 
     try {
-      const now = new Date();
-      const [year, month, day] = saleDate.split('-').map(Number);
-      const createdAt = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+      const createdTickets: string[] = [];
 
-      const { data: ticket, error: ticketError } = await supabase
-        .from('tickets')
-        .insert({
-          vendor_id: vendorId,
-          client_name: clientName || 'Venta Manual',
-          total_amount: totalUSD,
-          status: 'active',
-          created_at: createdAt
-        })
-        .select('id')
-        .single();
-
-      if (ticketError) throw ticketError;
-
-      const tnPayload: any[] = [];
       for (const lotteryId of selectedLotteryIds) {
-        for (const p of plays) {
-          tnPayload.push({
-            ticket_id: ticket.id,
-            draw_id: lotteryId,
-            number_played: p.number,
-            amount: p.amount,
-            created_at: createdAt
-          });
+        const lotteryTotalAmount = totalVilesPerLottery * saleMode;
+
+        const { data: ticketData, error: ticketErr } = await supabase
+          .from('tickets')
+          .insert({
+            vendor_id: vendorId,
+            total_amount: lotteryTotalAmount,
+            status: 'active',
+            client_name: clientName.trim() || 'General',
+            created_at: new Date(saleDate + 'T12:00:00Z').toISOString(),
+            source: 'manual_admin'
+          })
+          .select('id')
+          .single();
+
+        if (ticketErr || !ticketData) {
+          throw new Error(`Error creando ticket para la lotería: ${ticketErr?.message}`);
+        }
+
+        createdTickets.push(ticketData.id);
+
+        const ticketNumbersToInsert = plays.map(p => ({
+          ticket_id: ticketData.id,
+          draw_id: lotteryId,
+          number_played: p.number,
+          amount: p.amount
+        }));
+
+        const { error: numbersErr } = await supabase
+          .from('ticket_numbers')
+          .insert(ticketNumbersToInsert);
+
+        if (numbersErr) {
+          throw new Error(`Error guardando números del ticket: ${numbersErr.message}`);
         }
       }
 
-      const { error: tnError } = await supabase
-        .from('ticket_numbers')
-        .insert(tnPayload);
-
-      if (tnError) throw tnError;
-
+      setSavedTicketId(createdTickets[0]);
       setResult({
         success: true,
-        message: `✅ Venta registrada exitosamente. Ticket: ${ticket.id.split('-')[0].toUpperCase()} (${plays.length} números × ${selectedLotteryIds.length} sorteo(s) = $${totalUSD.toFixed(2)})`
+        message: `¡Venta manual guardada con éxito! Se generaron ${createdTickets.length} ticket(s) con un monto total de $${totalDollarsAllLotteries.toFixed(2)}.`
       });
-      setSavedTicketId(ticket.id);
 
       setPlays([]);
-      setClientName('');
       setCurrentNumber('');
-      setCurrentAmount('');
-
+      setCurrentAmount('1');
     } catch (err: any) {
-      console.error('Error registrando venta manual:', err);
-      setResult({ success: false, message: `❌ Error: ${err.message || JSON.stringify(err)}` });
+      setResult({
+        success: false,
+        message: err.message || 'Error desconocido al guardar la venta manual.'
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleHideTicket = async () => {
+  const handleHideTicket = () => {
+    setSavedTicketId(null);
+    setResult(null);
+  };
+
+  const handleDeleteTicket = async () => {
     if (!savedTicketId) return;
+    if (!window.confirm('¿Estás seguro de ELIMINAR el último ticket guardado? Esta acción es irreversible.')) return;
+
     try {
-      const { error } = await supabase
-        .from('tickets')
-        .update({ is_bank_prize: true })
-        .eq('id', savedTicketId);
-      if (error) throw error;
-      setResult({ success: true, message: '✅ Ticket ocultado de la vista.' });
+      await supabase.from('ticket_numbers').delete().eq('ticket_id', savedTicketId);
+      await supabase.from('tickets').delete().eq('id', savedTicketId);
       setSavedTicketId(null);
+      setResult({ success: true, message: 'Ticket eliminado correctamente.' });
     } catch (err: any) {
-      console.error('Error ocultando ticket:', err);
-      setResult({ success: false, message: `❌ Error al ocultar ticket: ${err.message || err}` });
+      alert('Error eliminando ticket: ' + err.message);
     }
   };
 
-  const vendors = store.users.filter(u => u.role === 'Vendedor' || u.role === 'Admin');
+  const vendors = store.users.filter(u => u.role === 'Vendedor' || u.role === 'vendor');
 
   return (
-    <div className="w-full min-h-full bg-slate-100/70 p-4 sm:p-6 lg:p-8">
-      
-      {/* Contenedor centralizado para no estirarse a lo infinito */}
-      <div className="max-w-5xl mx-auto space-y-5">
+    <div className="w-full bg-[#f8fafc] min-h-screen p-3 sm:p-5 lg:p-7">
+      <div className="max-w-6xl mx-auto space-y-5">
 
-        {/* ── HEADER BANNER ── */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 flex-shrink-0">
-              <Save size={22} />
+        {/* ── HEADER PRINCIPAL FINTECH ── */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 flex-shrink-0">
+              <Save size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 leading-tight">
-                Registro de Venta Manual
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Ingresa ventas externas de uno o varios sorteos (WhatsApp o papel).
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Registro de Venta Manual
+                </h1>
+                <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  Panel Admin
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Emisión centralizada de tickets con soporte para múltiples sorteos en paralelo.
               </p>
             </div>
           </div>
@@ -351,66 +315,118 @@ export default function ManualSale() {
           <button
             type="button"
             onClick={() => setShowImportModal(true)}
-            style={{ backgroundColor: '#0f766e', color: '#ffffff' }}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm transition-all active:scale-95 whitespace-nowrap"
           >
             <Clipboard size={16} />
             <span>Pegar Lista de WhatsApp</span>
           </button>
         </div>
 
-        {/* ── ALERTAS DE ESTADO ── */}
+        {/* ── ALERTA DE RESULTADO ── */}
         {result && (
-          <div className={`p-4 rounded-xl font-bold text-sm flex items-start gap-3 shadow-sm ${result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-            {result.success ? <CheckCircle size={20} className="flex-shrink-0 text-emerald-600 mt-0.5" /> : <AlertCircle size={20} className="flex-shrink-0 text-red-600 mt-0.5" />}
-            <div className="flex-1">{result.message}</div>
+          <div className={`p-4 rounded-xl font-bold text-sm flex items-start gap-3 shadow-sm ${result.success ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' : 'bg-red-50 text-red-900 border border-red-300'}`}>
+            {result.success ? <CheckCircle size={22} className="text-emerald-600 flex-shrink-0 mt-0.5" /> : <AlertCircle size={22} className="text-red-600 flex-shrink-0 mt-0.5" />}
+            <div className="flex-1 leading-relaxed">{result.message}</div>
           </div>
         )}
 
         {savedTicketId && (
           <div className="flex flex-wrap gap-2.5">
-            <button onClick={handleHideTicket} className="px-3.5 py-2 rounded-xl border border-sky-600 bg-white text-sky-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
-              <AlertCircle size={15} /> Ocultar ticket
+            <button onClick={handleHideTicket} className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs hover:bg-slate-50">
+              <Check size={15} /> Aceptar y Ocultar
             </button>
-            <button onClick={handleDeleteTicket} className="px-3.5 py-2 rounded-xl border border-red-600 bg-white text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
-              <Trash2 size={15} /> Eliminar ticket
+            <button onClick={handleDeleteTicket} className="px-4 py-2 rounded-xl border border-red-300 bg-red-50 text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-xs hover:bg-red-100">
+              <Trash2 size={15} /> Anular / Eliminar este ticket
             </button>
           </div>
         )}
 
-        {/* ── CARD 1: SORTEOS A JUGAR ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <Layers size={18} className="text-teal-600" />
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Sorteos a Jugar
-              </span>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedLotteryIds.length > 0 ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                {selectedLotteryIds.length} seleccionado(s)
+        {/* ── KPI MINI-METRIC CARDS (EN VIVO) ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div className="flex justify-between items-center text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider">Jugadas</span>
+              <Hash size={16} className="text-blue-600" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900">{plays.length}</span>
+              <span className="text-xs text-slate-400">líneas</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div className="flex justify-between items-center text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider">Viles / Sorteo</span>
+              <Sparkles size={16} className="text-indigo-600" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-indigo-700">{totalVilesPerLottery}</span>
+              <span className="text-xs text-slate-400">totales</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div className="flex justify-between items-center text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider">Sorteos</span>
+              <Layers size={16} className={numSelectedLotteries > 0 ? "text-blue-600" : "text-amber-500"} />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className={`text-2xl sm:text-3xl font-black font-mono ${numSelectedLotteries > 0 ? 'text-blue-700' : 'text-amber-600'}`}>{numSelectedLotteries}</span>
+              <span className="text-xs text-slate-400">loterías</span>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50/80 p-4 rounded-2xl border-2 border-emerald-300 shadow-xs flex flex-col justify-between">
+            <div className="flex justify-between items-center text-emerald-800">
+              <span className="text-xs font-black uppercase tracking-wider">TOTAL A COBRAR</span>
+              <DollarSign size={18} className="text-emerald-700" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-700">${totalDollarsAllLotteries.toFixed(2)}</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── CARD 1: SELECTOR DE SORTEOS DESTINO ── */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Layers size={20} className="text-blue-600" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Sorteos a Jugar
+                </h3>
+                <span className="text-xs text-slate-500">
+                  Puedes seleccionar un solo sorteo o múltiples sorteos simultáneamente.
+                </span>
+              </div>
+              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-bold ${numSelectedLotteries > 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                {numSelectedLotteries} seleccionado(s)
               </span>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={selectAllLotteries}
-                className="px-3 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-lg transition-colors"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors active:scale-95"
               >
                 ✓ Seleccionar Todos
               </button>
               <button
                 type="button"
                 onClick={clearAllLotteries}
-                className="px-3 py-1 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 font-bold text-xs rounded-lg transition-colors"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 font-bold text-xs rounded-xl transition-colors active:scale-95"
               >
                 ✕ Desmarcar
               </button>
             </div>
           </div>
 
-          {/* Grid compacto de chips de sorteos */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-44 overflow-y-auto pr-1">
+          {/* Grid de Chips de Sorteos */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 max-h-52 overflow-y-auto pr-1">
             {allLotteries.map(l => {
               const isSelected = selectedLotteryIds.includes(l.id);
               return (
@@ -418,47 +434,47 @@ export default function ManualSale() {
                   key={l.id}
                   type="button"
                   onClick={() => toggleLottery(l.id)}
-                  style={isSelected ? { backgroundColor: '#0f766e', borderColor: '#115e59', color: '#ffffff' } : { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#334155' }}
-                  className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-1.5 transition-all active:scale-95 shadow-2xs hover:shadow-xs`}
+                  className={`p-3 rounded-xl border text-left flex items-center justify-between gap-2 transition-all active:scale-95 shadow-xs ${
+                    isSelected 
+                      ? 'bg-blue-600 border-blue-700 text-white shadow-md ring-2 ring-blue-200' 
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                  }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-xs truncate leading-tight">{l.name}</div>
-                    <div className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-teal-100' : 'text-slate-400'}`}>
+                    <div className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
                       {formatLotteryTime(l.hour, l.minute)}
                     </div>
                   </div>
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white text-teal-700' : 'border border-slate-300 bg-white'}`}>
-                    {isSelected && <Check size={12} strokeWidth={3} />}
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${isSelected ? 'bg-white text-blue-700' : 'border border-slate-300 bg-slate-50'}`}>
+                    {isSelected && '✓'}
                   </div>
                 </button>
               );
             })}
           </div>
-          {selectedLotteryIds.length === 0 && (
-            <p className="text-[11px] text-amber-600 font-bold pt-1 flex items-center gap-1">
-              <AlertCircle size={13} />
-              Debes marcar al menos un sorteo para realizar la venta.
-            </p>
+          {allLotteries.length === 0 && (
+            <p className="text-center py-4 text-xs text-slate-400 italic">No hay sorteos activos configurados en el sistema.</p>
           )}
         </div>
 
-        {/* ── CARD 2: DATOS DE LA VENTA (SIMETRÍA TOTAL EN 4 COLS) ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        {/* ── CARD 2: DATOS DE LA VENTA (4 COLUMNAS SIMÉTRICAS) ── */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Vendedor */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
-                Vendedor Responsable *
+              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide flex items-center gap-1">
+                <User size={14} className="text-blue-600" /> Vendedor Responsable *
               </label>
               <select
                 value={vendorId}
                 onChange={e => setVendorId(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-teal-500 transition-colors"
+                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
               >
-                <option value="">-- Seleccionar --</option>
+                <option value="">-- Seleccionar Vendedor --</option>
                 {vendors.map(v => (
-                  <option key={v.id} value={v.username}>{v.username}</option>
+                  <option key={v.id} value={v.username}>{v.username} ({v.name || 'Sin nombre'})</option>
                 ))}
               </select>
             </div>
@@ -472,7 +488,7 @@ export default function ManualSale() {
                 value={clientName}
                 onChange={setClientName}
                 placeholder="Nombre del cliente"
-                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-teal-500 transition-colors"
+                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
               />
             </div>
 
@@ -485,16 +501,22 @@ export default function ManualSale() {
                 <button
                   type="button"
                   onClick={() => setSaleMode(0.20)}
-                  style={saleMode === 0.20 ? { backgroundColor: '#f0fdf4', borderColor: '#16a34a', color: '#15803d' } : { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#64748b' }}
-                  className="flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center"
+                  className={`flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${
+                    saleMode === 0.20 
+                      ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs' 
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
                 >
                   $0.20 / vil
                 </button>
                 <button
                   type="button"
                   onClick={() => setSaleMode(0.25)}
-                  style={saleMode === 0.25 ? { backgroundColor: '#f0f9ff', borderColor: '#0284c7', color: '#0369a1' } : { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#64748b' }}
-                  className="flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center"
+                  className={`flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${
+                    saleMode === 0.25 
+                      ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs' 
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
                 >
                   $0.25 / vil
                 </button>
@@ -503,33 +525,58 @@ export default function ManualSale() {
 
             {/* Fecha */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
-                Fecha de Venta
+              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide flex items-center gap-1">
+                <Calendar size={14} className="text-blue-600" /> Fecha de Emisión
               </label>
               <input
                 type="date"
                 value={saleDate}
                 onChange={e => setSaleDate(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-teal-500 transition-colors"
+                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
               />
             </div>
 
           </div>
         </div>
 
-        {/* ── CARD 3: ENTRADA DE JUGADAS (SIMÉTRICA CON BOTÓN DESTACADO) ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-            Entrada de Jugadas
-          </span>
+        {/* ── CARD 3: ENTRADA DE JUGADAS (SIMÉTRICA Y ÁGIL) ── */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+              {editIdx !== null ? `✏️ Editando Jugada #${editIdx + 1}` : 'Entrada de Jugadas'}
+            </h3>
+            {editIdx !== null && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold"
+              >
+                Cancelar Edición
+              </button>
+            )}
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
             
             {/* Viles */}
-            <div className="sm:col-span-1 lg:col-span-3">
-              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                Viles (Monto)
-              </label>
+            <div className="sm:col-span-4">
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase">
+                  Viles (Monto)
+                </label>
+                <div className="flex gap-1">
+                  {[1, 5, 10].map(v => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setCurrentAmount(v.toString())}
+                      className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                    >
+                      +{v}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="number"
                 inputMode="numeric"
@@ -537,15 +584,15 @@ export default function ManualSale() {
                 min="1"
                 value={currentAmount}
                 onChange={e => setCurrentAmount(e.target.value)}
-                placeholder="Ej. 5"
-                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-teal-500 bg-white text-slate-900 font-bold text-center text-xl outline-none transition-all shadow-2xs"
+                placeholder="1"
+                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-slate-900 font-mono text-xl font-bold outline-none transition-colors"
               />
             </div>
 
             {/* Número */}
-            <div className="sm:col-span-1 lg:col-span-3">
+            <div className="sm:col-span-4">
               <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                Número (00-99)
+                Número (00 al 99)
               </label>
               <input
                 type="text"
@@ -554,267 +601,262 @@ export default function ManualSale() {
                 maxLength={2}
                 value={currentNumber}
                 onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                onKeyDown={e => { if (e.key === 'Enter') addPlay(); }}
-                placeholder="00"
-                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-teal-500 bg-white text-slate-900 font-mono font-bold text-center text-xl outline-none transition-all shadow-2xs"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (editIdx !== null) confirmEdit();
+                    else addPlay();
+                  }
+                }}
+                placeholder="Ej. 45"
+                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-slate-900 font-mono text-xl font-black text-center outline-none transition-colors"
               />
             </div>
 
-            {/* Botón Acción: + Agregar Jugada */}
-            <div className="sm:col-span-2 lg:col-span-3">
-              {editIdx === null ? (
-                <button
-                  type="button"
-                  onClick={addPlay}
-                  style={{ backgroundColor: '#0f766e', color: '#ffffff' }}
-                  className="w-full h-12 rounded-xl font-bold text-sm shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} strokeWidth={2.5} />
-                  <span>+ Agregar Jugada</span>
-                </button>
-              ) : (
-                <div className="flex gap-2 h-12">
+            {/* Botón Acción */}
+            <div className="sm:col-span-4">
+              {editIdx !== null ? (
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={confirmEdit}
-                    style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
-                    className="flex-1 rounded-xl font-bold text-xs shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-1"
+                    className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
-                    <Check size={16} /> Guardar
+                    ✓ Guardar Cambio
                   </button>
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all border border-slate-200"
+                    className="h-12 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm"
                   >
-                    Cancelar
+                    ✕
                   </button>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={addPlay}
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-black text-sm shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Plus size={18} />
+                  <span>AGREGAR JUGADA</span>
+                </button>
               )}
             </div>
 
-            {/* Decenas Rápidas */}
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                Decenas Rápidas
-              </label>
-              <select
-                onChange={e => {
-                  if (e.target.value !== '') {
-                    addDecade(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-teal-500 text-slate-800 bg-white font-bold text-xs outline-none cursor-pointer shadow-2xs transition-all"
-              >
-                <option value="">+ Agregar Decena (10 Núms)...</option>
-                {[...Array(10)].map((_, i) => (
-                  <option key={i} value={i}>
-                    Decena del {i} ({i}0 al {i}9)
-                  </option>
-                ))}
-              </select>
-            </div>
+          </div>
 
+          {/* Selector de Decenas Rápidas */}
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                Cargar Decena Completa (10 números con {currentAmount || 1} viles):
+              </span>
+            </div>
+            <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => addDecade(d)}
+                  className="py-2 px-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 font-mono font-bold text-xs text-slate-700 transition-colors text-center active:scale-95"
+                >
+                  {d}0 - {d}9
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* ── CARD 4: LISTA DE JUGADAS AGREGADAS ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          {plays.length > 0 ? (
-            <div>
-              <div className="bg-slate-50 px-5 py-3 flex flex-wrap justify-between items-center gap-2 border-b border-slate-200">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    {plays.length} Apunte(s)
-                  </span>
-                  <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
-                    {totalViles} Viles por sorteo
-                  </span>
-                  {numSelectedLotteries > 1 && (
-                    <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
-                      × {numSelectedLotteries} sorteos = {totalViles * numSelectedLotteries} viles tot.
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setPlays([])}
-                  className="text-xs text-red-600 hover:text-red-700 font-bold flex items-center gap-1 hover:underline"
-                >
-                  <Trash2 size={14} /> Vaciar lista
-                </button>
-              </div>
-
-              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 bg-white">
-                {plays.map((p, idx) => (
-                  <div key={idx} className="flex justify-between items-center px-5 py-2.5 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
-                      <span className="px-3 py-1 bg-teal-50 border border-teal-200 text-teal-800 font-mono font-bold rounded-lg text-lg min-w-[48px] text-center shadow-2xs">
-                        {p.number}
-                      </span>
-                      <div className="text-xs">
-                        <span className="font-bold text-slate-800">{p.amount} viles</span>
-                        <span className="text-slate-400 ml-1.5 font-mono">
-                          (${(p.amount * saleMode * Math.max(1, numSelectedLotteries)).toFixed(2)})
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(idx)}
-                        className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                        title="Editar jugada"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removePlay(idx)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar jugada"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {/* ── CARD 4: TABLA DE APUNTES REGISTRADOS ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <FileText size={18} className="text-blue-600" />
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                Apuntes en Lista
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                {plays.length}
+              </span>
             </div>
-          ) : (
-            <div className="text-center py-10 px-4">
-              <FileText size={36} className="mx-auto text-slate-300 mb-2" />
-              <p className="text-sm font-bold text-slate-600">No hay jugadas agregadas aún</p>
+
+            {plays.length > 0 && (
+              <button
+                type="button"
+                onClick={clearPlays}
+                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={14} /> Vaciar Todo
+              </button>
+            )}
+          </div>
+
+          {plays.length === 0 ? (
+            <div className="p-10 text-center text-slate-400">
+              <FileText size={36} className="mx-auto mb-2 opacity-30 text-slate-400" />
+              <p className="font-bold text-sm text-slate-600">No hay jugadas registradas aún</p>
               <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Ingresa viles y número arriba y presiona "+ Agregar Jugada", o pega un mensaje de WhatsApp.
+                Ingresa los números arriba o utiliza el botón de importar desde WhatsApp para cargar listas rápidamente.
               </p>
             </div>
-          )}
-
-          {/* Footer de la tarjeta con totales y botón finalizar */}
-          <div className="bg-slate-50 p-5 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-6 w-full sm:w-auto justify-around sm:justify-start">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">
-                  Total Viles
-                </span>
-                <span className="text-xl font-bold text-slate-800 font-mono">
-                  {totalViles}
-                </span>
-              </div>
-
-              <div className="h-8 w-px bg-slate-200" />
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">
-                  Sorteos
-                </span>
-                <span className="text-xl font-bold text-teal-700 font-mono">
-                  {numSelectedLotteries}
-                </span>
-              </div>
-
-              <div className="h-8 w-px bg-slate-200" />
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">
-                  Total a Pagar
-                </span>
-                <span className="text-2xl sm:text-3xl font-bold text-emerald-600 font-mono">
-                  ${totalUSD.toFixed(2)}
-                </span>
-              </div>
+          ) : (
+            <div className="overflow-x-auto max-h-80">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                    <th className="py-3 px-4 w-12 text-center">#</th>
+                    <th className="py-3 px-4">Número</th>
+                    <th className="py-3 px-4 text-center">Viles</th>
+                    <th className="py-3 px-4 text-center">Subtotal/Sorteo</th>
+                    <th className="py-3 px-4 text-right">Total ({numSelectedLotteries} sort.)</th>
+                    <th className="py-3 px-4 text-center w-24">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono">
+                  {plays.map((p, idx) => {
+                    const subtotal = p.amount * saleMode;
+                    const totalPlay = subtotal * (numSelectedLotteries || 1);
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-4 text-center text-xs text-slate-400 font-sans">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2.5 px-4 font-sans">
+                          <span className="inline-block px-3 py-1 bg-blue-50 border border-blue-200 text-blue-700 font-black font-mono text-base rounded-lg">
+                            {p.number}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center font-bold text-slate-700">
+                          {p.amount} <span className="text-[10px] text-slate-400 font-sans">v</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center text-slate-600 font-bold">
+                          ${subtotal.toFixed(2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-black text-slate-900">
+                          ${totalPlay.toFixed(2)}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(idx)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removePlay(idx)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+          )}
+        </div>
 
-            <button
-              onClick={handleSave}
-              disabled={saving || plays.length === 0 || numSelectedLotteries === 0 || !vendorId}
-              style={{ backgroundColor: (saving || plays.length === 0 || numSelectedLotteries === 0 || !vendorId) ? '#94a3b8' : '#059669', color: '#ffffff' }}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <span>Guardando...</span>
-              ) : (
-                <span>
-                  Finalizar Venta ({numSelectedLotteries} {numSelectedLotteries === 1 ? 'Sorteo' : 'Sorteos'}) — ${totalUSD.toFixed(2)}
-                </span>
-              )}
-            </button>
+        {/* ── CARD 5: RESUMEN Y BOTÓN FINAL DE GUARDAR ── */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-center sm:text-left">
+            <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Resumen Final:</div>
+            <div className="text-sm font-bold text-slate-800 mt-0.5">
+              {plays.length} jugadas × {totalVilesPerLottery} viles × {numSelectedLotteries} sorteo(s)
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono mt-1">
+              ${totalDollarsAllLotteries.toFixed(2)}
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleSaveSale}
+            disabled={saving || plays.length === 0 || numSelectedLotteries === 0}
+            className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-base rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            {saving ? (
+              <>
+                <RefreshCw size={20} className="animate-spin" />
+                <span>GUARDANDO...</span>
+              </>
+            ) : (
+              <>
+                <Save size={20} />
+                <span>GUARDAR Y EMITIR VENTA</span>
+              </>
+            )}
+          </button>
         </div>
 
       </div>
 
-      {/* ── MODAL: PEGAR LISTA DE NÚMEROS / WHATSAPP ── */}
+      {/* ── MODAL DE IMPORTAR DESDE WHATSAPP ── */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
-            
-            <div style={{ backgroundColor: '#0f766e' }} className="text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 border border-slate-200 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Clipboard size={20} />
-                <h3 className="font-bold text-base">Pegar Lista de Jugadas (WhatsApp)</h3>
+                <Clipboard size={20} className="text-blue-600" />
+                <h3 className="font-bold text-base text-slate-900">Importar Jugadas desde WhatsApp</h3>
               </div>
-              <button onClick={() => setShowImportModal(false)} className="text-white/80 hover:text-white p-1">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 space-y-4">
-              <p className="text-xs text-slate-600">
-                Pega directamente el mensaje de WhatsApp. Reconoce formatos automáticos:
-              </p>
-              
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] text-slate-600 font-mono space-y-1">
-                <div>• <span className="text-teal-700 font-bold">14x5, 27x10, 05x2</span> (por comas o líneas)</div>
-                <div>• <span className="text-teal-700 font-bold">14-5</span> o <span className="text-teal-700 font-bold">14 5</span> o <span className="text-teal-700 font-bold">14=5</span></div>
-                <div>• <span className="text-teal-700 font-bold">5 del 14</span> o <span className="text-teal-700 font-bold">14 con 5</span></div>
-                <div>• <span className="text-teal-700 font-bold">D3x5</span> (Decena del 3 a 5 viles)</div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Pega la lista de jugadas tal cual la recibiste. Se reconocen formatos como:
+              <br />
+              <strong className="text-slate-700">45 10v</strong>, <strong className="text-slate-700">45-10</strong>, <strong className="text-slate-700">10x45</strong> o <strong className="text-slate-700">45=10</strong>.
+            </p>
+
+            <textarea
+              rows={8}
+              value={importText}
+              onChange={e => setImportText(e.target.value)}
+              placeholder={`Ejemplo:\n45 10v\n22-5\n10x33\n00 20v`}
+              className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            />
+
+            {importError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertCircle size={16} />
+                <span>{importError}</span>
               </div>
+            )}
 
-              <textarea
-                value={importText}
-                onChange={e => setImportText(e.target.value)}
-                placeholder="Pega aquí el texto... Ej:&#10;Cliente: Carlos&#10;14x5&#10;27x10&#10;05x2&#10;D4x5"
-                rows={7}
-                className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-teal-500 transition-colors resize-none bg-slate-50"
-                autoFocus
-              />
-
-              {importError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                  <AlertCircle size={16} />
-                  <span>{importError}</span>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowImportModal(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors border border-slate-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleProcessImport}
-                  style={{ backgroundColor: '#0f766e', color: '#ffffff' }}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:opacity-90 transition-colors"
-                >
-                  Importar Jugadas
-                </button>
-              </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleImportPlays}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20"
+              >
+                Procesar e Importar
+              </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

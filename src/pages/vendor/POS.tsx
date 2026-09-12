@@ -18,7 +18,7 @@ export default function POS() {
   // ── Theme-aware class shortcuts ──
   // CLARO: paleta semántica profesional
   const bgBase       = tc('bg-gray-900',  'bg-[#f8fafc]');
-  const bgPanel      = tc('bg-gray-800',  'bg-[#0f766e]');   // SORTEOS: franja turquesa sólida
+  const bgPanel      = tc('bg-gray-800',  'bg-white border-b border-slate-200 shadow-xs');
   const bgInput      = tc('bg-[#1e293b]', 'bg-white');       // TIEMPOS/NÚMERO: blanco puro
   const bgCart       = tc('bg-[#0f172a]', 'bg-white');       // carrito: blanco puro
   const bgNumpad     = tc('bg-[#111827]', 'bg-white');       // numpad: blanco puro
@@ -29,14 +29,14 @@ export default function POS() {
   const borderNumpad  = tc('border-gray-800',   'border-slate-200');
   // Text — SEPARADO por contexto de fondo
   const textPrimary    = tc('text-white',    'text-slate-900');   // texto principal
-  const textPanelLabel = tc('text-gray-400', 'text-white font-black'); // labels en franja TURQUESA → blanco
+  const textPanelLabel = tc('text-gray-400', 'text-slate-600 font-bold tracking-wider');
   const textInputLabel = tc('text-gray-400', 'text-slate-600 font-bold'); // labels en input → gris oscuro
   const textInputValue = tc('text-white',    'text-slate-900 font-black'); // valores en input → negro
   const textMutedInput = tc('text-gray-600', 'text-slate-400');   // placeholder en input
-  const textMuted      = tc('text-gray-500', 'text-white/90'); // subtítulos en franja turquesa
-  const textTeal       = tc('text-teal-400', 'text-[#0f766e]');
+  const textMuted      = tc('text-gray-500', 'text-slate-400');
+  const textTeal       = tc('text-teal-400', 'text-blue-600');
   // Select
-  const selectBg      = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0f766e] font-bold');
+  const selectBg      = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-blue-600 font-bold');
   // Numpad buttons: en claro → blanco con contorno marcado y sombra 3D física
   const numBtnClass   = tc(
     `${bgNumBtn} active:opacity-70 rounded-lg h-[55px] flex items-center justify-center text-2xl font-bold font-mono shadow`,
@@ -1347,7 +1347,7 @@ export default function POS() {
                   className={`rounded-lg h-full flex items-center justify-center shadow-lg transition-colors overflow-hidden relative text-white ${
                     (focusedInput === 'amount' && parseFloat(currentAmount) > 0) ||
                     (focusedInput === 'number' && currentNumber.length === 2 && parseFloat(currentAmount) > 0 && store.selectedLotteries.length > 0)
-                      ? tc('bg-teal-500 active:bg-teal-400 scale-100 active:scale-95', 'bg-[#15803d] active:bg-[#166534] scale-100 active:scale-95 shadow-md')
+                      ? tc('bg-teal-500 active:bg-teal-400 scale-100 active:scale-95', 'bg-blue-600 active:bg-blue-700 scale-100 active:scale-95 shadow-md shadow-blue-500/20')
                       : tc('bg-teal-800 opacity-70', 'bg-slate-200 text-slate-400')
                   }`}
                 >

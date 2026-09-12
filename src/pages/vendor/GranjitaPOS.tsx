@@ -14,13 +14,13 @@ export default function GranjitaPOS() {
   const { tc } = useTheme();
 
   const bgBase       = tc('bg-gray-900',  'bg-white');
-  const bgPanel      = tc('bg-gray-800',  'bg-[#0f766e]');
+  const bgPanel      = tc('bg-gray-800',  'bg-white border-b border-slate-200 shadow-xs');
   const bgCart       = tc('bg-[#0f172a]', 'bg-white');
   const bgNumpad     = tc('bg-[#111827]', 'bg-white');
   const borderPanel  = tc('border-gray-700', 'border-slate-200');
   const textPrimary  = tc('text-white',    'text-slate-900');
-  const textPanelLabel = tc('text-gray-400', 'text-white font-black');
-  const selectBg     = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0f766e] font-bold');
+  const textPanelLabel = tc('text-gray-400', 'text-slate-600 font-bold tracking-wider');
+  const selectBg     = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-blue-600 font-bold');
 
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [lotteries, setLotteries] = useState<LotteryConfig[]>([]);
@@ -540,7 +540,7 @@ export default function GranjitaPOS() {
                       setNumpadMode('num');
                     }
                   }}
-                  className={`w-full h-full min-h-[184px] ${tc('bg-teal-500 hover:bg-teal-400 active:bg-teal-600 border-b-4 border-teal-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a] border-b-4 border-[#115e59]')} text-white font-black rounded-xl shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 active:border-b-0`}
+                  className={`w-full h-full min-h-[184px] ${tc('bg-teal-500 hover:bg-teal-400 active:bg-teal-600 border-b-4 border-teal-700', 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 border-b-4 border-blue-800 shadow-md shadow-blue-500/20')} text-white font-black rounded-xl shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 active:border-b-0`}
                 >
                   <Plus size={36} className="animate-pulse" />
                   <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold">AÑADIR</span>

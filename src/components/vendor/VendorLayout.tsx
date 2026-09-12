@@ -98,9 +98,9 @@ export default function VendorLayout() {
 
   // tc() helper: pick a class based on current theme
   const tc = (darkClass: string, lightClass: string) => isDarkMode ? darkClass : lightClass;
-  // Header teal sólido en modo claro (franja de color profesional)
-  const headerBg   = tc('bg-slate-900 border-slate-800', 'bg-[#0d9488] border-[#0a7a6f]');
-  const headerText = tc('text-teal-400', 'text-white');
+  // Header: en claro blanco puro y limpio sin plastas de color
+  const headerBg   = tc('bg-slate-900 border-slate-800', 'bg-white border-b border-slate-200 shadow-sm');
+  const headerText = tc('text-teal-400', 'text-blue-600');
   // Drawer: oscuro en dark, blanco limpio en light
   const drawerBg   = tc('bg-slate-900 border-slate-800', 'bg-white border-r border-slate-200');
 
@@ -109,16 +109,16 @@ export default function VendorLayout() {
 
   return (
     <ThemeContext.Provider value={themeCtx}>
-    <div className={`flex flex-col h-[100dvh] w-full overflow-hidden ${tc('bg-slate-950 text-white', 'bg-white text-slate-900')}`}>
+    <div className={`flex flex-col h-[100dvh] w-full overflow-hidden ${tc('bg-slate-950 text-white', 'bg-slate-50 text-slate-900')}`}>
       
       {/* HEADER BAR */}
       <header className={`flex-none ${headerBg} border-b flex items-center justify-between px-3.5 z-20`} style={{ paddingTop: 'max(env(safe-area-inset-top), 40px)', height: 'calc(60px + max(env(safe-area-inset-top), 40px))' }}>
         
         {/* LADO IZQUIERDO: Menu GO + Botón MODO separado */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <button onClick={toggleDrawer} className={`flex items-center gap-1 p-1 -ml-1 ${headerText} active:bg-slate-800/10 rounded-lg transition-colors`}>
+          <button onClick={toggleDrawer} className={`flex items-center gap-1.5 p-1 -ml-1 ${headerText} active:bg-slate-100 rounded-lg transition-colors`}>
             <Menu size={26} />
-            <span className="font-bold text-base tracking-wider">GO</span>
+            <span className="font-black text-lg tracking-wider">GO</span>
           </button>
 
           {/* BOTÓN MODO: Limpio, grande y separado para evitar toques accidentales */}
@@ -128,12 +128,12 @@ export default function VendorLayout() {
               const newMode = currentRounded === 20 ? 0.25 : 0.20;
               store.setSaleMode(newMode);
             }}
-            className={`px-2.5 py-1 text-xs font-black tracking-wider border rounded shadow-sm transition-all active:scale-95 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-black tracking-wider border rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap ${
               Math.round(store.saleMode * 100) === 25
                 ? 'bg-purple-900 border-purple-500 text-purple-100'
                 : isDarkMode
                   ? 'bg-slate-800 border-slate-600 text-teal-400'
-                  : 'bg-[#f0fdfa] border-[#99f6e4] text-[#0d9488] shadow-sm'
+                  : 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'
             }`}
             title="Toca para cambiar modo de venta"
           >
@@ -144,9 +144,9 @@ export default function VendorLayout() {
         {/* CENTRO: MONTO TOTAL GRANDE - solo visible en POS/Palets cuando hay carrito */}
         <div className="flex items-center justify-center px-1 flex-1">
           {isOnPOS && hasCart ? (
-            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-lg ${isDarkMode ? 'bg-emerald-950 border-2 border-emerald-600/70' : 'bg-[#f0fdfa] border-2 border-[#99f6e4] shadow-sm'}`}>
-              <span className={`text-[11px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-emerald-400' : 'text-[#0d9488]'}`}>TOTAL</span>
-              <span className={`text-3xl font-black font-mono tracking-tight ${isDarkMode ? 'text-emerald-300' : 'text-[#0d9488]'}`}>${cartTotalDollar.toFixed(2)}</span>
+            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-lg ${isDarkMode ? 'bg-emerald-950 border-2 border-emerald-600/70' : 'bg-emerald-50 border-2 border-emerald-300 shadow-sm'}`}>
+              <span className={`text-[11px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>TOTAL</span>
+              <span className={`text-3xl font-black font-mono tracking-tight ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>${cartTotalDollar.toFixed(2)}</span>
             </div>
           ) : null}
         </div>

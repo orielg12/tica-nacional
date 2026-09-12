@@ -204,14 +204,29 @@ export default function AdminLayout() {
 
         /* ── RESPONSIVE GLOBAL PARA TODAS LAS PÁGINAS DEL ADMIN ── */
         @media (max-width: 768px) {
-          main {
-            padding: 0 !important;
-            padding-bottom: 2rem !important;
+          .admin-layout-root {
+            width: 100vw !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
           }
-          /* Asegurar que las tablas tengan scroll horizontal suave sin romper el layout */
+          main {
+            padding: 0.75rem !important;
+            padding-bottom: 4rem !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            box-sizing: border-box !important;
+            overflow-x: hidden !important;
+          }
+          /* Asegurar que las tablas tengan scroll horizontal suave sin romper el viewport */
+          .surface,
+          .table-container,
+          div:has(> table) {
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
           main table {
-            display: table !important;
-            min-width: 100% !important;
+            min-width: 520px !important;
           }
         }
       `}</style>
