@@ -41,19 +41,17 @@ export default function ManualSale() {
 
   const allLotteries = store.lotteriesMaster.filter(l => l.isActive);
 
-  // Helper para alternar un sorteo individual
+  // Toggle individual lottery
   const toggleLottery = (id: string) => {
     setSelectedLotteryIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
-  // Seleccionar todos los sorteos activos
   const selectAllLotteries = () => {
     setSelectedLotteryIds(allLotteries.map(l => l.id));
   };
 
-  // Deseleccionar todos
   const clearAllLotteries = () => {
     setSelectedLotteryIds([]);
   };
@@ -118,7 +116,7 @@ export default function ManualSale() {
     }
   };
 
-  // --- PARSEADOR DE TEXTO / IMPORTACIÓN RÁPIDA ---
+  // Import text parser
   const handleProcessImport = () => {
     setImportError(null);
     if (!importText.trim()) {
@@ -134,17 +132,14 @@ export default function ManualSale() {
       let line = raw.trim();
       if (!line) continue;
 
-      // Detectar si es cabecera de cliente
       const clientMatch = line.match(/^(?:cliente|nombre|jugador|name)\s*[:\-=]\s*(.+)$/i);
       if (clientMatch) {
         detectedClient = clientMatch[1].trim();
         continue;
       }
 
-      // Limpiar viles / v al final
       line = line.replace(/\s*v(?:iles)?\s*$/i, '').trim();
 
-      // Formato Decena: D3x5 o D3-5 o Decena 3 con 5
       const decadeMatch = line.match(/^(?:d|decena)\s*(\d)\s*[-x*=:\s]\s*(\d+)$/i);
       if (decadeMatch) {
         const dNum = parseInt(decadeMatch[1], 10);
@@ -159,41 +154,34 @@ export default function ManualSale() {
       let amt = 0;
       let matched = false;
 
-      // 1. "25x10" / "25*10" / "25 x 10"
       let m = line.match(/^(\d{1,2})\s*[x*X]\s*(\d+(?:\.\d+)?)$/);
       if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
 
-      // 2. "25-10" / "25/10"
       if (!matched) {
         m = line.match(/^(\d{1,2})\s*[-–—\/]\s*(\d+(?:\.\d+)?)$/);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
-      // 3. "25=10" / "25:10"
       if (!matched) {
         m = line.match(/^(\d{1,2})\s*[:=]\s*(\d+(?:\.\d+)?)$/);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
-      // 4. "10 del 25" / "10 al 25" (monto primero, número después)
       if (!matched) {
         m = line.match(/^(\d+(?:\.\d+)?)\s+(?:del|al|de|el)\s+(\d{1,2})$/i);
         if (m) { amt = parseFloat(m[1]); num = m[2]; matched = true; }
       }
 
-      // 5. "25 con 10" / "25 por 10"
       if (!matched) {
         m = line.match(/^(\d{1,2})\s+(?:con|por|de)\s+(\d+(?:\.\d+)?)$/i);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
-      // 6. "25(10)" / "25 (10)"
       if (!matched) {
         m = line.match(/^(\d{1,2})\s*\((\d+(?:\.\d+)?)\)$/);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
-      // 7. "25 10" (espacio simple)
       if (!matched) {
         m = line.match(/^(\d{1,2})\s+(\d+(?:\.\d+)?)$/);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
@@ -268,7 +256,6 @@ export default function ManualSale() {
       const [year, month, day] = saleDate.split('-').map(Number);
       const createdAt = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
 
-      // 1. Insertar Ticket cabecera con el total calculado
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
@@ -283,7 +270,6 @@ export default function ManualSale() {
 
       if (ticketError) throw ticketError;
 
-      // 2. Insertar jugadas para CADA sorteo seleccionado
       const tnPayload: any[] = [];
       for (const lotteryId of selectedLotteryIds) {
         for (const p of plays) {
@@ -341,61 +327,66 @@ export default function ManualSale() {
   const vendors = store.users.filter(u => u.role === 'Vendedor' || u.role === 'Admin');
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 text-slate-800 p-3 sm:p-5 md:p-8">
+    <div className="w-full min-h-full bg-slate-100/70 p-4 sm:p-6 lg:p-8">
       
-      {/* ── HEADER BANNER ── */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
-            <Save size={24} className="text-teal-600 flex-shrink-0" />
-            <span>Registro de Venta Manual</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Ingresa ventas de múltiples sorteos fuera del sistema (WhatsApp o papel).
-          </p>
-        </div>
+      {/* Contenedor centralizado para no estirarse a lo infinito */}
+      <div className="max-w-5xl mx-auto space-y-5">
 
-        <button
-          type="button"
-          onClick={() => setShowImportModal(true)}
-          className="flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 whitespace-nowrap"
-        >
-          <Clipboard size={18} />
-          <span>Pegar Lista de WhatsApp</span>
-        </button>
-      </div>
+        {/* ── HEADER BANNER ── */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 flex-shrink-0">
+              <Save size={22} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 leading-tight">
+                Registro de Venta Manual
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Ingresa ventas externas de uno o varios sorteos (WhatsApp o papel).
+              </p>
+            </div>
+          </div>
 
-      {/* ── ALERTAS DE ESTADO ── */}
-      {result && (
-        <div className={`p-4 rounded-xl mb-5 font-bold text-sm flex items-start gap-3 shadow-sm ${result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-          {result.success ? <CheckCircle size={20} className="flex-shrink-0 text-emerald-600 mt-0.5" /> : <AlertCircle size={20} className="flex-shrink-0 text-red-600 mt-0.5" />}
-          <div className="flex-1">{result.message}</div>
-        </div>
-      )}
-
-      {savedTicketId && (
-        <div className="mb-5 flex flex-wrap gap-2.5">
-          <button onClick={handleHideTicket} className="px-3.5 py-2.5 rounded-xl border border-sky-600 bg-white text-sky-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
-            <AlertCircle size={15} /> Ocultar ticket de vista
-          </button>
-          <button onClick={handleDeleteTicket} className="px-3.5 py-2.5 rounded-xl border border-red-600 bg-white text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
-            <Trash2 size={15} /> Eliminar ticket permanentemente
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            style={{ backgroundColor: '#0d9488', color: '#ffffff' }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
+          >
+            <Clipboard size={16} />
+            <span>Pegar Lista de WhatsApp</span>
           </button>
         </div>
-      )}
 
-      {/* ── TARJETA PRINCIPAL ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-6 mb-6 space-y-6">
+        {/* ── ALERTAS DE ESTADO ── */}
+        {result && (
+          <div className={`p-4 rounded-xl font-bold text-sm flex items-start gap-3 shadow-sm ${result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+            {result.success ? <CheckCircle size={20} className="flex-shrink-0 text-emerald-600 mt-0.5" /> : <AlertCircle size={20} className="flex-shrink-0 text-red-600 mt-0.5" />}
+            <div className="flex-1">{result.message}</div>
+          </div>
+        )}
 
-        {/* ── SECCIÓN 1: SELECCIÓN DE MÚLTIPLES SORTEOS ── */}
-        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        {savedTicketId && (
+          <div className="flex flex-wrap gap-2.5">
+            <button onClick={handleHideTicket} className="px-3.5 py-2 rounded-xl border border-sky-600 bg-white text-sky-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+              <AlertCircle size={15} /> Ocultar ticket
+            </button>
+            <button onClick={handleDeleteTicket} className="px-3.5 py-2 rounded-xl border border-red-600 bg-white text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+              <Trash2 size={15} /> Eliminar ticket
+            </button>
+          </div>
+        )}
+
+        {/* ── CARD 1: SORTEOS A JUGAR ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <Layers size={18} className="text-teal-600" />
-              <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                Sorteos a Jugar *
-              </label>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-black ${selectedLotteryIds.length > 0 ? 'bg-teal-100 text-teal-800' : 'bg-amber-100 text-amber-800'}`}>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Sorteos a Jugar
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedLotteryIds.length > 0 ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                 {selectedLotteryIds.length} seleccionado(s)
               </span>
             </div>
@@ -404,22 +395,22 @@ export default function ManualSale() {
               <button
                 type="button"
                 onClick={selectAllLotteries}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:border-teal-500 text-slate-700 hover:text-teal-700 font-bold text-xs rounded-lg transition-colors"
+                className="px-3 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-lg transition-colors"
               >
                 ✓ Seleccionar Todos
               </button>
               <button
                 type="button"
                 onClick={clearAllLotteries}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:border-red-400 text-slate-600 hover:text-red-600 font-bold text-xs rounded-lg transition-colors"
+                className="px-3 py-1 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 font-bold text-xs rounded-lg transition-colors"
               >
                 ✕ Desmarcar
               </button>
             </div>
           </div>
 
-          {/* Grid de Chips de Sorteos */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1">
+          {/* Grid compacto de chips de sorteos */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-44 overflow-y-auto pr-1">
             {allLotteries.map(l => {
               const isSelected = selectedLotteryIds.includes(l.id);
               return (
@@ -427,11 +418,8 @@ export default function ManualSale() {
                   key={l.id}
                   type="button"
                   onClick={() => toggleLottery(l.id)}
-                  className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-1.5 transition-all active:scale-95 ${
-                    isSelected
-                      ? 'bg-teal-600 border-teal-700 text-white shadow-sm ring-1 ring-teal-500'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
+                  style={isSelected ? { backgroundColor: '#0d9488', borderColor: '#0f766e', color: '#ffffff' } : { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#334155' }}
+                  className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-1.5 transition-all active:scale-95 shadow-2xs hover:shadow-xs`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-xs truncate leading-tight">{l.name}</div>
@@ -439,7 +427,7 @@ export default function ManualSale() {
                       {formatLotteryTime(l.hour, l.minute)}
                     </div>
                   </div>
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white text-teal-700' : 'border border-slate-300'}`}>
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white text-teal-700' : 'border border-slate-300 bg-white'}`}>
                     {isSelected && <Check size={12} strokeWidth={3} />}
                   </div>
                 </button>
@@ -447,88 +435,99 @@ export default function ManualSale() {
             })}
           </div>
           {selectedLotteryIds.length === 0 && (
-            <p className="text-[11px] text-amber-700 font-bold mt-2 flex items-center gap-1">
+            <p className="text-[11px] text-amber-600 font-bold pt-1 flex items-center gap-1">
               <AlertCircle size={13} />
-              Debes marcar al menos un sorteo para poder registrar la venta.
+              Debes marcar al menos un sorteo para realizar la venta.
             </p>
           )}
         </div>
 
-        {/* ── SECCIÓN 2: CONFIGURACIÓN GENERAL (VENDEDOR, CLIENTE, PRECIO, FECHA) ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Vendedor Responsable *
-            </label>
-            <select
-              value={vendorId}
-              onChange={e => setVendorId(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
-            >
-              <option value="">-- Seleccionar --</option>
-              {vendors.map(v => (
-                <option key={v.id} value={v.username}>{v.username}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Cliente (Opcional)
-            </label>
-            <SafeTextInput
-              value={clientName}
-              onChange={setClientName}
-              placeholder="Nombre del cliente"
-              className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Precio por Vil
-            </label>
-            <div className="flex gap-2 h-11">
-              <button
-                type="button"
-                onClick={() => setSaleMode(0.20)}
-                className={`flex-1 rounded-xl font-black text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${saleMode === 0.20 ? 'border-teal-600 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+        {/* ── CARD 2: DATOS DE LA VENTA (SIMETRÍA TOTAL EN 4 COLS) ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Vendedor */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
+                Vendedor Responsable *
+              </label>
+              <select
+                value={vendorId}
+                onChange={e => setVendorId(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-teal-500 transition-colors"
               >
-                $0.20 / vil
-              </button>
-              <button
-                type="button"
-                onClick={() => setSaleMode(0.25)}
-                className={`flex-1 rounded-xl font-black text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${saleMode === 0.25 ? 'border-sky-600 bg-sky-50 text-sky-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
-              >
-                $0.25 / vil
-              </button>
+                <option value="">-- Seleccionar --</option>
+                {vendors.map(v => (
+                  <option key={v.id} value={v.username}>{v.username}</option>
+                ))}
+              </select>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Fecha de Venta
-            </label>
-            <input
-              type="date"
-              value={saleDate}
-              onChange={e => setSaleDate(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
-            />
+            {/* Cliente */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
+                Cliente (Opcional)
+              </label>
+              <SafeTextInput
+                value={clientName}
+                onChange={setClientName}
+                placeholder="Nombre del cliente"
+                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-teal-500 transition-colors"
+              />
+            </div>
+
+            {/* Modalidad / Denominación */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
+                Precio por Vil
+              </label>
+              <div className="flex gap-2 h-11">
+                <button
+                  type="button"
+                  onClick={() => setSaleMode(0.20)}
+                  style={saleMode === 0.20 ? { backgroundColor: '#f0fdf4', borderColor: '#16a34a', color: '#15803d' } : { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#64748b' }}
+                  className="flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center"
+                >
+                  $0.20 / vil
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSaleMode(0.25)}
+                  style={saleMode === 0.25 ? { backgroundColor: '#f0f9ff', borderColor: '#0284c7', color: '#0369a1' } : { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#64748b' }}
+                  className="flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center"
+                >
+                  $0.25 / vil
+                </button>
+              </div>
+            </div>
+
+            {/* Fecha */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
+                Fecha de Venta
+              </label>
+              <input
+                type="date"
+                value={saleDate}
+                onChange={e => setSaleDate(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-teal-500 transition-colors"
+              />
+            </div>
+
           </div>
         </div>
 
-        {/* ── SECCIÓN 3: ENTRADA DE JUGADAS (SIMÉTRICA Y RESPONSIVE EN MÓVIL Y PC) ── */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 sm:p-5">
-          <div className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">
+        {/* ── CARD 3: ENTRADA DE JUGADAS (SIMÉTRICA CON BOTÓN DESTACADO) ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
             Entrada de Jugadas
-          </div>
+          </span>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
             
+            {/* Viles */}
             <div className="sm:col-span-1 lg:col-span-3">
-              <label className="block text-[11px] font-black text-slate-600 uppercase mb-1">
+              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
                 Viles (Monto)
               </label>
               <input
@@ -539,12 +538,13 @@ export default function ManualSale() {
                 value={currentAmount}
                 onChange={e => setCurrentAmount(e.target.value)}
                 placeholder="Ej. 5"
-                className="w-full h-12 px-3 rounded-xl border-2 border-teal-500 bg-white text-slate-900 font-black text-center text-xl outline-none focus:ring-2 focus:ring-teal-200 transition-all shadow-sm"
+                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-teal-500 bg-white text-slate-900 font-bold text-center text-xl outline-none transition-all shadow-2xs"
               />
             </div>
 
+            {/* Número */}
             <div className="sm:col-span-1 lg:col-span-3">
-              <label className="block text-[11px] font-black text-slate-600 uppercase mb-1">
+              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
                 Número (00-99)
               </label>
               <input
@@ -556,18 +556,20 @@ export default function ManualSale() {
                 onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
                 onKeyDown={e => { if (e.key === 'Enter') addPlay(); }}
                 placeholder="00"
-                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 text-slate-900 font-mono font-black text-center text-xl outline-none focus:border-teal-500 bg-white transition-all shadow-sm"
+                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-teal-500 bg-white text-slate-900 font-mono font-bold text-center text-xl outline-none transition-all shadow-2xs"
               />
             </div>
 
+            {/* Botón Acción: + Agregar Jugada */}
             <div className="sm:col-span-2 lg:col-span-3">
               {editIdx === null ? (
                 <button
                   type="button"
                   onClick={addPlay}
-                  className="w-full h-12 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-black text-sm rounded-xl shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#0d9488', color: '#ffffff' }}
+                  className="w-full h-12 rounded-xl font-bold text-sm shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  <Plus size={20} strokeWidth={3} />
+                  <Plus size={20} strokeWidth={2.5} />
                   <span>+ Agregar Jugada</span>
                 </button>
               ) : (
@@ -575,14 +577,15 @@ export default function ManualSale() {
                   <button
                     type="button"
                     onClick={confirmEdit}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1"
+                    style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+                    className="flex-1 rounded-xl font-bold text-xs shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-1"
                   >
                     <Check size={16} /> Guardar
                   </button>
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                    className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all border border-slate-200"
                   >
                     Cancelar
                   </button>
@@ -590,9 +593,10 @@ export default function ManualSale() {
               )}
             </div>
 
+            {/* Decenas Rápidas */}
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-[11px] font-black text-emerald-800 uppercase mb-1">
-                Decenas Rápidas (10 Núms)
+              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                Decenas Rápidas
               </label>
               <select
                 onChange={e => {
@@ -601,9 +605,9 @@ export default function ManualSale() {
                     e.target.value = '';
                   }
                 }}
-                className="w-full h-12 px-3 rounded-xl border-2 border-emerald-400 text-emerald-900 bg-white font-bold text-xs outline-none cursor-pointer hover:border-emerald-500 shadow-sm transition-all"
+                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-teal-500 text-slate-800 bg-white font-bold text-xs outline-none cursor-pointer shadow-2xs transition-all"
               >
-                <option value="">+ Agregar Decena...</option>
+                <option value="">+ Agregar Decena (10 Núms)...</option>
                 {[...Array(10)].map((_, i) => (
                   <option key={i} value={i}>
                     Decena del {i} ({i}0 al {i}9)
@@ -615,129 +619,132 @@ export default function ManualSale() {
           </div>
         </div>
 
-        {/* ── SECCIÓN 4: LISTA DE JUGADAS AGREGADAS ── */}
-        {plays.length > 0 ? (
-          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-slate-100 px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                  {plays.length} Apunte(s) Agregado(s)
-                </span>
-                <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
-                  {totalViles} Viles por sorteo
-                </span>
-                {numSelectedLotteries > 1 && (
-                  <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
-                    × {numSelectedLotteries} sorteos = {totalViles * numSelectedLotteries} viles tot.
+        {/* ── CARD 4: LISTA DE JUGADAS AGREGADAS ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          {plays.length > 0 ? (
+            <div>
+              <div className="bg-slate-50 px-5 py-3 flex flex-wrap justify-between items-center gap-2 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    {plays.length} Apunte(s)
                   </span>
-                )}
+                  <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                    {totalViles} Viles por sorteo
+                  </span>
+                  {numSelectedLotteries > 1 && (
+                    <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                      × {numSelectedLotteries} sorteos = {totalViles * numSelectedLotteries} viles tot.
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPlays([])}
+                  className="text-xs text-red-600 hover:text-red-700 font-bold flex items-center gap-1 hover:underline"
+                >
+                  <Trash2 size={14} /> Vaciar lista
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setPlays([])}
-                className="text-xs text-red-600 hover:text-red-700 font-bold flex items-center gap-1 hover:underline"
-              >
-                <Trash2 size={14} /> Vaciar lista
-              </button>
-            </div>
-
-            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 bg-white">
-              {plays.map((p, idx) => (
-                <div key={idx} className="flex justify-between items-center px-4 py-2.5 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
-                    <span className="px-3 py-1 bg-teal-50 border border-teal-300 text-teal-800 font-mono font-black rounded-lg text-lg min-w-[48px] text-center shadow-xs">
-                      {p.number}
-                    </span>
-                    <div className="text-xs">
-                      <span className="font-bold text-slate-800">{p.amount} viles</span>
-                      <span className="text-slate-400 ml-1.5 font-mono">
-                        (${(p.amount * saleMode * Math.max(1, numSelectedLotteries)).toFixed(2)})
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 bg-white">
+                {plays.map((p, idx) => (
+                  <div key={idx} className="flex justify-between items-center px-5 py-2.5 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
+                      <span className="px-3 py-1 bg-teal-50 border border-teal-200 text-teal-800 font-mono font-bold rounded-lg text-lg min-w-[48px] text-center shadow-2xs">
+                        {p.number}
                       </span>
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800">{p.amount} viles</span>
+                        <span className="text-slate-400 ml-1.5 font-mono">
+                          (${(p.amount * saleMode * Math.max(1, numSelectedLotteries)).toFixed(2)})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(idx)}
+                        className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                        title="Editar jugada"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removePlay(idx)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Eliminar jugada"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(idx)}
-                      className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                      title="Editar jugada"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removePlay(idx)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar jugada"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          ) : (
+            <div className="text-center py-10 px-4">
+              <FileText size={36} className="mx-auto text-slate-300 mb-2" />
+              <p className="text-sm font-bold text-slate-600">No hay jugadas agregadas aún</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                Ingresa viles y número arriba y presiona "+ Agregar Jugada", o pega un mensaje de WhatsApp.
+              </p>
+            </div>
+          )}
+
+          {/* Footer de la tarjeta con totales y botón finalizar */}
+          <div className="bg-slate-50 p-5 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-6 w-full sm:w-auto justify-around sm:justify-start">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">
+                  Total Viles
+                </span>
+                <span className="text-xl font-bold text-slate-800 font-mono">
+                  {totalViles}
+                </span>
+              </div>
+
+              <div className="h-8 w-px bg-slate-200" />
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">
+                  Sorteos
+                </span>
+                <span className="text-xl font-bold text-teal-700 font-mono">
+                  {numSelectedLotteries}
+                </span>
+              </div>
+
+              <div className="h-8 w-px bg-slate-200" />
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">
+                  Total a Pagar
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-emerald-600 font-mono">
+                  ${totalUSD.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSave}
+              disabled={saving || plays.length === 0 || numSelectedLotteries === 0 || !vendorId}
+              style={{ backgroundColor: (saving || plays.length === 0 || numSelectedLotteries === 0 || !vendorId) ? '#94a3b8' : '#059669', color: '#ffffff' }}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <span>Guardando...</span>
+              ) : (
+                <span>
+                  Finalizar Venta ({numSelectedLotteries} {numSelectedLotteries === 1 ? 'Sorteo' : 'Sorteos'}) — ${totalUSD.toFixed(2)}
+                </span>
+              )}
+            </button>
           </div>
-        ) : (
-          <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-            <FileText size={36} className="mx-auto text-slate-300 mb-2" />
-            <p className="text-sm font-bold text-slate-600">No hay jugadas agregadas aún</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              Ingresa los viles y el número arriba y pulsa "+ Agregar Jugada", o pega un mensaje con "Pegar Lista de WhatsApp".
-            </p>
-          </div>
-        )}
-
-        {/* ── SECCIÓN 5: RESUMEN Y BOTÓN FINALIZAR ── */}
-        <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white">
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full sm:w-auto justify-around sm:justify-start">
-            <div>
-              <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">
-                Total Viles
-              </span>
-              <span className="text-xl font-black text-slate-800 font-mono">
-                {totalViles}
-              </span>
-            </div>
-
-            <div className="h-8 w-px bg-slate-200" />
-
-            <div>
-              <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">
-                Sorteos
-              </span>
-              <span className="text-xl font-black text-teal-700 font-mono">
-                {numSelectedLotteries}
-              </span>
-            </div>
-
-            <div className="h-8 w-px bg-slate-200" />
-
-            <div>
-              <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">
-                Total a Pagar
-              </span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">
-                ${totalUSD.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSave}
-            disabled={saving || plays.length === 0 || numSelectedLotteries === 0 || !vendorId}
-            className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-base sm:text-lg rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <span>Guardando en Base de Datos...</span>
-            ) : (
-              <span>
-                Finalizar Venta ({numSelectedLotteries} {numSelectedLotteries === 1 ? 'Sorteo' : 'Sorteos'}) — ${totalUSD.toFixed(2)}
-              </span>
-            )}
-          </button>
         </div>
 
       </div>
@@ -745,9 +752,9 @@ export default function ManualSale() {
       {/* ── MODAL: PEGAR LISTA DE NÚMEROS / WHATSAPP ── */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-slideUp">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
             
-            <div className="bg-teal-700 text-white p-4 flex justify-between items-center">
+            <div style={{ backgroundColor: '#0d9488' }} className="text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Clipboard size={20} />
                 <h3 className="font-bold text-base">Pegar Lista de Jugadas (WhatsApp)</h3>
@@ -789,14 +796,15 @@ export default function ManualSale() {
                 <button
                   type="button"
                   onClick={() => setShowImportModal(false)}
-                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors border border-slate-200"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleProcessImport}
-                  className="flex-1 py-3 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 shadow-md transition-colors"
+                  style={{ backgroundColor: '#0d9488', color: '#ffffff' }}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:opacity-90 transition-colors"
                 >
                   Importar Jugadas
                 </button>
