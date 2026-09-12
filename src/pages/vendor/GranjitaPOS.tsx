@@ -14,13 +14,13 @@ export default function GranjitaPOS() {
   const { tc } = useTheme();
 
   const bgBase       = tc('bg-gray-900',  'bg-white');
-  const bgPanel      = tc('bg-gray-800',  'bg-[#0d9488]');
+  const bgPanel      = tc('bg-gray-800',  'bg-[#0f766e]');
   const bgCart       = tc('bg-[#0f172a]', 'bg-white');
   const bgNumpad     = tc('bg-[#111827]', 'bg-white');
   const borderPanel  = tc('border-gray-700', 'border-slate-200');
   const textPrimary  = tc('text-white',    'text-slate-900');
   const textPanelLabel = tc('text-gray-400', 'text-white font-black');
-  const selectBg     = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0d9488] font-bold');
+  const selectBg     = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0f766e] font-bold');
 
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [lotteries, setLotteries] = useState<LotteryConfig[]>([]);
@@ -381,7 +381,7 @@ export default function GranjitaPOS() {
               onClick={() => setNumpadMode('amount')}
               className={`flex-[1.5] p-3 rounded-lg flex justify-between items-center ${bgPanel} border-2 transition-colors cursor-pointer ${
                 numpadMode === 'amount'
-                  ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-[#0d9488] shadow-[0_0_8px_rgba(13,148,136,0.4)]')
+                  ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-[#0f766e] bg-[#f0fdfa] shadow-[0_0_8px_rgba(15,118,110,0.3)]')
                   : tc('border-transparent', 'border-slate-300')
               }`}
             >
@@ -398,18 +398,18 @@ export default function GranjitaPOS() {
               onClick={() => setNumpadMode('num')}
               className={`flex-1 p-3 rounded-lg flex justify-between items-center ${bgPanel} border-2 transition-colors cursor-pointer ${
                 numpadMode === 'num'
-                  ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-[#0d9488] shadow-[0_0_8px_rgba(13,148,136,0.4)]')
+                  ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-[#0f766e] bg-[#f0fdfa] shadow-[0_0_8px_rgba(15,118,110,0.3)]')
                   : tc('border-transparent', 'border-slate-300')
               }`}
             >
               <span className={`${textPanelLabel} text-xs font-mono`}>Nº ANIMAL</span>
-              <span className={`text-3xl font-bold font-mono ${numpadNumber ? tc('text-teal-400', 'text-[#0d9488]') : tc('text-gray-600', 'text-slate-400')}`}>
+              <span className={`text-3xl font-bold font-mono ${numpadNumber ? tc('text-teal-400', 'text-[#0f766e]') : tc('text-gray-600', 'text-slate-400')}`}>
                 {numpadNumber || '--'}{displayAnimal && <span className="text-2xl ml-1">{displayAnimal.emoji}</span>}
               </span>
             </div>
           </div>
           {displayAnimal && (
-            <div className={`mt-1 text-center text-xs font-extrabold ${tc('text-teal-300', 'text-[#0d9488]')} tracking-wider uppercase`}>
+            <div className={`mt-1 text-center text-xs font-extrabold ${tc('text-teal-300', 'text-[#0f766e]')} tracking-wider uppercase`}>
               {displayAnimal.number} – {displayAnimal.name} {displayAnimal.emoji}
             </div>
           )}
@@ -424,9 +424,9 @@ export default function GranjitaPOS() {
               {granjitaCart.map(item => {
                 const animal = getAnimalByNumber(item.number);
                 return (
-                  <div key={item.id} className={`flex-none flex items-center gap-1.5 ${tc('bg-teal-950 text-white', 'bg-white text-[#1f2937]')} text-xs px-3 py-1.5 rounded-xl border-2 ${tc('border-teal-500', 'border-[#0d9488]')} font-extrabold whitespace-nowrap shadow`}>
+                  <div key={item.id} className={`flex-none flex items-center gap-1.5 ${tc('bg-teal-950 text-white', 'bg-white text-[#1f2937]')} text-xs px-3 py-1.5 rounded-xl border-2 ${tc('border-teal-500', 'border-[#0f766e]')} font-extrabold whitespace-nowrap shadow`}>
                     <span className="text-base">{animal?.emoji}</span>
-                    <span className={`font-mono ${tc('text-teal-300', 'text-[#0d9488]')}`}>#{animal?.number || item.number}</span>
+                    <span className={`font-mono ${tc('text-teal-300', 'text-[#0f766e]')}`}>#{animal?.number || item.number}</span>
                     <span className={`${tc('text-amber-300', 'text-[#d97706]')} font-mono font-black`}>{item.amount}v</span>
                     <button onClick={() => store.removeNumber(item.id)} className={`${tc('text-red-400 active:text-red-200 bg-red-950/60', 'text-red-500 active:text-red-600 bg-red-50')} p-0.5 ml-1 rounded-full`}>
                       <X size={14} />
@@ -519,7 +519,7 @@ export default function GranjitaPOS() {
                     if (numpadMode === 'num') setNumpadNumber(prev => prev.slice(0, -1));
                     else setCurrentAmount(prev => prev.length > 1 ? prev.slice(0, -1) : '');
                   }}
-                  className={`${tc('bg-red-900/20 text-red-500 active:bg-red-900/50', 'bg-white text-red-600 border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] active:shadow-none active:translate-y-[3px]')} rounded-lg h-[55px] flex items-center justify-center shadow transition-transform`}
+                  className={`${tc('bg-red-900/20 text-red-500 active:bg-red-900/50', 'bg-white text-[#dc2626] border-2 border-red-200 shadow-[0_3px_0_#fecaca] active:shadow-none active:translate-y-[3px]')} rounded-lg h-[55px] flex items-center justify-center shadow transition-transform`}
                 >
                   <Trash2 size={24} />
                 </button>
@@ -540,7 +540,7 @@ export default function GranjitaPOS() {
                       setNumpadMode('num');
                     }
                   }}
-                  className={`w-full h-full min-h-[184px] ${tc('bg-teal-500 hover:bg-teal-400 active:bg-teal-600 border-b-4 border-teal-700', 'bg-[#0d9488] hover:bg-[#0f766e] active:bg-[#115e59] border-b-4 border-[#0f766e]')} text-white font-black rounded-xl shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 active:border-b-0`}
+                  className={`w-full h-full min-h-[184px] ${tc('bg-teal-500 hover:bg-teal-400 active:bg-teal-600 border-b-4 border-teal-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a] border-b-4 border-[#115e59]')} text-white font-black rounded-xl shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 active:border-b-0`}
                 >
                   <Plus size={36} className="animate-pulse" />
                   <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold">AÑADIR</span>
@@ -555,7 +555,7 @@ export default function GranjitaPOS() {
               disabled={isBusy || granjitaCart.length === 0}
               className={`w-full h-[60px] rounded-lg font-black text-base tracking-widest uppercase flex items-center justify-center gap-3 transition-all shadow-lg border-b-4 active:translate-y-1 active:border-b-0 ${
                 granjitaCart.length > 0
-                  ? `${tc('bg-[#0ea5e9] border-[#0369a1] active:bg-[#0284c7]', 'bg-[#0d9488] border-[#0f766e] active:bg-[#0f766e]')} text-white`
+                  ? `${tc('bg-[#0ea5e9] border-[#0369a1] active:bg-[#0284c7]', 'bg-[#15803d] hover:bg-[#166534] border-[#166534] active:bg-[#166534]')} text-white`
                   : `${tc('bg-gray-800 text-gray-600 border-gray-700', 'bg-[#e5e7eb] text-[#9ca3af] border-[#d1d5db]')} opacity-60`
               }`}
             >
@@ -612,7 +612,7 @@ export default function GranjitaPOS() {
           <button
             onClick={() => setShowCheckoutModal(true)}
             disabled={isBusy || granjitaCart.length === 0}
-            className={`w-full py-3.5 ${tc('bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600', 'bg-[#0d9488] hover:bg-[#0f766e] active:bg-[#115e59]')} disabled:opacity-40 text-white font-black rounded-xl text-base tracking-wide shadow-lg uppercase flex items-center justify-center gap-2`}
+            className={`w-full py-3.5 ${tc('bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600', 'bg-[#15803d] hover:bg-[#166534] active:bg-[#166534]')} disabled:opacity-40 text-white font-black rounded-xl text-base tracking-wide shadow-lg uppercase flex items-center justify-center gap-2`}
           >
             <span>PROCESAR TICKET (${calculateTotal().toFixed(2)})</span>
             <ArrowRight size={20} />
@@ -659,7 +659,7 @@ export default function GranjitaPOS() {
                         <span className={`text-sm font-bold ${tc('text-white', 'text-[#1f2937]')}`}>
                           {item.number} {animal ? `${animal.emoji} ${animal.name.toUpperCase()}` : ''}
                         </span>
-                        <span className={`${tc('text-teal-400', 'text-[#0d9488]')} font-mono text-sm font-bold`}>${(item.amount * store.saleMode).toFixed(2)}</span>
+                        <span className={`${tc('text-teal-400', 'text-[#0f766e]')} font-mono text-sm font-bold`}>${(item.amount * store.saleMode).toFixed(2)}</span>
                       </div>
                     );
                   })}
@@ -669,13 +669,13 @@ export default function GranjitaPOS() {
               {/* Total */}
               <div className={`flex justify-between items-center ${tc('bg-gray-900 border-gray-700', 'bg-[#f9fafb] border-[#e5e7eb]')} p-3.5 rounded-xl border`}>
                 <span className={`${tc('text-gray-400', 'text-[#6b7280]')} font-bold text-xs uppercase`}>TOTAL VENTA:</span>
-                <span className={`text-2xl font-black ${tc('text-teal-400', 'text-[#0d9488]')} font-mono`}>${calculateTotal().toFixed(2)}</span>
+                <span className={`text-2xl font-black ${tc('text-teal-400', 'text-[#0f766e]')} font-mono`}>${calculateTotal().toFixed(2)}</span>
               </div>
 
               {isBusy ? (
                 <div className="flex flex-col items-center justify-center py-6">
-                  <div className={`w-8 h-8 border-4 ${tc('border-teal-500', 'border-[#0d9488]')} border-t-transparent rounded-full animate-spin`}></div>
-                  <p className={`${tc('text-teal-400', 'text-[#0d9488]')} font-bold mt-2 animate-pulse`}>Registrando en base de datos...</p>
+                  <div className={`w-8 h-8 border-4 ${tc('border-teal-500', 'border-[#0f766e]')} border-t-transparent rounded-full animate-spin`}></div>
+                  <p className={`${tc('text-teal-400', 'text-[#0f766e]')} font-bold mt-2 animate-pulse`}>Registrando en base de datos...</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2.5 mt-1">

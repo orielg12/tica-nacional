@@ -407,7 +407,7 @@ export default function ResultsManager() {
              {syncingAuto ? "Sincronizando Premios..." : "⚡ Auto-Cargar Premios"}
           </button>
 
-          <button onClick={() => { fetchPlays(); fetchCurrentWinningNumbers(); fetchHistory(); }} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#0d9488', border: 'none', color: '#ffffff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={() => { fetchPlays(); fetchCurrentWinningNumbers(); fetchHistory(); }} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#0f766e', border: 'none', color: '#ffffff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
              <RefreshCw size={16} /> ↻ Actualizar
           </button>
         </div>
@@ -503,7 +503,7 @@ export default function ResultsManager() {
             <button 
               onClick={handleSubmit}
               disabled={loading}
-              style={{ flex: 2, background: '#10b981', color: 'white', border: 'none', padding: '0.9rem', fontSize: '1.1rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(16,185,129,0.2)' }}
+              style={{ flex: 2, background: '#15803d', color: 'white', border: 'none', padding: '0.9rem', fontSize: '1.1rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(16,185,129,0.2)' }}
             >
               {loading ? 'Publicando...' : 'Publicar Resultados'}
             </button>
@@ -720,7 +720,7 @@ export default function ResultsManager() {
             </div>
             <button 
               onClick={() => setAutoSummaryModal(null)} 
-              style={{ width: '100%', padding: '0.8rem', background: '#0d9488', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
+              style={{ width: '100%', padding: '0.8rem', background: '#0f766e', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
             >
               ACEPTAR Y REGRESAR
             </button>

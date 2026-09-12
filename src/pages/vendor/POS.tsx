@@ -16,9 +16,9 @@ export default function POS() {
 
   // ── Theme-aware class shortcuts ──
   // ── Theme-aware class shortcuts ──
-  // CLARO: fondo blanco puro, teal sólido en headers/franjas, contornos en inputs/botones
-  const bgBase       = tc('bg-gray-900',  'bg-white');
-  const bgPanel      = tc('bg-gray-800',  'bg-[#0d9488]');   // SORTEOS: franja teal sólida
+  // CLARO: paleta semántica profesional
+  const bgBase       = tc('bg-gray-900',  'bg-[#f8fafc]');
+  const bgPanel      = tc('bg-gray-800',  'bg-[#0f766e]');   // SORTEOS: franja turquesa sólida
   const bgInput      = tc('bg-[#1e293b]', 'bg-white');       // TIEMPOS/NÚMERO: blanco puro
   const bgCart       = tc('bg-[#0f172a]', 'bg-white');       // carrito: blanco puro
   const bgNumpad     = tc('bg-[#111827]', 'bg-white');       // numpad: blanco puro
@@ -29,14 +29,14 @@ export default function POS() {
   const borderNumpad  = tc('border-gray-800',   'border-slate-200');
   // Text — SEPARADO por contexto de fondo
   const textPrimary    = tc('text-white',    'text-slate-900');   // texto principal
-  const textPanelLabel = tc('text-gray-400', 'text-white font-black'); // labels en franja TEAL → blanco
+  const textPanelLabel = tc('text-gray-400', 'text-white font-black'); // labels en franja TURQUESA → blanco
   const textInputLabel = tc('text-gray-400', 'text-slate-600 font-bold'); // labels en input → gris oscuro
   const textInputValue = tc('text-white',    'text-slate-900 font-black'); // valores en input → negro
   const textMutedInput = tc('text-gray-600', 'text-slate-400');   // placeholder en input
-  const textMuted      = tc('text-gray-500', 'text-white/90'); // subtítulos en franja teal
-  const textTeal       = tc('text-teal-400', 'text-[#0d9488]');
+  const textMuted      = tc('text-gray-500', 'text-white/90'); // subtítulos en franja turquesa
+  const textTeal       = tc('text-teal-400', 'text-[#0f766e]');
   // Select
-  const selectBg      = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0d9488] font-bold');
+  const selectBg      = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-[#0f766e] font-bold');
   // Numpad buttons: en claro → blanco con contorno marcado y sombra 3D física
   const numBtnClass   = tc(
     `${bgNumBtn} active:opacity-70 rounded-lg h-[55px] flex items-center justify-center text-2xl font-bold font-mono shadow`,
@@ -44,7 +44,7 @@ export default function POS() {
   );
   const backspaceClass = tc(
     'bg-red-900/20 text-red-500 active:bg-red-900/50 rounded-lg h-[55px] flex items-center justify-center shadow',
-    'bg-white active:bg-red-50 rounded-lg h-[55px] flex items-center justify-center border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] active:shadow-none active:translate-y-[3px] transition-transform text-red-600 font-black'
+    'bg-white active:bg-red-50 rounded-lg h-[55px] flex items-center justify-center border-2 border-red-200 shadow-[0_3px_0_#fecaca] active:shadow-none active:translate-y-[3px] transition-transform text-[#dc2626] font-black'
   );
 
   const [lotteries, setLotteries] = useState<LotteryConfig[]>([]);
@@ -1149,7 +1149,7 @@ export default function POS() {
        <button
          type="button"
          onClick={() => setShowRepeatModal(true)}
-         className={`${tc('bg-teal-600 hover:bg-teal-500 active:bg-teal-700', 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap`}
+         className={`${tc('bg-teal-600 hover:bg-teal-500 active:bg-teal-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a]')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap`}
          title="Repetir jugada anterior"
        >
          <Copy size={16} />
@@ -1158,7 +1158,7 @@ export default function POS() {
        <button
          type="button"
          onClick={() => setShowImportModal(true)}
-         className={`${tc('bg-[#0284c7] hover:bg-sky-500 active:bg-sky-700', 'bg-sky-600 hover:bg-sky-500 active:bg-sky-700')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm font-sans whitespace-nowrap`}
+         className={`${tc('bg-[#0284c7] hover:bg-sky-500 active:bg-sky-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a]')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm font-sans whitespace-nowrap`}
          title="Importar jugada desde WhatsApp / Texto"
        >
          <FileText size={16} />
@@ -1229,15 +1229,15 @@ export default function POS() {
                     onClick={() => setFocusedInput('amount')}
                     className={`flex-[1.4] p-2.5 lg:px-5 lg:py-6 rounded-lg flex justify-between items-center ${bgInput} border-2 transition-colors cursor-pointer ${
                       isAmountFrozen
-                        ? tc('border-amber-400 bg-amber-500/10 shadow-[0_0_8px_rgba(251,191,36,0.3)]', 'border-amber-400 bg-amber-50/50 shadow-[0_0_8px_rgba(251,191,36,0.2)]')
+                        ? tc('border-amber-400 bg-amber-500/10 shadow-[0_0_8px_rgba(251,191,36,0.3)]', 'border-[#b45309] bg-[#fffbeb] shadow-[0_0_8px_rgba(180,83,9,0.2)]')
                         : focusedInput === 'amount'
-                          ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-sky-500 bg-sky-50/40 shadow-[0_0_8px_rgba(14,165,233,0.2)]')
+                          ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-[#0f766e] bg-[#f0fdfa] shadow-[0_0_8px_rgba(15,118,110,0.2)]')
                           : borderInput
                     }`}
                   >
                     <span className={`${textInputLabel} font-medium text-xs lg:text-lg font-mono`}>TIEMPOS</span>
                     <div className="flex items-center gap-1.5 lg:gap-3">
-                      <span className={`text-3xl lg:text-6xl font-bold font-mono ${currentAmount ? (isAmountFrozen ? tc('text-amber-300', 'text-amber-800') : textInputValue) : textMutedInput}`}>
+                      <span className={`text-3xl lg:text-6xl font-bold font-mono ${currentAmount ? (isAmountFrozen ? tc('text-amber-300', 'text-[#b45309]') : textInputValue) : textMutedInput}`}>
                         {currentAmount || '0'}
                       </span>
                       <button
@@ -1253,7 +1253,7 @@ export default function POS() {
                         title={isAmountFrozen ? "Tiempos congelados (clic para desbloquear)" : "Congelar cantidad de tiempos"}
                         className={`p-1.5 lg:p-2 rounded-md border transition-all flex items-center justify-center ${
                           isAmountFrozen
-                            ? tc('bg-amber-500/25 text-amber-300 border-amber-400 shadow-sm', 'bg-amber-100 text-amber-800 border-amber-400 shadow-sm')
+                            ? tc('bg-amber-500/25 text-amber-300 border-amber-400 shadow-sm', 'bg-[#fef3c7] text-[#b45309] border-[#b45309] shadow-sm')
                             : tc('bg-gray-800/80 text-gray-400 border-gray-700 hover:text-white', 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600')
                         }`}
                       >
@@ -1268,7 +1268,7 @@ export default function POS() {
                     onClick={() => setFocusedInput('number')}
                     className={`flex-1 p-3 lg:px-6 lg:py-6 rounded-lg flex justify-between items-center ${bgInput} border-2 transition-colors cursor-pointer ${
                       focusedInput === 'number'
-                        ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-sky-500 bg-sky-50/40 shadow-[0_0_8px_rgba(14,165,233,0.2)]')
+                        ? tc('border-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]', 'border-[#0f766e] bg-[#f0fdfa] shadow-[0_0_8px_rgba(15,118,110,0.2)]')
                         : borderInput
                     }`}
                   >
@@ -1347,7 +1347,7 @@ export default function POS() {
                   className={`rounded-lg h-full flex items-center justify-center shadow-lg transition-colors overflow-hidden relative text-white ${
                     (focusedInput === 'amount' && parseFloat(currentAmount) > 0) ||
                     (focusedInput === 'number' && currentNumber.length === 2 && parseFloat(currentAmount) > 0 && store.selectedLotteries.length > 0)
-                      ? tc('bg-teal-500 active:bg-teal-400 scale-100 active:scale-95', 'bg-emerald-600 active:bg-emerald-700 scale-100 active:scale-95 shadow-md')
+                      ? tc('bg-teal-500 active:bg-teal-400 scale-100 active:scale-95', 'bg-[#15803d] active:bg-[#166534] scale-100 active:scale-95 shadow-md')
                       : tc('bg-teal-800 opacity-70', 'bg-slate-200 text-slate-400')
                   }`}
                 >
@@ -1370,7 +1370,7 @@ export default function POS() {
                 <button 
                   onClick={() => setShowCheckoutModal(true)}
                   disabled={posCart.length === 0}
-                  className={`w-full ${tc('bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] border-[#0369a1]', 'bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 active:bg-emerald-700 border-emerald-800')} text-white rounded-lg h-[60px] flex items-center justify-center shadow-lg transition-colors mt-0.5 border-b-4 active:translate-y-1 active:border-b-0`}
+                  className={`w-full ${tc('bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] border-[#0369a1]', 'bg-[#15803d] hover:bg-[#166534] disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 active:bg-[#166534] border-[#166534]')} text-white rounded-lg h-[60px] flex items-center justify-center shadow-lg transition-colors mt-0.5 border-b-4 active:translate-y-1 active:border-b-0`}
                 >
                   <span className="font-black text-2xl tracking-widest text-shadow">PROCESAR</span>
                 </button>
@@ -1419,7 +1419,7 @@ export default function POS() {
              <button
                 onClick={() => setShowCheckoutModal(true)}
                 disabled={posCart.length === 0}
-                className={`w-full ${tc('bg-[#0ea5e9] hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 border-[#0369a1]', 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 border-emerald-800')} text-white rounded-xl h-[55px] flex items-center justify-center font-black text-xl tracking-widest shadow-lg transition-all border-b-4 disabled:border-b-0 active:translate-y-0.5 active:border-b-0`}
+                className={`w-full ${tc('bg-[#0ea5e9] hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 border-[#0369a1]', 'bg-[#15803d] hover:bg-[#166534] disabled:bg-slate-200 disabled:text-slate-400 border-[#166534]')} text-white rounded-xl h-[55px] flex items-center justify-center font-black text-xl tracking-widest shadow-lg transition-all border-b-4 disabled:border-b-0 active:translate-y-0.5 active:border-b-0`}
              >
                 PROCESAR
              </button>

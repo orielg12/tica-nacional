@@ -422,7 +422,7 @@ export default function AdminReports() {
                         <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 'bold' }}>{lottery.name}</span>
                         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>{lottery.viles} viles jugados</div>
                      </div>
-                     <span style={{ fontSize: '1.1rem', color: '#059669', fontWeight: 'bold' }}>${lottery.usd.toFixed(2)}</span>
+                     <span style={{ fontSize: '1.1rem', color: '#15803d', fontWeight: 'bold' }}>${lottery.usd.toFixed(2)}</span>
                   </div>
                ))}
             </div>
@@ -453,7 +453,7 @@ export default function AdminReports() {
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {isGlobal ? "Utilidad Liquida a Recibir" : "Utilidad Liquida Cajero"}
             </p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#10b981' }}>${displayNet.toFixed(2)}</h3>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#15803d' }}>${displayNet.toFixed(2)}</h3>
          </div>
       </div>
 
@@ -540,7 +540,7 @@ export default function AdminReports() {
                
                {store.partnerReinvestPct > 0 && (
                  <div style={{ padding: '1rem', backgroundColor: '#ecfdf5', borderRadius: '8px', border: '1px dashed #6ee7b7' }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold' }}>CRECIMIENTO BANCA ({store.partnerReinvestPct}%)</p>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#15803d', fontWeight: 'bold' }}>CRECIMIENTO BANCA ({store.partnerReinvestPct}%)</p>
                     <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.4rem', color: displayNet >= 0 ? '#10b981' : '#dc3545' }}>
                        ${(displayNet * (store.partnerReinvestPct / 100)).toFixed(2)}
                     </h3>

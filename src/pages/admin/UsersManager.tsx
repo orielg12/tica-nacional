@@ -227,7 +227,7 @@ export default function UsersManager() {
                    </td>
                  )}
                  <td style={{ padding: '1rem', fontFamily: 'monospace', fontWeight: 'bold' }}>{u.username}</td>
-                <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#dc3545' }}>{u.password || 'N/A'}</td>
+                <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#dc2626' }}>{u.password || 'N/A'}</td>
                 <td style={{ padding: '1rem', fontWeight: 'bold', color: '#28a745' }}>{u.commission}%</td>
                 <td style={{ padding: '1rem', fontWeight: 'bold', color: '#6f42c1' }}>{u.saleModeAccess || 'Ambos'}</td>
                  <td style={{ padding: '1rem' }}>
@@ -242,7 +242,7 @@ export default function UsersManager() {
                       {u.isSubAdmin && (
                         <span style={{ 
                           backgroundColor: u.allowManageLotteries ? 'rgba(13, 148, 136, 0.1)' : 'rgba(239, 68, 68, 0.1)', 
-                          color: u.allowManageLotteries ? '#0d9488' : '#ef4444',
+                          color: u.allowManageLotteries ? '#15803d' : '#dc2626',
                           padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, width: 'fit-content'
                         }}>
                           Sorteos: {u.allowManageLotteries ? 'Habilitado' : 'Bloqueado'}
@@ -253,7 +253,7 @@ export default function UsersManager() {
                  <td style={{ padding: '1rem' }}>
                    <span style={{ 
                      backgroundColor: u.status === 'Activo' ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)', 
-                     color: u.status === 'Activo' ? '#28a745' : '#dc3545',
+                     color: u.status === 'Activo' ? '#15803d' : '#dc2626',
                      padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600
                    }}>
                      {u.status}
@@ -263,7 +263,7 @@ export default function UsersManager() {
                    <button onClick={() => handleOpenEdit(u.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#3399ff', marginRight: '0.8rem' }} title="Editar"><Edit2 size={16} /></button>
                    {/* Don't allow sub-admin to delete super admin or themselves */}
                    {(isSuperAdmin || u.username !== currentUsername) && (
-                     <button onClick={() => handleDeleteUser(u.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#dc3545' }} title="Eliminar"><Trash2 size={16} /></button>
+                     <button onClick={() => handleDeleteUser(u.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#dc2626' }} title="Eliminar"><Trash2 size={16} /></button>
                    )}
                  </td>
                </tr>
@@ -380,7 +380,7 @@ export default function UsersManager() {
                            onChange={(e) => setFormData({...formData, allowGranjita: e.target.checked})} 
                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                          />
-                         <label htmlFor="allowGranjita" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0d9488', cursor: 'pointer' }}>
+                         <label htmlFor="allowGranjita" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0f766e', cursor: 'pointer' }}>
                            Permitir vender La Granjita 🐓
                          </label>
                        </div>
@@ -419,7 +419,7 @@ export default function UsersManager() {
       {userToDelete !== null && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
            <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '350px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 1rem 0', color: '#dc3545' }}>⚠️ Confirmar Eliminación</h3>
+              <h3 style={{ margin: '0 0 1rem 0', color: '#dc2626' }}>⚠️ Confirmar Eliminación</h3>
               <p style={{ color: '#6c757d', marginBottom: '1.5rem' }}>¿Estás 100% seguro de que deseas eliminar permanentemente a este usuario del sistema?</p>
               
               <div style={{ display: 'flex', gap: '1rem' }}>

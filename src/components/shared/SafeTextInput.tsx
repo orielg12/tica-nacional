@@ -1,8 +1,9 @@
-﻿import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface SafeTextInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
   className?: string;
   placeholder?: string;
 }
@@ -16,6 +17,7 @@ interface SafeTextInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
 export const SafeTextInput: React.FC<SafeTextInputProps> = ({
   value,
   onChange,
+  onValueChange,
   className = '',
   placeholder = '',
   ...rest
@@ -39,7 +41,8 @@ export const SafeTextInput: React.FC<SafeTextInputProps> = ({
     const currentCursor = target.selectionStart;
 
     lastCursorPos.current = currentCursor;
-    onChange(newVal);
+    if (onChange) onChange(newVal);
+    if (onValueChange) onValueChange(newVal);
 
     // En Samsung Keyboard en Android WebView, requestAnimationFrame garantiza que
     // si el WebView reseteó el cursor a 0, lo devolvemos a la posición correcta
@@ -91,3 +94,5 @@ export const SafeTextInput: React.FC<SafeTextInputProps> = ({
     />
   );
 };
+
+export default SafeTextInput;

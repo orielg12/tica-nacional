@@ -19,6 +19,10 @@ export default function AdminLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
+
+  useEffect(() => {
     // Subscribe to covers inserts for Live Alerts
     const channel = supabase.channel('covers-alerts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'covers' }, (payload) => {
@@ -145,7 +149,7 @@ export default function AdminLayout() {
       {/* Footer */}
       <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-           <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: isSuperAdmin ? '#3399ff' : '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+           <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'A'}
            </div>
            <div>
@@ -334,7 +338,7 @@ function getNavStyle(isActive: boolean): React.CSSProperties {
     padding: '0.7rem 1.5rem',
     color: isActive ? '#fff' : '#8b9bb4',
     backgroundColor: isActive ? 'rgba(255,255,255,0.05)' : 'transparent',
-    borderLeft: isActive ? '3px solid #3399ff' : '3px solid transparent',
+    borderLeft: isActive ? '3px solid #0f766e' : '3px solid transparent',
     textDecoration: 'none',
     fontSize: '0.85rem',
     transition: 'all 0.2s',

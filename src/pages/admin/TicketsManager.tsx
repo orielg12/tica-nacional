@@ -251,7 +251,7 @@ export default function TicketsManager() {
 
       {/* Tarjetas de Metricas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-         <div style={{ background: '#10b981', color: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+         <div style={{ background: '#15803d', color: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
             <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>Ventas Válidas Totales</div>
             <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>${totalSales.toFixed(2)}</div>
          </div>
@@ -296,7 +296,7 @@ export default function TicketsManager() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                       <span>{t.id.split('-')[0].toUpperCase()}</span>
                       {isGranjita ? (
-                        <span style={{ background: '#ecfdf5', color: '#0d9488', border: '1px solid #99f6e4', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                        <span style={{ background: '#ecfdf5', color: '#0f766e', border: '1px solid #99f6e4', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold' }}>
                           🚜 GRANJITA
                         </span>
                       ) : (

@@ -110,7 +110,7 @@ export default function ForecastsView() {
           <select 
             value={selectedLotteryId} 
             onChange={e => setSelectedLotteryId(e.target.value)}
-            className="flex-1 max-w-xs p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-medium text-gray-800 outline-none"
+            className="flex-1 max-w-xs p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0f766e] focus:border-[#0f766e] font-medium text-gray-800 outline-none"
           >
             <option value="ALL">🌟 Todos los Sorteos (Global)</option>
             {store.lotteriesMaster.map(lot => (

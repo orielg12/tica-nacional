@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { getAvailableLotteries, formatLotteryTime, type LotteryConfig } from '../../utils/lotteryRules';
 import { processSale } from '../../services/saleService';
+import SafeTextInput from '../../components/shared/SafeTextInput';
 import { Trash2, Plus, X, Printer as PrinterIcon, MessageCircle } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { BluetoothSerial } from '@e-is/capacitor-bluetooth-serial';
@@ -528,12 +529,11 @@ export default function PaletPOS() {
               Confirmar Transacción
             </h3>
             
-            <input 
-              type="text" 
-              placeholder="Nombre del cliente (Opcional)" 
+            <SafeTextInput
+              placeholder="Nombre del cliente (Opcional)"
               value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              className="bg-slate-900 border border-slate-700 text-white rounded p-3 text-sm outline-none focus:border-teal-500"
+              onValueChange={setClientName}
+              className="bg-slate-900 border border-slate-700 text-white rounded p-3 text-sm outline-none focus:border-teal-500 w-full"
             />
 
             <div className="flex justify-between bg-slate-900 p-3 rounded-lg border border-slate-700 text-sm">

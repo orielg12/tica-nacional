@@ -22,7 +22,7 @@ export default function LotteryManager() {
     return (
       <div style={{ padding: '3rem', textAlign: 'center', backgroundColor: '#f4f7f6', minHeight: '100%' }}>
         <div style={{ backgroundColor: '#fff', padding: '2.5rem', borderRadius: '12px', maxWidth: '500px', margin: '0 auto', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ color: '#dc3545', marginBottom: '1rem', fontSize: '1.2rem' }}>⛔ Acceso Restringido</h3>
+          <h3 style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '1.2rem' }}>⛔ Acceso Restringido</h3>
           <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5' }}>
             No tienes permisos para crear o modificar sorteos. Esta función solo puede ser habilitada por el <strong>Administrador Principal</strong>.
           </p>
@@ -230,7 +230,7 @@ export default function LotteryManager() {
               <button
                 onClick={() => remove(l.id)}
                 className="btn btn-danger"
-                style={{ padding: '0.4rem', background: '#450a0a', color: '#f87171' }}
+                style={{ padding: '0.4rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}
                 title="Eliminar Sorteo"
               >
                 <Trash2 size={16} />

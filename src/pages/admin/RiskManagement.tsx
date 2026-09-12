@@ -281,8 +281,8 @@ export default function RiskManagement() {
         
         {/* PANEL 1: LIMITANTES LA GRANJITA */}
         <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', alignSelf: 'start' }}>
-           <h4 style={{ margin: '0 0 1rem 0', color: '#0d9488', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-              <ShieldAlert size={20} color="#0d9488" /> 🐓 Limitantes de Venta: La Granjita
+           <h4 style={{ margin: '0 0 1rem 0', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+              <ShieldAlert size={20} color="#0f766e" /> 🐓 Limitantes de Venta: La Granjita
            </h4>
 
            {/* Límite por defecto por animal */}
@@ -300,7 +300,7 @@ export default function RiskManagement() {
                />
                <button 
                  onClick={handleSaveAnimalDefaultLimit}
-                 style={{ background: '#0d9488', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1rem', fontWeight: 'bold', cursor: 'pointer' }}
+                 style={{ background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1rem', fontWeight: 'bold', cursor: 'pointer' }}
                >
                  Guardar
                </button>
@@ -373,7 +373,7 @@ export default function RiskManagement() {
                        <td style={{ padding: '0.6rem', textAlign: 'center' }}>
                          <button 
                            onClick={() => handleDeleteAnimalLimit(item.key)}
-                           style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                           style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
                            title="Eliminar Límite"
                          >
                            <Trash2 size={16} />
@@ -486,7 +486,7 @@ export default function RiskManagement() {
                          <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center' }}>
                            <button 
                              onClick={() => handleDeleteNumberLimit(item.key, item.num)}
-                             style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                             style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
                              title="Eliminar Respaldo Específico"
                            >
                              <Trash2 size={14} />
@@ -516,7 +516,7 @@ export default function RiskManagement() {
                <tbody>
                  {overflows.map((o, idx) => (
                    <tr key={idx} style={{ borderBottom: '1px solid #e9ecef' }}>
-                     <td style={{ padding: '0.6rem', fontWeight: 800, color: '#dc3545', fontFamily: 'monospace', fontSize: '1rem' }}>
+                     <td style={{ padding: '0.6rem', fontWeight: 800, color: '#dc2626', fontFamily: 'monospace', fontSize: '1rem' }}>
                        {o.num}
                      </td>
                      <td style={{ padding: '0.6rem', fontWeight: 600 }}>${o.totalSales}</td>

@@ -395,7 +395,7 @@ export default function Dashboard() {
                    </div>
                    {store.partnerReinvestPct > 0 && (
                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0', paddingBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold' }}>CRECIMIENTO BANCA ({store.partnerReinvestPct}%)</span>
+                        <span style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 'bold' }}>CRECIMIENTO BANCA ({store.partnerReinvestPct}%)</span>
                         <span style={{ fontSize: '0.85rem', color: metrics.gananciaNeta >= 0 ? '#10b981' : '#dc3545', fontWeight: 'bold' }}>
                           ${(metrics.gananciaNeta * (store.partnerReinvestPct / 100)).toFixed(2)}
                         </span>
