@@ -4,7 +4,8 @@ import { useStore } from '../../store/useStore';
 import { formatLotteryTime } from '../../utils/lotteryRules';
 import { getLocalISODate } from '../../utils/dateUtils';
 import { getDecadeNumbers } from '../../utils/math';
-import { Trash2, Save, AlertCircle, Edit, Clipboard, X, CheckCircle, FileText } from 'lucide-react';
+import { Trash2, Save, AlertCircle, Edit, Clipboard, X, CheckCircle, FileText, Plus, Check, Layers } from 'lucide-react';
+import { SafeTextInput } from '../../components/shared/SafeTextInput';
 
 interface ManualPlay {
   number: string;
@@ -13,7 +14,7 @@ interface ManualPlay {
 
 export default function ManualSale() {
   const store = useStore();
-  const [selectedLotteryId, setSelectedLotteryId] = useState('');
+  const [selectedLotteryIds, setSelectedLotteryIds] = useState<string[]>([]);
   const [plays, setPlays] = useState<ManualPlay[]>([]);
   const [currentNumber, setCurrentNumber] = useState('');
   const [currentAmount, setCurrentAmount] = useState('');
@@ -30,6 +31,9 @@ export default function ManualSale() {
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
 
+  // Edit state
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+
   useEffect(() => {
     store.fetchLotteries();
     store.fetchUsers();
@@ -37,16 +41,32 @@ export default function ManualSale() {
 
   const allLotteries = store.lotteriesMaster.filter(l => l.isActive);
 
+  // Helper para alternar un sorteo individual
+  const toggleLottery = (id: string) => {
+    setSelectedLotteryIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  // Seleccionar todos los sorteos activos
+  const selectAllLotteries = () => {
+    setSelectedLotteryIds(allLotteries.map(l => l.id));
+  };
+
+  // Deseleccionar todos
+  const clearAllLotteries = () => {
+    setSelectedLotteryIds([]);
+  };
+
   const addPlay = () => {
     const num = currentNumber.padStart(2, '0');
     const amt = parseFloat(currentAmount);
     if (!num || num.length < 2 || isNaN(amt) || amt <= 0) {
-      alert('Ingresa un nÃºmero vÃ¡lido (2 dÃ­gitos) y una cantidad de viles mayor a 0.');
+      alert('Ingresa un número válido de 2 dígitos y una cantidad de viles mayor a 0.');
       return;
     }
     setPlays(prev => [...prev, { number: num, amount: amt }]);
     setCurrentNumber('');
-    setCurrentAmount('');
   };
 
   const addDecade = (decadeIdxStr: string) => {
@@ -60,17 +80,13 @@ export default function ManualSale() {
     const decadeNums = getDecadeNumbers(dIdx);
     const newPlays = decadeNums.map(num => ({ number: num, amount: amt }));
     setPlays(prev => [...prev, ...newPlays]);
-    setCurrentAmount('');
   };
-
-  const [editIdx, setEditIdx] = useState<number | null>(null);
 
   const startEdit = (idx: number) => {
     const play = plays[idx];
     setCurrentNumber(play.number);
     setCurrentAmount(play.amount.toString());
     setEditIdx(idx);
-    setPlays(prev => prev.filter((_, i) => i !== idx));
   };
 
   const confirmEdit = () => {
@@ -78,30 +94,31 @@ export default function ManualSale() {
     const num = currentNumber.padStart(2, '0');
     const amt = parseFloat(currentAmount);
     if (!num || num.length < 2 || isNaN(amt) || amt <= 0) {
-      alert('Ingresa un nÃºmero vÃ¡lido (2 dÃ­gitos) y una cantidad de viles mayor a 0.');
+      alert('Ingresa un número válido (2 dígitos) y una cantidad de viles mayor a 0.');
       return;
     }
     setPlays(prev => {
       const newPlays = [...prev];
-      newPlays.splice(editIdx, 0, { number: num, amount: amt });
+      newPlays[editIdx] = { number: num, amount: amt };
       return newPlays;
     });
     setCurrentNumber('');
-    setCurrentAmount('');
     setEditIdx(null);
   };
 
   const cancelEdit = () => {
     setCurrentNumber('');
-    setCurrentAmount('');
     setEditIdx(null);
   };
 
   const removePlay = (idx: number) => {
     setPlays(plays.filter((_, i) => i !== idx));
+    if (editIdx === idx) {
+      cancelEdit();
+    }
   };
 
-  // --- PARSEADOR DE TEXTO / IMPORTACIÃ“N RÃPIDA ---
+  // --- PARSEADOR DE TEXTO / IMPORTACIÓN RÁPIDA ---
   const handleProcessImport = () => {
     setImportError(null);
     if (!importText.trim()) {
@@ -148,7 +165,7 @@ export default function ManualSale() {
 
       // 2. "25-10" / "25/10"
       if (!matched) {
-        m = line.match(/^(\d{1,2})\s*[-â€“â€”\/]\s*(\d+(?:\.\d+)?)$/);
+        m = line.match(/^(\d{1,2})\s*[-–—\/]\s*(\d+(?:\.\d+)?)$/);
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
@@ -158,7 +175,7 @@ export default function ManualSale() {
         if (m) { num = m[1]; amt = parseFloat(m[2]); matched = true; }
       }
 
-      // 4. "10 del 25" / "10 al 25" (monto primero, nÃºmero despuÃ©s)
+      // 4. "10 del 25" / "10 al 25" (monto primero, número después)
       if (!matched) {
         m = line.match(/^(\d+(?:\.\d+)?)\s+(?:del|al|de|el)\s+(\d{1,2})$/i);
         if (m) { amt = parseFloat(m[1]); num = m[2]; matched = true; }
@@ -191,7 +208,7 @@ export default function ManualSale() {
     }
 
     if (parsedPlays.length === 0) {
-      setImportError('No se reconocieron jugadas vÃ¡lidas. Revisa los formatos aceptados.');
+      setImportError('No se reconocieron jugadas válidas. Revisa los formatos aceptados.');
       return;
     }
 
@@ -203,17 +220,13 @@ export default function ManualSale() {
     setShowImportModal(false);
   };
 
-
-
-
-
-
+  const numSelectedLotteries = selectedLotteryIds.length;
   const totalViles = plays.reduce((sum, p) => sum + p.amount, 0);
-  const totalUSD = totalViles * saleMode;
+  const totalUSD = (totalViles * saleMode) * (numSelectedLotteries > 0 ? numSelectedLotteries : 1);
 
   const handleDeleteTicket = async () => {
     if (!savedTicketId) return;
-    if (!window.confirm('Â¿EstÃ¡s seguro de eliminar este ticket? Esta acciÃ³n es irreversible.')) return;
+    if (!window.confirm('¿Estás seguro de eliminar este ticket? Esta acción es irreversible.')) return;
     try {
       const { error: tnError } = await supabase
         .from('ticket_numbers')
@@ -225,17 +238,17 @@ export default function ManualSale() {
         .delete()
         .eq('id', savedTicketId);
       if (ticketError) throw ticketError;
-      setResult({ success: true, message: 'âœ… Ticket eliminado correctamente.' });
+      setResult({ success: true, message: '✅ Ticket eliminado correctamente.' });
       setSavedTicketId(null);
     } catch (err: any) {
       console.error('Error eliminando ticket:', err);
-      setResult({ success: false, message: `âŒ Error al eliminar ticket: ${err.message || err}` });
+      setResult({ success: false, message: `❌ Error al eliminar ticket: ${err.message || err}` });
     }
   };
 
   const handleSave = async () => {
-    if (!selectedLotteryId) {
-      alert('Selecciona un sorteo.');
+    if (selectedLotteryIds.length === 0) {
+      alert('Selecciona al menos un sorteo.');
       return;
     }
     if (plays.length === 0) {
@@ -243,7 +256,7 @@ export default function ManualSale() {
       return;
     }
     if (!vendorId) {
-      alert('Selecciona el vendedor que realizÃ³ la venta.');
+      alert('Selecciona el vendedor que realizó la venta.');
       return;
     }
 
@@ -255,6 +268,7 @@ export default function ManualSale() {
       const [year, month, day] = saleDate.split('-').map(Number);
       const createdAt = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
 
+      // 1. Insertar Ticket cabecera con el total calculado
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
@@ -269,13 +283,19 @@ export default function ManualSale() {
 
       if (ticketError) throw ticketError;
 
-      const tnPayload = plays.map(p => ({
-        ticket_id: ticket.id,
-        draw_id: selectedLotteryId,
-        number_played: p.number,
-        amount: p.amount,
-        created_at: createdAt
-      }));
+      // 2. Insertar jugadas para CADA sorteo seleccionado
+      const tnPayload: any[] = [];
+      for (const lotteryId of selectedLotteryIds) {
+        for (const p of plays) {
+          tnPayload.push({
+            ticket_id: ticket.id,
+            draw_id: lotteryId,
+            number_played: p.number,
+            amount: p.amount,
+            created_at: createdAt
+          });
+        }
+      }
 
       const { error: tnError } = await supabase
         .from('ticket_numbers')
@@ -283,9 +303,12 @@ export default function ManualSale() {
 
       if (tnError) throw tnError;
 
-      setResult({ success: true, message: `âœ… Venta registrada exitosamente. Ticket ID: ${ticket.id.split('-')[0].toUpperCase()} (${plays.length} jugadas - $${totalUSD.toFixed(2)})` });
+      setResult({
+        success: true,
+        message: `✅ Venta registrada exitosamente. Ticket: ${ticket.id.split('-')[0].toUpperCase()} (${plays.length} números × ${selectedLotteryIds.length} sorteo(s) = $${totalUSD.toFixed(2)})`
+      });
       setSavedTicketId(ticket.id);
-      
+
       setPlays([]);
       setClientName('');
       setCurrentNumber('');
@@ -293,7 +316,7 @@ export default function ManualSale() {
 
     } catch (err: any) {
       console.error('Error registrando venta manual:', err);
-      setResult({ success: false, message: `âŒ Error: ${err.message || JSON.stringify(err)}` });
+      setResult({ success: false, message: `❌ Error: ${err.message || JSON.stringify(err)}` });
     } finally {
       setSaving(false);
     }
@@ -307,110 +330,176 @@ export default function ManualSale() {
         .update({ is_bank_prize: true })
         .eq('id', savedTicketId);
       if (error) throw error;
-      setResult({ success: true, message: 'âœ… Ticket ocultado de la vista.' });
+      setResult({ success: true, message: '✅ Ticket ocultado de la vista.' });
       setSavedTicketId(null);
     } catch (err: any) {
       console.error('Error ocultando ticket:', err);
-      setResult({ success: false, message: `âŒ Error al ocultar ticket: ${err.message || err}` });
+      setResult({ success: false, message: `❌ Error al ocultar ticket: ${err.message || err}` });
     }
   };
 
   const vendors = store.users.filter(u => u.role === 'Vendedor' || u.role === 'Admin');
 
   return (
-    <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
-      {/* Header Banner */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="w-full min-h-screen bg-slate-50 text-slate-800 p-3 sm:p-5 md:p-8">
+      
+      {/* ── HEADER BANNER ── */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <Save size={22} className="text-teal-600" /> Registro de Venta Manual
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+            <Save size={24} className="text-teal-600 flex-shrink-0" />
+            <span>Registro de Venta Manual</span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-500 mt-1">
-            Ingresa ventas fuera del sistema (WhatsApp, papel o sorteos cerrados). AparecerÃ¡n en los reportes contables.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Ingresa ventas de múltiples sorteos fuera del sistema (WhatsApp o papel).
           </p>
         </div>
 
-        {/* BotÃ³n Pegar Lista */}
         <button
           type="button"
           onClick={() => setShowImportModal(true)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 whitespace-nowrap"
         >
           <Clipboard size={18} />
-          <span>Pegar Lista de NÃºmeros</span>
+          <span>Pegar Lista de WhatsApp</span>
         </button>
       </div>
 
+      {/* ── ALERTAS DE ESTADO ── */}
       {result && (
-        <div className={`p-4 rounded-xl mb-6 font-bold text-sm flex items-center gap-2 ${result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-          {result.success ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-          <span>{result.message}</span>
+        <div className={`p-4 rounded-xl mb-5 font-bold text-sm flex items-start gap-3 shadow-sm ${result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          {result.success ? <CheckCircle size={20} className="flex-shrink-0 text-emerald-600 mt-0.5" /> : <AlertCircle size={20} className="flex-shrink-0 text-red-600 mt-0.5" />}
+          <div className="flex-1">{result.message}</div>
         </div>
       )}
 
       {savedTicketId && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          <button onClick={handleHideTicket} className="px-3 py-2 rounded-lg border border-sky-600 bg-white text-sky-700 font-bold text-xs flex items-center gap-1.5 shadow-sm">
-            <AlertCircle size={15} /> Ocultar ticket
+        <div className="mb-5 flex flex-wrap gap-2.5">
+          <button onClick={handleHideTicket} className="px-3.5 py-2.5 rounded-xl border border-sky-600 bg-white text-sky-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+            <AlertCircle size={15} /> Ocultar ticket de vista
           </button>
-          <button onClick={handleDeleteTicket} className="px-3 py-2 rounded-lg border border-red-600 bg-white text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-sm">
-            <Trash2 size={15} /> Eliminar ticket
+          <button onClick={handleDeleteTicket} className="px-3.5 py-2.5 rounded-xl border border-red-600 bg-white text-red-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+            <Trash2 size={15} /> Eliminar ticket permanentemente
           </button>
         </div>
       )}
 
-      {/* Main Card Container */}
-      <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 mb-6 space-y-5">
-        
-        {/* Row 1: Sorteo & Vendedor */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Sorteo *</label>
-            <select
-              value={selectedLotteryId}
-              onChange={e => setSelectedLotteryId(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
-            >
-              <option value="">-- Selecciona Sorteo --</option>
-              {allLotteries.map(l => (
-                <option key={l.id} value={l.id}>
-                  {l.name} - {formatLotteryTime(l.hour, l.minute)}
-                </option>
-              ))}
-            </select>
+      {/* ── TARJETA PRINCIPAL ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-6 mb-6 space-y-6">
+
+        {/* ── SECCIÓN 1: SELECCIÓN DE MÚLTIPLES SORTEOS ── */}
+        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Layers size={18} className="text-teal-600" />
+              <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                Sorteos a Jugar *
+              </label>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-black ${selectedLotteryIds.length > 0 ? 'bg-teal-100 text-teal-800' : 'bg-amber-100 text-amber-800'}`}>
+                {selectedLotteryIds.length} seleccionado(s)
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={selectAllLotteries}
+                className="px-2.5 py-1 bg-white border border-slate-300 hover:border-teal-500 text-slate-700 hover:text-teal-700 font-bold text-xs rounded-lg transition-colors"
+              >
+                ✓ Seleccionar Todos
+              </button>
+              <button
+                type="button"
+                onClick={clearAllLotteries}
+                className="px-2.5 py-1 bg-white border border-slate-300 hover:border-red-400 text-slate-600 hover:text-red-600 font-bold text-xs rounded-lg transition-colors"
+              >
+                ✕ Desmarcar
+              </button>
+            </div>
           </div>
 
+          {/* Grid de Chips de Sorteos */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1">
+            {allLotteries.map(l => {
+              const isSelected = selectedLotteryIds.includes(l.id);
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => toggleLottery(l.id)}
+                  className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-1.5 transition-all active:scale-95 ${
+                    isSelected
+                      ? 'bg-teal-600 border-teal-700 text-white shadow-sm ring-1 ring-teal-500'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs truncate leading-tight">{l.name}</div>
+                    <div className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-teal-100' : 'text-slate-400'}`}>
+                      {formatLotteryTime(l.hour, l.minute)}
+                    </div>
+                  </div>
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white text-teal-700' : 'border border-slate-300'}`}>
+                    {isSelected && <Check size={12} strokeWidth={3} />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {selectedLotteryIds.length === 0 && (
+            <p className="text-[11px] text-amber-700 font-bold mt-2 flex items-center gap-1">
+              <AlertCircle size={13} />
+              Debes marcar al menos un sorteo para poder registrar la venta.
+            </p>
+          )}
+        </div>
+
+        {/* ── SECCIÓN 2: CONFIGURACIÓN GENERAL (VENDEDOR, CLIENTE, PRECIO, FECHA) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Vendedor *</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Vendedor Responsable *
+            </label>
             <select
               value={vendorId}
               onChange={e => setVendorId(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
+              className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
             >
-              <option value="">-- Selecciona Vendedor --</option>
+              <option value="">-- Seleccionar --</option>
               {vendors.map(v => (
                 <option key={v.id} value={v.username}>{v.username}</option>
               ))}
             </select>
           </div>
-        </div>
 
-        {/* Row 2: Modalidad, Cliente, Fecha */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">DenominaciÃ³n</label>
-            <div className="flex gap-2">
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Cliente (Opcional)
+            </label>
+            <SafeTextInput
+              value={clientName}
+              onChange={setClientName}
+              placeholder="Nombre del cliente"
+              className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Precio por Vil
+            </label>
+            <div className="flex gap-2 h-11">
               <button
                 type="button"
                 onClick={() => setSaleMode(0.20)}
-                className={`flex-1 py-2.5 px-3 rounded-xl font-black text-sm border-2 transition-all ${saleMode === 0.20 ? 'border-teal-600 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                className={`flex-1 rounded-xl font-black text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${saleMode === 0.20 ? 'border-teal-600 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
               >
                 $0.20 / vil
               </button>
               <button
                 type="button"
                 onClick={() => setSaleMode(0.25)}
-                className={`flex-1 py-2.5 px-3 rounded-xl font-black text-sm border-2 transition-all ${saleMode === 0.25 ? 'border-sky-600 bg-sky-50 text-sky-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                className={`flex-1 rounded-xl font-black text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${saleMode === 0.25 ? 'border-sky-600 bg-sky-50 text-sky-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
               >
                 $0.25 / vil
               </button>
@@ -418,89 +507,107 @@ export default function ManualSale() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Cliente (Opcional)</label>
-            <input
-              type="text"
-              dir="ltr"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              value={clientName}
-              onChange={e => setClientName(e.target.value)}
-              placeholder="Nombre del cliente"
-              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Fecha de Venta</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Fecha de Venta
+            </label>
             <input
               type="date"
               value={saleDate}
               onChange={e => setSaleDate(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
+              className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-bold text-sm outline-none focus:border-teal-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
 
-        {/* Input Bar: Viles, NÃºmero, Decena */}
-        <div className="pt-4 border-t border-slate-100">
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+        {/* ── SECCIÓN 3: ENTRADA DE JUGADAS (SIMÉTRICA Y RESPONSIVE EN MÓVIL Y PC) ── */}
+        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 sm:p-5">
+          <div className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">
+            Entrada de Jugadas
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
             
-            {/* Viles */}
-            <div className="sm:col-span-3">
-              <label className="block text-xs font-bold text-slate-600 mb-1">Viles (Cantidad)</label>
+            <div className="sm:col-span-1 lg:col-span-3">
+              <label className="block text-[11px] font-black text-slate-600 uppercase mb-1">
+                Viles (Monto)
+              </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                min="1"
                 value={currentAmount}
                 onChange={e => setCurrentAmount(e.target.value)}
                 placeholder="Ej. 5"
-                min={1}
-                className="w-full p-3 rounded-xl border-2 border-teal-500 bg-teal-50/50 text-slate-900 font-black text-center text-lg outline-none focus:bg-white transition-colors"
+                className="w-full h-12 px-3 rounded-xl border-2 border-teal-500 bg-white text-slate-900 font-black text-center text-xl outline-none focus:ring-2 focus:ring-teal-200 transition-all shadow-sm"
               />
             </div>
 
-            {/* NÃºmero individual */}
-            <div className="sm:col-span-5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex gap-2 items-center">
-              <div className="w-24">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase">NÃºmero</label>
-                <input
-                  type="text"
-                  value={currentNumber}
-                  onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                  placeholder="00"
-                  maxLength={2}
-                  onKeyDown={e => { if (e.key === 'Enter') addPlay(); }}
-                  className="w-full p-2 rounded-lg border border-slate-300 text-slate-900 font-mono font-black text-center text-lg outline-none bg-white"
-                />
-              </div>
+            <div className="sm:col-span-1 lg:col-span-3">
+              <label className="block text-[11px] font-black text-slate-600 uppercase mb-1">
+                Número (00-99)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={2}
+                value={currentNumber}
+                onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                onKeyDown={e => { if (e.key === 'Enter') addPlay(); }}
+                placeholder="00"
+                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 text-slate-900 font-mono font-black text-center text-xl outline-none focus:border-teal-500 bg-white transition-all shadow-sm"
+              />
+            </div>
 
+            <div className="sm:col-span-2 lg:col-span-3">
               {editIdx === null ? (
                 <button
                   type="button"
                   onClick={addPlay}
-                  className="flex-1 py-3 px-3 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-sm rounded-lg transition-all"
+                  className="w-full h-12 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-black text-sm rounded-xl shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
                 >
-                  + Agregar
+                  <Plus size={20} strokeWidth={3} />
+                  <span>+ Agregar Jugada</span>
                 </button>
               ) : (
-                <div className="flex-1 flex gap-1.5">
-                  <button type="button" onClick={confirmEdit} className="flex-1 py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg">Guardar</button>
-                  <button type="button" onClick={cancelEdit} className="flex-1 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-lg">Cancelar</button>
+                <div className="flex gap-2 h-12">
+                  <button
+                    type="button"
+                    onClick={confirmEdit}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1"
+                  >
+                    <Check size={16} /> Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Decenas RÃ¡pidas */}
-            <div className="sm:col-span-4 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200">
-              <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">RÃ¡pido por Decenas</label>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="block text-[11px] font-black text-emerald-800 uppercase mb-1">
+                Decenas Rápidas (10 Núms)
+              </label>
               <select
-                onChange={e => { if (e.target.value !== '') { addDecade(e.target.value); e.target.value = ''; } }}
-                className="w-full p-2.5 rounded-lg border border-emerald-300 text-emerald-900 bg-white font-bold text-xs outline-none cursor-pointer"
+                onChange={e => {
+                  if (e.target.value !== '') {
+                    addDecade(e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+                className="w-full h-12 px-3 rounded-xl border-2 border-emerald-400 text-emerald-900 bg-white font-bold text-xs outline-none cursor-pointer hover:border-emerald-500 shadow-sm transition-all"
               >
-                <option value="">+ Seleccionar Decena...</option>
+                <option value="">+ Agregar Decena...</option>
                 {[...Array(10)].map((_, i) => (
-                  <option key={i} value={i}>Decena del {i} ({i}0 al {i}9)</option>
+                  <option key={i} value={i}>
+                    Decena del {i} ({i}0 al {i}9)
+                  </option>
                 ))}
               </select>
             </div>
@@ -508,105 +615,164 @@ export default function ManualSale() {
           </div>
         </div>
 
-        {/* Plays Table / Chips */}
+        {/* ── SECCIÓN 4: LISTA DE JUGADAS AGREGADAS ── */}
         {plays.length > 0 ? (
-          <div className="border border-slate-200 rounded-xl overflow-hidden mt-4">
-            <div className="bg-slate-100 px-4 py-2.5 flex justify-between items-center border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-700 uppercase">
-                {plays.length} Jugadas Agregadas ({totalViles} Viles)
-              </span>
+          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-100 px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                  {plays.length} Apunte(s) Agregado(s)
+                </span>
+                <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                  {totalViles} Viles por sorteo
+                </span>
+                {numSelectedLotteries > 1 && (
+                  <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                    × {numSelectedLotteries} sorteos = {totalViles * numSelectedLotteries} viles tot.
+                  </span>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setPlays([])}
-                className="text-xs text-red-600 hover:text-red-700 font-bold"
+                className="text-xs text-red-600 hover:text-red-700 font-bold flex items-center gap-1 hover:underline"
               >
-                Vaciar lista
+                <Trash2 size={14} /> Vaciar lista
               </button>
             </div>
 
-            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
+            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 bg-white">
               {plays.map((p, idx) => (
-                <div key={idx} className="flex justify-between items-center px-4 py-2.5 hover:bg-slate-50">
+                <div key={idx} className="flex justify-between items-center px-4 py-2.5 hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
-                    <span className="px-2.5 py-1 bg-teal-50 border border-teal-200 text-teal-800 font-mono font-black rounded-lg text-base">
+                    <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
+                    <span className="px-3 py-1 bg-teal-50 border border-teal-300 text-teal-800 font-mono font-black rounded-lg text-lg min-w-[48px] text-center shadow-xs">
                       {p.number}
                     </span>
-                    <span className="text-xs font-bold text-slate-600">
-                      {p.amount} viles (${(p.amount * saleMode).toFixed(2)})
-                    </span>
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-800">{p.amount} viles</span>
+                      <span className="text-slate-400 ml-1.5 font-mono">
+                        (${(p.amount * saleMode * Math.max(1, numSelectedLotteries)).toFixed(2)})
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => startEdit(idx)} className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg"><Edit size={16} /></button>
-                    <button type="button" onClick={() => removePlay(idx)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(idx)}
+                      className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                      title="Editar jugada"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removePlay(idx)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Eliminar jugada"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
-            <FileText size={32} className="mx-auto text-slate-300 mb-2" />
-            <p className="text-sm font-bold text-slate-500">No hay jugadas agregadas aÃºn</p>
-            <p className="text-xs text-slate-400 mt-1">Ingresa nÃºmeros arriba o haz clic en "Pegar Lista de NÃºmeros".</p>
+          <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+            <FileText size={36} className="mx-auto text-slate-300 mb-2" />
+            <p className="text-sm font-bold text-slate-600">No hay jugadas agregadas aún</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              Ingresa los viles y el número arriba y pulsa "+ Agregar Jugada", o pega un mensaje con "Pegar Lista de WhatsApp".
+            </p>
           </div>
         )}
 
-        {/* Submit Bar */}
-        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
+        {/* ── SECCIÓN 5: RESUMEN Y BOTÓN FINALIZAR ── */}
+        <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full sm:w-auto justify-around sm:justify-start">
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase block">Total Viles</span>
-              <span className="text-xl font-black text-slate-800 font-mono">{totalViles}</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">
+                Total Viles
+              </span>
+              <span className="text-xl font-black text-slate-800 font-mono">
+                {totalViles}
+              </span>
             </div>
+
             <div className="h-8 w-px bg-slate-200" />
+
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase block">Total a Pagar</span>
-              <span className="text-2xl font-black text-emerald-600 font-mono">${totalUSD.toFixed(2)}</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">
+                Sorteos
+              </span>
+              <span className="text-xl font-black text-teal-700 font-mono">
+                {numSelectedLotteries}
+              </span>
+            </div>
+
+            <div className="h-8 w-px bg-slate-200" />
+
+            <div>
+              <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">
+                Total a Pagar
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">
+                ${totalUSD.toFixed(2)}
+              </span>
             </div>
           </div>
 
           <button
             onClick={handleSave}
-            disabled={saving || plays.length === 0}
-            className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-base rounded-xl shadow-lg transition-all active:scale-95"
+            disabled={saving || plays.length === 0 || numSelectedLotteries === 0 || !vendorId}
+            className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-base sm:text-lg rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            {saving ? 'Guardando en Base de Datos...' : `Finalizar Venta ($${totalUSD.toFixed(2)})`}
+            {saving ? (
+              <span>Guardando en Base de Datos...</span>
+            ) : (
+              <span>
+                Finalizar Venta ({numSelectedLotteries} {numSelectedLotteries === 1 ? 'Sorteo' : 'Sorteos'}) — ${totalUSD.toFixed(2)}
+              </span>
+            )}
           </button>
         </div>
 
       </div>
 
-      {/* â”€â”€ MODAL: PEGAR LISTA DE NÃšMEROS â”€â”€ */}
+      {/* ── MODAL: PEGAR LISTA DE NÚMEROS / WHATSAPP ── */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-slideUp">
             
             <div className="bg-teal-700 text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Clipboard size={20} />
-                <h3 className="font-bold text-base">Pegar Lista de Jugadas</h3>
+                <h3 className="font-bold text-base">Pegar Lista de Jugadas (WhatsApp)</h3>
               </div>
-              <button onClick={() => setShowImportModal(false)} className="text-white/80 hover:text-white"><X size={20} /></button>
+              <button onClick={() => setShowImportModal(false)} className="text-white/80 hover:text-white p-1">
+                <X size={20} />
+              </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4">
               <p className="text-xs text-slate-600">
-                Pega directamente el mensaje de WhatsApp o lista de nÃºmeros. Acepta cualquier formato comÃºn:
+                Pega directamente el mensaje de WhatsApp. Reconoce formatos automáticos:
               </p>
               
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-500 font-mono space-y-1">
-                <div>â€¢ <span className="text-teal-700 font-bold">14x5, 27x10, 05x2</span> (con comas o renglÃ³n)</div>
-                <div>â€¢ <span className="text-teal-700 font-bold">14-5</span> Ã³ <span className="text-teal-700 font-bold">14 5</span> Ã³ <span className="text-teal-700 font-bold">14=5</span> Ã³ <span className="text-teal-700 font-bold">14(5)</span></div>
-                <div>â€¢ <span className="text-teal-700 font-bold">5 del 14</span> Ã³ <span className="text-teal-700 font-bold">14 con 5</span></div>
-                <div>â€¢ <span className="text-teal-700 font-bold">D3x5</span> (Decena del 3 a 5 viles)</div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] text-slate-600 font-mono space-y-1">
+                <div>• <span className="text-teal-700 font-bold">14x5, 27x10, 05x2</span> (por comas o líneas)</div>
+                <div>• <span className="text-teal-700 font-bold">14-5</span> o <span className="text-teal-700 font-bold">14 5</span> o <span className="text-teal-700 font-bold">14=5</span></div>
+                <div>• <span className="text-teal-700 font-bold">5 del 14</span> o <span className="text-teal-700 font-bold">14 con 5</span></div>
+                <div>• <span className="text-teal-700 font-bold">D3x5</span> (Decena del 3 a 5 viles)</div>
               </div>
 
               <textarea
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
-                placeholder="Pega aquÃ­ el texto... Ej:&#10;Cliente: Carlos&#10;14x5&#10;27x10&#10;05x2&#10;D4x5"
+                placeholder="Pega aquí el texto... Ej:&#10;Cliente: Carlos&#10;14x5&#10;27x10&#10;05x2&#10;D4x5"
                 rows={7}
                 className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-teal-500 transition-colors resize-none bg-slate-50"
                 autoFocus
@@ -623,14 +789,14 @@ export default function ManualSale() {
                 <button
                   type="button"
                   onClick={() => setShowImportModal(false)}
-                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200"
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleProcessImport}
-                  className="flex-1 py-3 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 shadow-md"
+                  className="flex-1 py-3 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 shadow-md transition-colors"
                 >
                   Importar Jugadas
                 </button>

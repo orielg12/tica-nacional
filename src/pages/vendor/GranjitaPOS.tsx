@@ -7,6 +7,7 @@ import { Trash2, X, ArrowRight, MessageCircle, Printer, Plus } from 'lucide-reac
 import { Capacitor } from '@capacitor/core';
 import { BluetoothSerial } from '@e-is/capacitor-bluetooth-serial';
 import { useTheme } from '../../context/ThemeContext';
+import { SafeTextInput } from '../../components/shared/SafeTextInput';
 
 export default function GranjitaPOS() {
   const store = useStore();
@@ -472,15 +473,10 @@ export default function GranjitaPOS() {
 
             {/* Nombre del cliente */}
             <div className="flex gap-2">
-              <input
-                type="text"
-                dir="ltr"
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
+              <SafeTextInput
                 placeholder="Nombre del cliente (Opcional)"
                 value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
+                onChange={(val) => setClientName(val)}
                 className={`flex-1 ${tc('bg-[#1e293b] border-gray-700 text-white focus:border-teal-500 placeholder-gray-600', 'bg-white border-slate-300 text-slate-900 focus:border-[#0d9488] placeholder-slate-400')} border rounded p-2 text-sm outline-none transition-colors`}
               />
               {granjitaCart.length > 0 && (

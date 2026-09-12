@@ -9,6 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { BluetoothSerial } from '@e-is/capacitor-bluetooth-serial';
 import { supabase } from '../../utils/supabase';
 import { useTheme } from '../../context/ThemeContext';
+import { SafeTextInput } from '../../components/shared/SafeTextInput';
 export default function POS() {
   const store = useStore();
   const { tc } = useTheme();
@@ -1129,15 +1130,10 @@ export default function POS() {
 
   const renderPreparationControls = () => (
     <div className="px-1 py-1 flex gap-2 w-full items-center">
-       <input 
-         type="text" 
-         dir="ltr"
-         autoComplete="off"
-         autoCorrect="off"
-         spellCheck={false}
+       <SafeTextInput 
          placeholder="Nombre del cliente (Opcional)" 
          value={clientName}
-         onChange={(e) => setClientName(e.target.value)}
+         onChange={(val) => setClientName(val)}
          onFocus={(e) => {
            setTimeout(() => {
              e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
