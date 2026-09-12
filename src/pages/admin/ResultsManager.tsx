@@ -649,7 +649,7 @@ export default function ResultsManager() {
                </div>
              </div>
            </div>
-           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}><table style={{ width: '100%', minWidth: '550px', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#5b6b84', background: '#f8fafc' }}>
                   <th style={{ padding: '0.8rem' }}>Fecha</th>
@@ -695,7 +695,7 @@ export default function ResultsManager() {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
         </div>
       )}
       {/* MODAL RESUMEN AUTO-PREMIOS */}

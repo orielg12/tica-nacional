@@ -1354,7 +1354,7 @@ export default function POS() {
                   <Plus size={40} className={
                     (focusedInput === 'amount' && parseFloat(currentAmount) > 0) ||
                     (focusedInput === 'number' && currentNumber.length === 2 && parseFloat(currentAmount) > 0)
-                      ? 'animate-pulse text-white' 
+                      ? 'text-white' 
                       : tc('text-teal-600', 'text-slate-400')
                   } />
                 </button>

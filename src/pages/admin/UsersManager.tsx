@@ -185,7 +185,7 @@ export default function UsersManager() {
            </div>
          </div>
 
-         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+         <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}><table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
            <thead>
              <tr style={{ backgroundColor: '#f8f9fa', color: '#495057', textAlign: 'left' }}>
                <th style={{ padding: '0.8rem 1rem', borderBottom: '2px solid #e9ecef' }}>ID</th>
@@ -270,6 +270,7 @@ export default function UsersManager() {
              ))}
            </tbody>
          </table>
+          </div>
 
       </div>
 

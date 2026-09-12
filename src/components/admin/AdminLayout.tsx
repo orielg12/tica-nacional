@@ -202,7 +202,7 @@ export default function AdminLayout() {
           color: #fff;
         }
 
-        /* ── RESPONSIVE GLOBAL PARA TODAS LAS PÁGINAS DEL ADMIN ── */
+                /* ── RESPONSIVE GLOBAL PARA TODAS LAS PÁGINAS DEL ADMIN ── */
         @media (max-width: 768px) {
           .admin-layout-root {
             width: 100vw !important;
@@ -210,26 +210,47 @@ export default function AdminLayout() {
             overflow-x: hidden !important;
           }
           main {
-            padding: 0.75rem !important;
-            padding-bottom: 4rem !important;
+            padding: 0 !important;
+            padding-bottom: 5rem !important;
             width: 100vw !important;
             max-width: 100vw !important;
             box-sizing: border-box !important;
+            overflow-y: auto !important;
             overflow-x: hidden !important;
           }
-          /* Asegurar que las tablas tengan scroll horizontal suave sin romper el viewport */
+          /* Reducir el padding de 2rem/3rem en todas las páginas internas a 0.75rem en móvil */
+          main > div {
+            padding: 0.75rem !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+          }
+          /* Asegurar que las tarjetas no desborden la pantalla */
+          main div, main section {
+            box-sizing: border-box !important;
+          }
+          /* ENVOLTURA AUTOMÁTICA DE TABLAS CON SCROLL HORIZONTAL SUAVE */
+          main table {
+            display: table !important;
+            min-width: 650px !important;
+            width: 100% !important;
+          }
+          /* Contenedores de tablas: scroll horizontal suave para que nada se corte */
           .surface,
           .table-container,
-          div:has(> table) {
+          div:has(> table),
+          div:has(> div > table) {
             max-width: 100% !important;
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch !important;
           }
-          main table {
-            min-width: 520px !important;
+          /* Ajustar métricas en móvil a 2 columnas */
+          main div[style*="repeat(auto-fit, minmax(180px, 1fr))"] {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.6rem !important;
           }
         }
-      `}</style>
+        `}</style>
 
 
       <div className="admin-layout-root" style={{ display: 'flex', width: '100vw', backgroundColor: '#f0f4f8', color: '#333', overflow: 'hidden' }}>

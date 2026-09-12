@@ -565,7 +565,7 @@ export default function AdminReports() {
       )}
 
       {/* VENDOR BREAKDOWN TABLE */}
-      <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
          <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#17233D' }}>Desglose por Cajero/Usuario</h3>
             <span style={{ fontSize: '0.85rem', color: '#6c757d', backgroundColor: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
@@ -579,7 +579,7 @@ export default function AdminReports() {
                Cargando transacciones de cajeros...
             </div>
          ) : Object.keys(vendorTotals).length > 0 ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', textAlign: 'left' }}>
                <thead>
                  <tr style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase' }}>
                    <th style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>ID Vendedor</th>

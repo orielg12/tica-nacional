@@ -277,7 +277,7 @@ export default function RiskManagement() {
          </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
         
         {/* PANEL 1: LIMITANTES LA GRANJITA */}
         <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', alignSelf: 'start' }}>
@@ -345,8 +345,8 @@ export default function RiskManagement() {
 
            {/* Tabla de Límites Específicos de Animales */}
            <h5 style={{ margin: '0 0 0.5rem 0', color: '#374151', fontSize: '0.9rem' }}>Límites Específicos Configurados (Animales):</h5>
-           <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
-             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+           <div style={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
+             <table style={{ width: '100%', minWidth: '400px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                <thead>
                  <tr style={{ background: '#f3f4f6', color: '#4b5563', textAlign: 'left' }}>
                    <th style={{ padding: '0.6rem' }}>Animal</th>
@@ -503,8 +503,8 @@ export default function RiskManagement() {
            <h4 style={{ margin: '0 0 1rem 0', color: '#17233D', fontSize: '0.95rem' }}>
              Números en Respaldo Hoy {totalPassed > 0 && <span style={{ color: '#d97706', fontSize: '0.85rem' }}>(Total: ${totalPassed.toFixed(2)})</span>}
            </h4>
-           <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+           <div style={{ maxHeight: '180px', overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+             <table style={{ width: '100%', minWidth: '400px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                <thead>
                  <tr style={{ backgroundColor: '#f8f9fa', color: '#495057', textAlign: 'left' }}>
                    <th style={{ padding: '0.6rem' }}>Número</th>

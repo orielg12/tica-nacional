@@ -267,8 +267,8 @@ export default function TicketsManager() {
       </div>
 
       {/* Tabla */}
-      <div style={{ background: 'white', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+      <div style={{ background: 'white', borderRadius: '10px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+        <table style={{ width: '100%', minWidth: '680px', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead style={{ background: '#f8fafc', color: '#5b6b84', fontSize: '0.85rem' }}>
             <tr>
               <th style={{ padding: '1rem', borderBottom: '2px solid #e2e8f0' }}>Hora</th>
