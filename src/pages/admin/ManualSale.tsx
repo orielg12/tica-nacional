@@ -219,8 +219,7 @@ export default function ManualSale() {
             total_amount: lotteryTotalAmount,
             status: 'active',
             client_name: clientName.trim() || 'General',
-            created_at: new Date(saleDate + 'T12:00:00Z').toISOString(),
-            source: 'manual_admin'
+            created_at: new Date(saleDate + 'T12:00:00Z').toISOString()
           })
           .select('id')
           .single();

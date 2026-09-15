@@ -121,126 +121,213 @@ export default function LotteryManager() {
   };
 
   return (
-    <div className="container" style={{ padding: 'var(--spacing-md)' }}>
-      <h2>Gestor de Sorteos (Loterías)</h2>
-      <p className="text-secondary" style={{ marginBottom: 'var(--spacing-md)' }}>
-        Crea, habilita o elimina sorteos. El cierre se configura por sorteo.
-      </p>
+    <div style={{ padding: '2rem', backgroundColor: '#f4f7f6', minHeight: '100%', color: '#333' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '1rem 1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#17233D', fontWeight: 'bold' }}>Gestor de Sorteos (Loterías)</h2>
+          <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>
+            Crea, habilita o elimina sorteos. El cierre se configura por sorteo.
+          </span>
+        </div>
+      </div>
 
       {/* Nuevo/Editar Sorteo Form */}
-      <div className="surface" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>{editingId ? 'Editar Sorteo' : 'Agregar Nuevo Sorteo'}</h3>
+      <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '1.25rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#17233D', fontWeight: 'bold' }}>
+            {editingId ? '✏️ Editar Sorteo' : '➕ Agregar Nuevo Sorteo'}
+          </h3>
           {editingId && (
-            <button type="button" onClick={cancelEdit} className="text-secondary hover:text-white" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <X size={20} />
+            <button 
+              type="button" 
+              onClick={cancelEdit} 
+              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#64748b', cursor: 'pointer', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', fontWeight: 'bold' }}
+            >
+              <X size={16} /> Cancelar Edición
             </button>
           )}
         </div>
-        <form onSubmit={handleAdd} className="flex-col" style={{ gap: '1rem' }}>
-          <div className="flex" style={{ gap: '1rem', flexWrap: 'wrap' }}>
-            <div className="flex-col" style={{ flex: 1, minWidth: '200px' }}>
-              <label className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '0.3rem' }}>Nombre del Sorteo</label>
+
+        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.35rem' }}>Nombre del Sorteo</label>
               <input 
                 type="text" 
                 value={newName} 
                 onChange={e => setNewName(e.target.value)}
                 placeholder="Ej. Sorteo Extra"
-                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #334155', background: '#1e293b', color: 'white' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontWeight: '600', fontSize: '0.9rem', outline: 'none' }}
               />
             </div>
-            <div className="flex-col" style={{ width: '120px' }}>
-              <label className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '0.3rem' }}>Hora (24h)</label>
+            <div style={{ width: '140px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.35rem' }}>Hora (24h)</label>
               <input 
                 type="time" 
                 value={newTime} 
                 onChange={e => setNewTime(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #334155', background: '#1e293b', color: 'white' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontWeight: 'bold', fontSize: '0.9rem', outline: 'none' }}
               />
             </div>
-            <div className="flex-col" style={{ width: '120px' }}>
-              <label className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '0.3rem' }}>Cierre (min)</label>
+            <div style={{ width: '140px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.35rem' }}>Cierre (min)</label>
               <input 
                 type="number" 
                 value={closeMinutes} 
                 onChange={e => setCloseMinutes(parseInt(e.target.value) || 0)}
                 min={0}
                 max={60}
-                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #334155', background: '#1e293b', color: 'white' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontWeight: 'bold', fontSize: '0.9rem', outline: 'none' }}
               />
             </div>
           </div>
           
-          <div className="flex-col">
-             <label className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '0.3rem' }}>Días que juega (Dejar vacío para TODOS LOS DÍAS)</label>
-             <div className="flex" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-               {ALL_DAYS.map(day => (
-                 <button 
-                   key={day}
-                   type="button"
-                   onClick={() => toggleDay(day)}
-                   className={`btn ${selectedDays.includes(day) ? 'btn-primary' : ''}`}
-                   style={{ 
-                     padding: '0.3rem 0.6rem', 
-                     fontSize: '0.8rem',
-                     background: selectedDays.includes(day) ? '' : '#1e293b',
-                     border: selectedDays.includes(day) ? 'none' : '1px solid #334155',
-                     color: selectedDays.includes(day) ? 'white' : '#94a3b8'
-                   }}
-                 >
-                   {day.substring(0,3)}
-                 </button>
-               ))}
+          <div>
+             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.4rem' }}>
+               Días que juega <span style={{ fontWeight: 'normal', color: '#94a3b8' }}>(Dejar vacío para TODOS LOS DÍAS)</span>
+             </label>
+             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+               {ALL_DAYS.map(day => {
+                 const isSelected = selectedDays.includes(day);
+                 return (
+                   <button 
+                     key={day}
+                     type="button"
+                     onClick={() => toggleDay(day)}
+                     style={{ 
+                       padding: '0.4rem 0.8rem', 
+                       fontSize: '0.8rem',
+                       fontWeight: 'bold',
+                       borderRadius: '6px',
+                       cursor: 'pointer',
+                       background: isSelected ? '#0f766e' : '#f8fafc',
+                       border: isSelected ? '1px solid #0f766e' : '1px solid #cbd5e1',
+                       color: isSelected ? '#ffffff' : '#475569',
+                       transition: 'all 0.15s ease'
+                     }}
+                   >
+                     {day.substring(0,3)}
+                   </button>
+                 );
+               })}
              </div>
           </div>
 
-          <button type="submit" className={`btn flex justify-center items-center ${editingId ? 'bg-amber-600 hover:bg-amber-500' : 'btn-primary'}`} style={{ gap: '0.5rem', marginTop: '0.5rem', color: 'white' }}>
-             {editingId ? <><Save size={16} /> Guardar Cambios</> : <><Plus size={16} /> Crear Sorteo</>}
-          </button>
+          <div>
+            <button 
+              type="submit" 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                padding: '0.7rem 1.4rem', 
+                borderRadius: '6px', 
+                border: 'none', 
+                fontWeight: 'bold', 
+                fontSize: '0.9rem', 
+                color: '#ffffff', 
+                background: editingId ? '#d97706' : '#0f766e', 
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}
+            >
+               {editingId ? <><Save size={16} /> Guardar Cambios</> : <><Plus size={16} /> Crear Sorteo</>}
+            </button>
+          </div>
         </form>
       </div>
 
       {/* Lista de Sorteos */}
-      <div className="surface" style={{ padding: 'var(--spacing-md)' }}>
-        {lotteries.map(l => (
-          <div key={l.id} className="flex justify-between items-center" style={{ padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div className="flex-col">
-               <span className="text-active">{l.name}</span>
-               <span className="text-secondary" style={{ fontSize: '0.85rem' }}>{formatLotteryTime(l.hour, l.minute)} {l.days ? `- Solo ${l.days.join(', ')}` : ''} — Cierra {l.closeMinutes ?? 10} min antes</span>
-            </div>
-            
-            <div className="flex" style={{ gap: '0.5rem', alignItems: 'center' }}>
-              <button 
-                onClick={() => toggle(l.id)}
-                className={`btn ${l.isActive ? 'btn-primary' : 'btn-danger'}`}
-                style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem', minWidth: '100px' }}
-              >
-                {l.isActive ? 'Activa' : 'Deshabilitada'}
-              </button>
-              
-              <button
-                onClick={() => handleEdit(l)}
-                className="btn"
-                style={{ padding: '0.4rem', background: '#3b82f6', color: '#fff' }}
-                title="Editar Sorteo"
-              >
-                <Edit2 size={16} />
-              </button>
+      <div style={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', padding: '1.5rem', border: '1px solid #e2e8f0' }}>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.05rem', color: '#17233D', fontWeight: 'bold' }}>
+          Sorteos Registrados ({lotteries.length})
+        </h3>
 
-              <button
-                onClick={() => remove(l.id)}
-                className="btn btn-danger"
-                style={{ padding: '0.4rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}
-                title="Eliminar Sorteo"
-              >
-                <Trash2 size={16} />
-              </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {lotteries.map(l => (
+            <div 
+              key={l.id} 
+              style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '0.8rem 1rem', 
+                backgroundColor: '#f8fafc', 
+                borderRadius: '8px', 
+                border: '1px solid #e2e8f0',
+                flexWrap: 'wrap',
+                gap: '0.8rem'
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                 <span style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#17233D' }}>{l.name}</span>
+                 <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                   ⏰ {formatLotteryTime(l.hour, l.minute)} {l.days ? `• Solo ${l.days.join(', ')}` : '• Todos los días'} — Cierra {l.closeMinutes ?? 10} min antes
+                 </span>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button 
+                  onClick={() => toggle(l.id)}
+                  style={{ 
+                    fontSize: '0.8rem', 
+                    padding: '0.4rem 0.8rem', 
+                    minWidth: '105px', 
+                    borderRadius: '6px', 
+                    fontWeight: 'bold', 
+                    cursor: 'pointer',
+                    background: l.isActive ? '#dcfce7' : '#fee2e2',
+                    color: l.isActive ? '#15803d' : '#dc2626',
+                    border: l.isActive ? '1px solid #86efac' : '1px solid #fca5a5'
+                  }}
+                >
+                  {l.isActive ? '● Activa' : '○ Deshabilitada'}
+                </button>
+                
+                <button
+                  onClick={() => handleEdit(l)}
+                  style={{ 
+                    padding: '0.4rem 0.6rem', 
+                    background: '#e0f2fe', 
+                    color: '#0284c7', 
+                    border: '1px solid #bae6fd', 
+                    borderRadius: '6px', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  title="Editar Sorteo"
+                >
+                  <Edit2 size={16} />
+                </button>
+
+                <button
+                  onClick={() => remove(l.id)}
+                  style={{ 
+                    padding: '0.4rem 0.6rem', 
+                    background: '#fee2e2', 
+                    color: '#dc2626', 
+                    border: '1px solid #fecaca', 
+                    borderRadius: '6px', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  title="Eliminar Sorteo"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-        {lotteries.length === 0 && (
-          <p className="text-secondary text-center">No hay sorteos configurados.</p>
-        )}
+          ))}
+
+          {lotteries.length === 0 && (
+            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '1.5rem', margin: 0, fontStyle: 'italic' }}>
+              No hay sorteos configurados.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
