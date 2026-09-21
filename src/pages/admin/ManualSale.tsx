@@ -207,49 +207,50 @@ export default function ManualSale() {
     setResult(null);
 
     try {
-      const createdTickets: string[] = [];
+      // 1. Crear UN solo ticket cabecera con el total acumulado de todos los sorteos
+      const { data: ticketData, error: ticketErr } = await supabase
+        .from('tickets')
+        .insert({
+          vendor_id: vendorId,
+          total_amount: totalDollarsAllLotteries,
+          status: 'active',
+          client_name: clientName.trim() || 'General',
+          created_at: new Date(saleDate + 'T12:00:00Z').toISOString()
+        })
+        .select('id')
+        .single();
 
+      if (ticketErr || !ticketData) {
+        throw new Error(`Error creando ticket: ${ticketErr?.message}`);
+      }
+
+      const ticketId = ticketData.id;
+
+      // 2. Insertar todas las jugadas agrupadas por sorteo asociadas a este único ticket
+      const ticketNumbersToInsert: any[] = [];
       for (const lotteryId of selectedLotteryIds) {
-        const lotteryTotalAmount = totalVilesPerLottery * saleMode;
-
-        const { data: ticketData, error: ticketErr } = await supabase
-          .from('tickets')
-          .insert({
-            vendor_id: vendorId,
-            total_amount: lotteryTotalAmount,
-            status: 'active',
-            client_name: clientName.trim() || 'General',
-            created_at: new Date(saleDate + 'T12:00:00Z').toISOString()
-          })
-          .select('id')
-          .single();
-
-        if (ticketErr || !ticketData) {
-          throw new Error(`Error creando ticket para la lotería: ${ticketErr?.message}`);
-        }
-
-        createdTickets.push(ticketData.id);
-
-        const ticketNumbersToInsert = plays.map(p => ({
-          ticket_id: ticketData.id,
-          draw_id: lotteryId,
-          number_played: p.number,
-          amount: p.amount
-        }));
-
-        const { error: numbersErr } = await supabase
-          .from('ticket_numbers')
-          .insert(ticketNumbersToInsert);
-
-        if (numbersErr) {
-          throw new Error(`Error guardando números del ticket: ${numbersErr.message}`);
+        for (const p of plays) {
+          ticketNumbersToInsert.push({
+            ticket_id: ticketId,
+            draw_id: lotteryId,
+            number_played: p.number,
+            amount: p.amount
+          });
         }
       }
 
-      setSavedTicketId(createdTickets[0]);
+      const { error: numbersErr } = await supabase
+        .from('ticket_numbers')
+        .insert(ticketNumbersToInsert);
+
+      if (numbersErr) {
+        throw new Error(`Error guardando números del ticket: ${numbersErr.message}`);
+      }
+
+      setSavedTicketId(ticketId);
       setResult({
         success: true,
-        message: `¡Venta manual guardada con éxito! Se generaron ${createdTickets.length} ticket(s) con un monto total de $${totalDollarsAllLotteries.toFixed(2)}.`
+        message: `¡Venta manual guardada con éxito! Se generó 1 ticket unificado (${selectedLotteryIds.length} sorteo${selectedLotteryIds.length > 1 ? 's' : ''}) por un monto total de $${totalDollarsAllLotteries.toFixed(2)}.`
       });
 
       setPlays([]);
