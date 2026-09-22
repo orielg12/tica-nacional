@@ -207,6 +207,17 @@ export default function ManualSale() {
     setResult(null);
 
     try {
+      const now = new Date();
+      const todayStr = getLocalISODate();
+      let createdAtISO: string;
+      if (saleDate === todayStr) {
+        createdAtISO = now.toISOString();
+      } else {
+        const [y, m, d] = saleDate.split('-').map(Number);
+        const targetDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+        createdAtISO = targetDate.toISOString();
+      }
+
       // 1. Crear UN solo ticket cabecera con el total acumulado de todos los sorteos
       const { data: ticketData, error: ticketErr } = await supabase
         .from('tickets')
@@ -215,7 +226,7 @@ export default function ManualSale() {
           total_amount: totalDollarsAllLotteries,
           status: 'active',
           client_name: clientName.trim() || 'General',
-          created_at: new Date(saleDate + 'T12:00:00Z').toISOString()
+          created_at: createdAtISO
         })
         .select('id')
         .single();
