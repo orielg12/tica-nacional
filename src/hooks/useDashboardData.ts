@@ -118,6 +118,12 @@ export function useDashboardData(selectedDateStr?: string) {
          monthMap[dStr] = { sales: 0, payouts: 0, covers: 0, reimb: 0 };
       }
 
+      // Generar mapa de fechas de tickets para atribuir cada premio a la fecha en que se jugó la venta
+      const ticketDateMap: Record<string, string> = {};
+      (ticketsData || []).forEach(t => {
+         ticketDateMap[t.id] = getLocalISODate(new Date(t.created_at));
+      });
+
       validTickets.forEach(t => {
          const dStr = getLocalISODate(new Date(t.created_at));
          if (monthMap[dStr]) monthMap[dStr].sales += parseFloat(t.total_amount || '0');
@@ -129,7 +135,12 @@ export function useDashboardData(selectedDateStr?: string) {
       });
 
       (payoutsData || []).forEach(p => {
-         const dStr = getLocalISODate(new Date(p.created_at));
+         // Si el premio tiene ticket_id, atribuir el gasto a la fecha en que se jugó el ticket (ayer u otro día),
+         // de modo que no descuente premios viejos de la venta de hoy
+         const dStr = (p.ticket_id && ticketDateMap[p.ticket_id]) 
+            ? ticketDateMap[p.ticket_id] 
+            : getLocalISODate(new Date(p.created_at));
+
          if (monthMap[dStr]) {
             if (p.paid_by === 'EXTERNAL_BANK_REIMBURSEMENT') {
                monthMap[dStr].reimb += Math.abs(parseFloat(p.amount || '0'));
