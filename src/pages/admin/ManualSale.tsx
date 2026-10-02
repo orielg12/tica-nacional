@@ -10,6 +10,7 @@ import {
   Hash, Sparkles, RefreshCw
 } from 'lucide-react';
 import { SafeTextInput } from '../../components/shared/SafeTextInput';
+import { parseImportText } from '../../utils/textImportParser';
 
 interface ManualPlay {
   number: string;
@@ -136,42 +137,22 @@ export default function ManualSale() {
       return;
     }
 
-    const lines = importText.split('\n');
-    const imported: ManualPlay[] = [];
-
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-
-      const match = trimmed.match(/^(\d{1,2})[\s\-:=xX]+(\d+(?:\.\d+)?)\s*v?$/i);
-      if (match) {
-        const num = match[1].padStart(2, '0');
-        const amt = parseFloat(match[2]);
-        if (!isNaN(amt) && amt > 0) {
-          imported.push({ number: num, amount: amt });
-          return;
-        }
-      }
-
-      const matchRev = trimmed.match(/^(\d+(?:\.\d+)?)\s*v?[\s\-:=xX]+(\d{1,2})$/i);
-      if (matchRev) {
-        const amt = parseFloat(matchRev[1]);
-        const num = matchRev[2].padStart(2, '0');
-        if (!isNaN(amt) && amt > 0) {
-          imported.push({ number: num, amount: amt });
-        }
-      }
-    });
+    const { plays: imported, clientName: detectedClient } = parseImportText(importText);
 
     if (imported.length === 0) {
-      setImportError('No se encontraron jugadas válidas. Formato esperado: "45 10v", "45-10" o "10x45".');
+      setImportError('No se encontraron jugadas válidas. Se soporta "2 31 2 29", "45 10v", "45-10", "10x45", "10 del 45", etc.');
       return;
+    }
+
+    if (detectedClient && !clientName) {
+      setClientName(detectedClient);
     }
 
     setPlays(prev => [...prev, ...imported]);
     setShowImportModal(false);
     setImportText('');
   };
+
 
   // Final sale calculations
   const numSelectedLotteries = selectedLotteryIds.length;
@@ -831,14 +812,14 @@ export default function ManualSale() {
             <p className="text-xs text-slate-500 leading-relaxed">
               Pega la lista de jugadas tal cual la recibiste. Se reconocen formatos como:
               <br />
-              <strong className="text-slate-700">45 10v</strong>, <strong className="text-slate-700">45-10</strong>, <strong className="text-slate-700">10x45</strong> o <strong className="text-slate-700">45=10</strong>.
+              <strong className="text-slate-700">2 31 2 29 1 05</strong> (tiempos y número), <strong className="text-slate-700">45 10v</strong>, <strong className="text-slate-700">45-10</strong>, <strong className="text-slate-700">10x45</strong> o <strong className="text-slate-700">10 del 45</strong>.
             </p>
 
             <textarea
               rows={8}
               value={importText}
               onChange={e => setImportText(e.target.value)}
-              placeholder={`Ejemplo:\n45 10v\n22-5\n10x33\n00 20v`}
+              placeholder={`Ejemplos:\n2 31 2 29 2 17 2 05 1 01 1 02\n45 10v\n22-5\n10 del 33`}
               className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
             />
 

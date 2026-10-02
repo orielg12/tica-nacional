@@ -10,6 +10,8 @@ import { BluetoothSerial } from '@e-is/capacitor-bluetooth-serial';
 import { supabase } from '../../utils/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { SafeTextInput } from '../../components/shared/SafeTextInput';
+import { parseImportText } from '../../utils/textImportParser';
+
 export default function POS() {
   const store = useStore();
   const { tc } = useTheme();
@@ -556,250 +558,26 @@ export default function POS() {
       return;
     }
 
-    const lines = importText.split('\n');
-    let clientName = '';
-    const plays: any[] = [];
+    const { clientName: parsedClient, plays } = parseImportText(importText, invertImportOrder);
+    
+    // Detect lotteries mentioned in text
     const detectedLotteryIds = new Set<string>();
-
-    // ── STEP 1: Extract client name ──
-    // Try explicit labels first
-    const nameMatch = importText.match(/(?:Nombre|Cliente|Name|Vendedor|Cajero|Jugador)\s*[:\-=]\s*(.+)/i);
-    if (nameMatch) {
-      clientName = nameMatch[1].trim();
-    }
-
-    let currentLottery: LotteryConfig | null = null;
-
-    // ── Helper: strip emoji/unicode decorations from a line ──
-    const stripEmoji = (s: string) => s.replace(/[\u{1F1E0}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').trim();
-
-    for (let rawLine of lines) {
-      let line = rawLine.trim();
-      if (!line) continue;
-
-      // Skip lines that are clearly metadata/headers
-      if (/^(codigo|verificacion|total|monto\s*minimo|procesar|confirmo)/i.test(stripEmoji(line))) continue;
-      if (/^-+$/.test(line) || /^=+$/.test(line) || /^\*+$/.test(line)) continue;
-
-      // If the first non-empty line has no numbers at all and no label was found, treat it as client name
-      if (!clientName && plays.length === 0 && !detectedLotteryIds.size) {
-        const cleanLine = stripEmoji(line);
-        // If the line is purely alphabetic (a name), grab it
-        if (/^[a-záéíóúñü\s]+$/i.test(cleanLine) && cleanLine.length >= 2 && cleanLine.length <= 40) {
-          clientName = cleanLine;
-          continue;
-        }
-      }
-
-      // ── STEP 2: Detect lottery/draw names ──
-      const cleanedLine = stripEmoji(line);
-      const normalizedLine = cleanedLine.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-      // Also try matching "tica tradicional" → "tica"
-      let foundLotto: LotteryConfig | undefined;
-      const matches = store.lotteriesMaster.filter(l => {
+    const lines = importText.split('\n');
+    for (let line of lines) {
+      const normalizedLine = line.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      store.lotteriesMaster.forEach(l => {
         const normName = l.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return normalizedLine.includes(normName);
+        if (normalizedLine.includes(normName)) {
+          detectedLotteryIds.add(l.id);
+        }
       });
-
-      if (matches.length > 0) {
-        foundLotto = matches[0];
-        // Disambiguate by time if multiple lotteries share the same name (e.g. Nica 1pm vs Nica 4pm)
-        if (matches.length > 1) {
-          const timeMatch = line.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
-          if (timeMatch) {
-            let hr = parseInt(timeMatch[1]);
-            const min = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-            const ampm = timeMatch[3]?.toLowerCase();
-            
-            // Si es PM y la hora es menor a 12, sumamos 12. Pero si explícitamente dice "12 pm", es 12.
-            if (ampm === 'pm' && hr < 12) hr += 12;
-            if (ampm === 'am' && hr === 12) hr = 0;
-            
-            // Si no se especifica am/pm, y es 1, 4, 7, 10, etc., asumimos PM
-            if (!ampm) {
-              if (hr >= 1 && hr <= 11) hr += 12;
-            }
-
-            let bestLotto = matches.find(l => l.hour === hr && (min === 0 || l.minute === min));
-            
-            // Si buscan la de la 1 PM o las 12 PM, y no se encuentra por hora exacta,
-            // mapeamos al ID que contenga '1pm' (ej: '1pm-nica' que ahora corre a las 12:00 PM)
-            if (!bestLotto && (hr === 13 || hr === 12)) {
-              bestLotto = matches.find(l => l.id.includes('1pm') || l.id.includes('12pm') || l.id.includes('120'));
-            }
-
-            if (bestLotto) foundLotto = bestLotto;
-          }
-        }
-        currentLottery = foundLotto;
-        detectedLotteryIds.add(foundLotto.id);
-        continue;
-      }
-
-      // ── STEP 3: Skip known non-play lines ──
-      if (/(?:nombre|cliente|jugador|cajero|vendedor)\s*[:\-=]/i.test(line)) continue;
-      if (/(?:viles|monto|pesos|cantidad|valor|numero|num|jugada)/i.test(line) && !/\d{1,2}\s*[-x*:]\s*\d+/.test(line)) continue;
-
-      // ── STEP 4: Parse number-amount pairs ──
-      let num = '';
-      let amt = 0;
-
-      // Clean trailing "v" or "viles" from the line
-      const lineClean = line.replace(/\s*v(?:iles)?\s*$/i, '').trim();
-
-      let matched = false;
-      let firstVal = '';
-      let secondVal = '';
-      let isExplicitDelFormat = false; // "del" format has amt first, num second by default
-
-      // Format: "25 - 10" (number DASH amount) or "25/10" (number SLASH amount)
-      const dashMatch = lineClean.match(/^(\d{1,2})\s*[-–—\/]\s*(\d+)$/);
-      if (dashMatch) {
-        firstVal = dashMatch[1];
-        secondVal = dashMatch[2];
-        matched = true;
-      }
-
-      // Format: "25x10" or "25 x 10" or "25*10"
-      if (!matched) {
-        const xMatch = lineClean.match(/^(\d{1,2})\s*[x*X]\s*(\d+)$/);
-        if (xMatch) {
-          firstVal = xMatch[1];
-          secondVal = xMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: "25:10" or "25 = 10"
-      if (!matched) {
-        const colonMatch = lineClean.match(/^(\d{1,2})\s*[:=]\s*(\d+)$/);
-        if (colonMatch) {
-          firstVal = colonMatch[1];
-          secondVal = colonMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: "10 del 25" or "10 al 25" (amount DEL number)
-      if (!matched) {
-        const delMatch = lineClean.match(/^(\d+)\s+(?:del|al|de|el)\s+(\d{1,2})$/i);
-        if (delMatch) {
-          firstVal = delMatch[1];
-          secondVal = delMatch[2];
-          isExplicitDelFormat = true;
-          matched = true;
-        }
-      }
-
-      // Format: "25 con 10" or "25 por 10" (number CON amount)
-      if (!matched) {
-        const conMatch = lineClean.match(/^(\d{1,2})\s+(?:con|por|de)\s+(\d+)$/i);
-        if (conMatch) {
-          firstVal = conMatch[1];
-          secondVal = conMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: pipe "25 | 10" or "25|10"
-      if (!matched) {
-        const pipeMatch = lineClean.match(/^(\d{1,2})\s*\|\s*(\d+)$/);
-        if (pipeMatch) {
-          firstVal = pipeMatch[1];
-          secondVal = pipeMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: slash "25/10" or "25 / 10"
-      if (!matched) {
-        const slashMatch = lineClean.match(/^(\d{1,2})\s*\/\s*(\d+)$/);
-        if (slashMatch) {
-          firstVal = slashMatch[1];
-          secondVal = slashMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: parentheses "49(4)" or "49 (4)" or "83(4)" or "15 (4)"
-      if (!matched) {
-        const parenMatch = lineClean.match(/^(\d{1,2})\s*\((\d+)\)$/);
-        if (parenMatch) {
-          firstVal = parenMatch[1];
-          secondVal = parenMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: tab separated "25\t10"
-      if (!matched) {
-        const tabMatch = lineClean.match(/^(\d{1,2})\t+(\d+)$/);
-        if (tabMatch) {
-          firstVal = tabMatch[1];
-          secondVal = tabMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: space separated "25 10"
-      if (!matched) {
-        const spaceMatch = lineClean.match(/^(\d{1,2})\s+(\d+)$/);
-        if (spaceMatch) {
-          firstVal = spaceMatch[1];
-          secondVal = spaceMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: comma separated "25,10"
-      if (!matched) {
-        const commaMatch = lineClean.match(/^(\d{1,2})\s*,\s*(\d+)$/);
-        if (commaMatch) {
-          firstVal = commaMatch[1];
-          secondVal = commaMatch[2];
-          matched = true;
-        }
-      }
-
-      // Format: dot separated "70.1"
-      if (!matched) {
-        const dotMatch = lineClean.match(/^(\d{1,2})\s*\.\s*(\d+(?:\.\d+)?)$/);
-        if (dotMatch) {
-          firstVal = dotMatch[1];
-          secondVal = dotMatch[2];
-          matched = true;
-        }
-      }
-
-      if (matched) {
-        const normalOrder = !isExplicitDelFormat;
-        const shouldInvert = invertImportOrder;
-        
-        if (normalOrder !== shouldInvert) {
-          num = firstVal;
-          amt = parseFloat(secondVal);
-        } else {
-          amt = parseFloat(firstVal);
-          num = secondVal;
-        }
-      }
-
-      if (num && amt > 0) {
-        num = num.padStart(2, '0');
-        plays.push({
-          number: num,
-          amount: amt,
-          lotteryId: currentLottery ? currentLottery.id : null
-        });
-      }
     }
 
     const detectedLotteries = store.lotteriesMaster.filter(l => detectedLotteryIds.has(l.id));
 
     setParsedImport({
-      clientName,
-      plays,
+      clientName: parsedClient,
+      plays: plays.map(p => ({ ...p, lotteryId: null })),
       detectedLotteries
     });
   }, [importText, store.lotteriesMaster, invertImportOrder]);

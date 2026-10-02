@@ -282,7 +282,6 @@ export default function AdminReports() {
     });
 
   const handleExportCSV = () => {
-     // Añadir BOM (Byte Order Mark) para que Excel detecte UTF-8 correctamente
      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
      csvContent += "ID Vendedor;Porcentaje;Cant. Tickets;Venta Bruta;Comision Retenida;Premios Pagados;Neto a Entregar\n";
      
@@ -302,10 +301,37 @@ export default function AdminReports() {
      const encodedUri = encodeURI(csvContent);
      const link = document.createElement("a");
      link.setAttribute("href", encodedUri);
-     link.setAttribute("download", `reporte_contable_${startDate}_al_${endDate}.csv`);
+     link.setAttribute("download", `resumen_contable_${startDate}_al_${endDate}.csv`);
      document.body.appendChild(link);
      link.click();
-     try { document.body.removeChild(link); } catch(e){}
+     try { document.body.removeChild(link); } catch (e) {}
+  };
+
+  const handleExportDetailedTicketsCSV = () => {
+     let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+     csvContent += "ID Ticket;Fecha / Hora;Vendedor;Cliente;Monto Total ($);Estado;Sorteos y Jugadas\n";
+
+     activeTickets.forEach(t => {
+        const rawVid = t.vendor_id?.toString() || 'desconocido';
+        const vendor = usernameMap[rawVid] || rawVid;
+        const dateStr = new Date(t.created_at).toLocaleString('es-PA');
+        const client = (t.client_name || 'General').replace(/;/g, ',');
+        const total = parseFloat(t.total_amount || '0').toFixed(2);
+        const status = t.status || 'active';
+        const playsSummary = (t.ticket_numbers || [])
+           .map((tn: any) => `${tn.draw_id}:${tn.number_played}=${tn.amount}v`)
+           .join(' | ');
+
+        csvContent += `${t.id};${dateStr};${vendor};${client};${total};${status};"${playsSummary}"\n`;
+     });
+
+     const encodedUri = encodeURI(csvContent);
+     const link = document.createElement("a");
+     link.setAttribute("href", encodedUri);
+     link.setAttribute("download", `detalle_boletos_${startDate}_al_${endDate}.csv`);
+     document.body.appendChild(link);
+     link.click();
+     try { document.body.removeChild(link); } catch (e) {}
   };
 
   return (
@@ -337,9 +363,12 @@ export default function AdminReports() {
            </h2>
            <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>Visualiza las ventas y rendimientos de toda tu red de banqueros.</span>
          </div>
-         <div className="rpt-header-actions" style={{ display: 'flex', gap: '0.5rem' }}>
+         <div className="rpt-header-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
            <button onClick={handleExportCSV} disabled={loading || Object.keys(vendorTotals).length === 0} style={{ backgroundColor: '#10b981', color: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', cursor: 'pointer' }}>
-             <Download size={16} /> Exportar CSV
+             <Download size={16} /> Resumen CSV
+           </button>
+           <button onClick={handleExportDetailedTicketsCSV} disabled={loading || activeTickets.length === 0} style={{ backgroundColor: '#0284c7', color: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', cursor: 'pointer' }}>
+             <Download size={16} /> Detalle Boletos CSV
            </button>
            <button onClick={fetchGlobalSales} style={{ backgroundColor: '#3399ff', color: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', cursor: 'pointer' }}>
              Actualizar Data
