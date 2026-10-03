@@ -124,7 +124,15 @@ export default function TicketsManager() {
     }
   };
 
-  const handlePrint = (ticket: any) => {
+  const handlePrint = async (ticket: any) => {
+    try {
+      const newCount = (ticket.reprint_count || 0) + 1;
+      await supabase.from('tickets').update({ reprint_count: newCount }).eq('id', ticket.id);
+      loadTickets();
+    } catch (e) {
+      console.warn("Could not update reprint count:", e);
+    }
+
     const shortId = ticket.id.split('-')[0].toUpperCase();
     const vendorName = ticket.vendor_id || 'Caja';
     const header = `${store.ticketHeader}\n--------------------------------\nFecha: ${new Date(ticket.created_at).toLocaleString('es-ES')}\nTicket ID: ${shortId}\nCajero: ${vendorName.toUpperCase()}\n\n`;
@@ -198,6 +206,8 @@ export default function TicketsManager() {
   const validTickets = filteredTickets.filter(t => t.status !== 'cancelled');
   const totalSales = validTickets.reduce((sum, t) => sum + parseFloat(t.total_amount), 0);
   const cancelledTickets = filteredTickets.filter(t => t.status === 'cancelled');
+  const reprintedTickets = filteredTickets.filter(t => (t.reprint_count || 0) > 0);
+  const totalReprintCount = filteredTickets.reduce((sum, t) => sum + (t.reprint_count || 0), 0);
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -250,7 +260,7 @@ export default function TicketsManager() {
       </div>
 
       {/* Tarjetas de Metricas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
          <div style={{ background: '#15803d', color: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
             <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>Ventas Válidas Totales</div>
             <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>${totalSales.toFixed(2)}</div>
@@ -262,7 +272,12 @@ export default function TicketsManager() {
          <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #fecaca' }}>
             <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#dc2626' }}>Anulaciones Detectadas</div>
             <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#dc2626' }}>{cancelledTickets.length}</div>
-            <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 'bold' }}>Dinero no ingresado: ${cancelledTickets.reduce((acc, t) => acc + parseFloat(t.total_amount), 0).toFixed(2)}</span>
+            <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 'bold' }}>Anulados: ${cancelledTickets.reduce((acc, t) => acc + parseFloat(t.total_amount), 0).toFixed(2)}</span>
+         </div>
+         <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #ffedd5' }}>
+            <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#c2410c' }}>Reimpresiones Detectadas</div>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ea580c' }}>{reprintedTickets.length}</div>
+            <span style={{ fontSize: '0.8rem', color: '#c2410c', fontWeight: 'bold' }}>{totalReprintCount} impresiones extras</span>
          </div>
       </div>
 
@@ -289,6 +304,7 @@ export default function TicketsManager() {
             ) : (
               filteredTickets.map(t => {
                 const isGranjita = t.ticket_numbers?.some((tn: any) => isGranjitaLottery(tn.draw_id));
+                const reprintCount = t.reprint_count || 0;
                 return (
                 <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9', background: t.status === 'cancelled' ? '#fef2f2' : 'white', opacity: t.status === 'cancelled' ? 0.8 : 1 }}>
                   <td style={{ padding: '1rem', color: '#1e293b' }}>{new Date(t.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
@@ -302,6 +318,11 @@ export default function TicketsManager() {
                       ) : (
                         <span style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold' }}>
                           🎲 TIEMPOS
+                        </span>
+                      )}
+                      {reprintCount > 0 && (
+                        <span style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #ffedd5', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                          🖨️ REIMPRESO ({reprintCount})
                         </span>
                       )}
                     </div>

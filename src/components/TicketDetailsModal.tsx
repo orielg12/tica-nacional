@@ -180,7 +180,7 @@ export default function TicketDetailsModal({ ticketId, onClose }: TicketDetailsM
     if (lower.includes('honduras')) return '🇭🇳';
     if (lower.includes('tica')) return '🇨🇷';
     if (lower.includes('monazo')) return '🇨🇷';
-    if (lower.includes('primera')) return '🇨🇷';
+    if (lower.includes('primera')) return '🇩🇴';
     if (lower.includes('nacional')) return '🇵🇦';
     if (lower.includes('anguilla')) return '🇦🇮';
     if (lower.includes('new york') || lower.includes('florida')) return '🇺🇸';

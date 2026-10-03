@@ -141,6 +141,14 @@ export default function Tickets() {
   };
 
   const handlePrint = async (ticket: any) => {
+    try {
+      const newCount = (ticket.reprint_count || 0) + 1;
+      await supabase.from('tickets').update({ reprint_count: newCount }).eq('id', ticket.id);
+      fetchTickets();
+    } catch (e) {
+      console.warn("Could not update reprint count:", e);
+    }
+
     const shortId = ticket.id.split('-')[0].toUpperCase();
     const vendorName = store.currentUser?.username || 'Caja';
     const header = `${store.ticketHeader}\n--------------------------------\nFecha: ${new Date(ticket.created_at).toLocaleString('es-ES')}\nTicket ID: ${shortId}\nCajero: ${vendorName.toUpperCase()}\n\n`;
