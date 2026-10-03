@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { PlusCircle, Search, Edit2, Trash2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 
@@ -356,51 +356,40 @@ export default function UsersManager() {
                    </div>
                  )}
 
-                 {/* Permissions checkboxes */}
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', backgroundColor: '#f8fafc', padding: '0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                 {/* Permissions - Toggle Switches */}
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0', marginTop: '0.5rem', backgroundColor: '#f8fafc', padding: '0.8rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                   <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>Permisos del Cajero</div>
                    {formData.roleType === 'Vendedor' && (
                      <>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                         <input 
-                           type="checkbox" 
-                           id="allowPalet"
-                           checked={formData.allowPalet} 
-                           onChange={(e) => setFormData({...formData, allowPalet: e.target.checked})} 
-                           style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                         />
-                         <label htmlFor="allowPalet" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#17233D', cursor: 'pointer' }}>
-                           Permitir venta de Palets
-                         </label>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px dashed #e2e8f0' }}>
+                         <div>
+                           <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#1e293b' }}>🎯 Venta de Palets</div>
+                           <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Permite al cajero vender tickets de Palé</div>
+                         </div>
+                         <div onClick={() => setFormData({...formData, allowPalet: !formData.allowPalet})} style={{ width: '46px', height: '24px', borderRadius: '12px', position: 'relative', flexShrink: 0, cursor: 'pointer', backgroundColor: formData.allowPalet ? '#f59e0b' : '#cbd5e1', transition: 'background-color 0.2s' }}>
+                           <div style={{ position: 'absolute', top: '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s', left: formData.allowPalet ? '24px' : '2px' }} />
+                         </div>
                        </div>
-                       
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                         <input 
-                           type="checkbox" 
-                           id="allowGranjita"
-                           checked={formData.allowGranjita} 
-                           onChange={(e) => setFormData({...formData, allowGranjita: e.target.checked})} 
-                           style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                         />
-                         <label htmlFor="allowGranjita" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0f766e', cursor: 'pointer' }}>
-                           Permitir vender La Granjita 🐓
-                         </label>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+                         <div>
+                           <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#1e293b' }}>🐓 La Granjita / Animalitos</div>
+                           <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Permite vender sorteos de animales</div>
+                         </div>
+                         <div onClick={() => setFormData({...formData, allowGranjita: !formData.allowGranjita})} style={{ width: '46px', height: '24px', borderRadius: '12px', position: 'relative', flexShrink: 0, cursor: 'pointer', backgroundColor: formData.allowGranjita ? '#0d9488' : '#cbd5e1', transition: 'background-color 0.2s' }}>
+                           <div style={{ position: 'absolute', top: '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s', left: formData.allowGranjita ? '24px' : '2px' }} />
+                         </div>
                        </div>
                      </>
                    )}
-
-                   {/* Sub-Admin: allow manage lotteries option */}
                    {formData.roleType === 'Sub-Administrador' && isSuperAdmin && (
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                       <input 
-                         type="checkbox" 
-                         id="allowManageLotteries"
-                         checked={formData.allowManageLotteries} 
-                         onChange={(e) => setFormData({...formData, allowManageLotteries: e.target.checked})} 
-                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                       />
-                       <label htmlFor="allowManageLotteries" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369a1', cursor: 'pointer' }}>
-                         Habilitar creación y edición de Sorteos 📅
-                       </label>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+                       <div>
+                         <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#0369a1' }}>📅 Gestionar Sorteos</div>
+                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Sub-Admin puede crear y editar loterías</div>
+                       </div>
+                       <div onClick={() => setFormData({...formData, allowManageLotteries: !formData.allowManageLotteries})} style={{ width: '46px', height: '24px', borderRadius: '12px', position: 'relative', flexShrink: 0, cursor: 'pointer', backgroundColor: formData.allowManageLotteries ? '#3b82f6' : '#cbd5e1', transition: 'background-color 0.2s' }}>
+                         <div style={{ position: 'absolute', top: '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s', left: formData.allowManageLotteries ? '24px' : '2px' }} />
+                       </div>
                      </div>
                    )}
                  </div>

@@ -1591,9 +1591,15 @@ export default function POS() {
             </div>
             
             <div className="p-4 flex flex-col gap-3 bg-gray-800 flex-1 overflow-y-auto no-scrollbar">
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Pega el mensaje copiado de la aplicación del cliente (Jugadas Monazo) o una lista de números en formato manual (ej: <span className="font-mono text-teal-400">99x10</span> o <span className="font-mono text-teal-400">10 del 75</span>).
-              </p>
+              <div className="bg-gray-900/80 border border-gray-700 rounded-xl p-2.5 text-[11px] text-gray-400 space-y-1">
+                <div className="text-teal-400 font-bold mb-1">📋 Formatos soportados:</div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                  <div><span className="font-mono text-yellow-400">2 31 2 29 1 05</span> — tiempos + número</div>
+                  <div><span className="font-mono text-yellow-400">99x10</span> — número x tiempos</div>
+                  <div><span className="font-mono text-yellow-400">10 del 75</span> — del/al</div>
+                  <div><span className="font-mono text-yellow-400">45-10</span> — número-tiempos</div>
+                </div>
+              </div>
               
               <div className="flex items-center gap-2 bg-gray-950/40 p-2.5 rounded-xl border border-gray-700/50">
                  <input
@@ -1609,8 +1615,8 @@ export default function POS() {
                </div>
               
               <textarea
-                rows={10}
-                placeholder="Pega el mensaje aquí..."
+                rows={8}
+                placeholder={`Pega el mensaje aquí...\nEjemplo nuevo formato:\n2 31 2 29 2 17 2 05 2 35\n1 01 1 02 1 03 1 04 1 06`}
                 value={importText}
                 onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                 onChange={(e) => setImportText(e.target.value)}
@@ -1639,12 +1645,16 @@ export default function POS() {
 
                   {parsedImport.plays.length > 0 && (
                     <div>
-                      <span className="text-gray-400 font-medium block mb-1">Jugadas ({parsedImport.plays.length}):</span>
-                      <div className="flex flex-wrap gap-1.5 font-mono">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-gray-400 font-medium">Jugadas ({parsedImport.plays.length}):</span>
+                        <span className="text-teal-400 font-bold text-[11px]">Total: {parsedImport.plays.reduce((s, p) => s + p.amount, 0)} viles</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 font-mono max-h-36 overflow-y-auto no-scrollbar">
                         {parsedImport.plays.map((p, idx) => (
-                          <span key={idx} className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
-                            {p.number} ({p.amount}v)
-                          </span>
+                          <div key={idx} className="bg-teal-900/50 border border-teal-700/50 text-center rounded px-1 py-1">
+                            <div className="font-black text-white text-sm">{p.number}</div>
+                            <div className="text-teal-400 text-[10px]">{p.amount}v</div>
+                          </div>
                         ))}
                       </div>
                     </div>

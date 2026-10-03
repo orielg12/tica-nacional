@@ -36,6 +36,9 @@ export default function ManualSale() {
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
 
+  // Live preview of import
+  const importPreview = importText.trim() ? parseImportText(importText) : null;
+
   // Edit state
   const [editIdx, setEditIdx] = useState<number | null>(null);
 
@@ -809,19 +812,50 @@ export default function ManualSale() {
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Pega la lista de jugadas tal cual la recibiste. Se reconocen formatos como:
-              <br />
-              <strong className="text-slate-700">2 31 2 29 1 05</strong> (tiempos y número), <strong className="text-slate-700">45 10v</strong>, <strong className="text-slate-700">45-10</strong>, <strong className="text-slate-700">10x45</strong> o <strong className="text-slate-700">10 del 45</strong>.
-            </p>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+              <div className="font-bold text-slate-700 mb-1">📋 Formatos Soportados:</div>
+              <div className="grid grid-cols-2 gap-1">
+                <div><span className="font-mono bg-white px-1 rounded border text-blue-700">2 31 2 29 1 05</span> — tiempos + número</div>
+                <div><span className="font-mono bg-white px-1 rounded border text-blue-700">45-10</span> — número-tiempos</div>
+                <div><span className="font-mono bg-white px-1 rounded border text-blue-700">10x45</span> — número x tiempos</div>
+                <div><span className="font-mono bg-white px-1 rounded border text-blue-700">10 del 45</span> — del/al</div>
+              </div>
+            </div>
 
             <textarea
-              rows={8}
+              rows={6}
               value={importText}
-              onChange={e => setImportText(e.target.value)}
-              placeholder={`Ejemplos:\n2 31 2 29 2 17 2 05 1 01 1 02\n45 10v\n22-5\n10 del 33`}
+              onChange={e => { setImportText(e.target.value); setImportError(null); }}
+              placeholder={`Ejemplo:\n2 31 2 29 2 17 2 05 2 35\n1 01 1 02 1 03 1 04 1 06\n1 08 1 09 1 53 1 45 1 54`}
               className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
             />
+
+            {/* Live Preview */}
+            {importPreview && importPreview.plays.length > 0 && (
+              <div className="border border-green-200 bg-green-50 rounded-xl p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-green-700">✅ Vista previa — {importPreview.plays.length} jugadas detectadas</span>
+                  {importPreview.clientName && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">👤 {importPreview.clientName}</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
+                  {importPreview.plays.map((p, i) => (
+                    <div key={i} className="bg-white border border-green-200 rounded px-2 py-1 text-xs font-mono text-center">
+                      <span className="font-black text-slate-900">{p.number}</span>
+                      <span className="text-green-600 ml-1">{p.amount}v</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {importText.trim() && importPreview && importPreview.plays.length === 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertCircle size={16} />
+                <span>No se detectaron jugadas. Revisa el formato del texto pegado.</span>
+              </div>
+            )}
 
             {importError && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl flex items-center gap-2">
@@ -841,9 +875,10 @@ export default function ManualSale() {
               <button
                 type="button"
                 onClick={handleImportPlays}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20"
+                disabled={!importPreview || importPreview.plays.length === 0}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20"
               >
-                Procesar e Importar
+                {importPreview && importPreview.plays.length > 0 ? `Importar ${importPreview.plays.length} Jugadas` : 'Procesar e Importar'}
               </button>
             </div>
           </div>

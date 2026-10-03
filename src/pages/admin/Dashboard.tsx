@@ -1,12 +1,20 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDashboardData } from '../../hooks/useDashboardData';
-import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame } from 'lucide-react';
+import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../utils/supabase';
 
+/** Devuelve color de fondo, texto y borde según el monto apostado en el número */
+function getHotNumberStyle(totalAmount: number, maxAmount: number): { bg: string; border: string; textColor: string; badge: string } {
+  const ratio = maxAmount > 0 ? totalAmount / maxAmount : 0;
+  if (ratio >= 0.75) return { bg: '#fef2f2', border: '#ef4444', textColor: '#b91c1c', badge: '#dc2626' };       // 🔴 Rojo — crítico
+  if (ratio >= 0.50) return { bg: '#fff7ed', border: '#f97316', textColor: '#c2410c', badge: '#ea580c' };       // 🟠 Naranja — alto
+  if (ratio >= 0.25) return { bg: '#fefce8', border: '#eab308', textColor: '#a16207', badge: '#ca8a04' };       // 🟡 Amarillo — medio
+  return { bg: '#f0fdf4', border: '#22c55e', textColor: '#15803d', badge: '#16a34a' };                          // 🟢 Verde — bajo
+}
+
 export default function Dashboard() {
-  const [dateStr, setDateStr] = useState('');
   const [activeDate, setActiveDate] = useState(getLocalISODate());
   const { metrics, refetch } = useDashboardData(activeDate);
   const store = useStore();
@@ -105,7 +113,7 @@ export default function Dashboard() {
           .map(([num, d]) => ({ number: num, viles: d.viles, totalAmount: d.totalAmount, ticketsCount: d.ticketsCount }))
           .filter(item => item.viles > 0)
           .sort((a, b) => b.totalAmount - a.totalAmount)
-          .slice(0, 5);
+          .slice(0, 8);
 
         if (topNumbers.length > 0) {
           const timeStr = `${lotto.hour > 12 ? lotto.hour - 12 : (lotto.hour === 0 ? 12 : lotto.hour)}:${lotto.minute.toString().padStart(2, '0')} ${lotto.hour >= 12 ? 'PM' : 'AM'}`;
@@ -136,23 +144,44 @@ export default function Dashboard() {
     }
   };
 
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchHotNumbers(), refetch()]);
+    setLastRefreshTime(new Date());
+    setIsRefreshing(false);
+  }, [fetchHotNumbers, refetch]);
+
   useEffect(() => {
     store.fetchUsers();
     store.fetchLotteries();
     fetchHotNumbers();
 
-    // Auto-refrescar cada 30 segundos para avanzar al siguiente sorteo en cuanto cierre el actual
+    // Polling de respaldo cada 30 segundos (Realtime WebSocket es el canal primario)
     const timer = setInterval(() => {
       fetchHotNumbers();
+      refetch();
+      setLastRefreshTime(new Date());
     }, 30000);
 
-    // Suscribirse a cambios en tiempo real (ventas y premios)
+    // Realtime WebSocket (actualización instantánea al registrar ventas/premios)
     const channel = supabase
-      .channel('public:ticket_numbers')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticket_numbers' }, payload => {
-        console.log('Nuevo ticket:', payload);
+      .channel('dashboard-realtime-monitor-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
         refetch();
         fetchHotNumbers();
+        setLastRefreshTime(new Date());
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, () => {
+        refetch();
+        fetchHotNumbers();
+        setLastRefreshTime(new Date());
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
+        refetch();
+        setLastRefreshTime(new Date());
       })
       .subscribe();
 
@@ -184,11 +213,6 @@ export default function Dashboard() {
     return true;
   }).length;
 
-  useEffect(() => {
-    const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    setDateStr(new Date().toLocaleDateString('es-DO', options));
-  }, []);
-
   const chartData = chartView === 'weekly' ? metrics.weeklySales : metrics.monthlySales;
 
   return (
@@ -196,9 +220,25 @@ export default function Dashboard() {
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '1rem 1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem' }}>
-         <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#17233D' }}>Dashboard</h2>
-         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: '#6c757d', display: 'none' }}>{dateStr}</span>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+           <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#17233D' }}>Dashboard</h2>
+           <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 'bold' }}>
+             <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
+             Tiempo Real
+           </span>
+         </div>
+         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+              Actualizado: {lastRefreshTime.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: isRefreshing ? '#f1f5f9' : '#fff', color: '#475569', fontSize: '0.78rem', fontWeight: 'bold', cursor: isRefreshing ? 'default' : 'pointer', outline: 'none' }}
+            >
+              <RefreshCw size={13} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+              {isRefreshing ? 'Actualizando...' : 'Actualizar'}
+            </button>
             <input 
               type="date" 
               style={{ padding: '0.4rem 0.8rem', borderRadius: '4px', border: '1px solid #ddd', fontSize: '0.85rem', outline: 'none' }} 
@@ -207,6 +247,10 @@ export default function Dashboard() {
             />
          </div>
       </div>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+      `}</style>
 
       {/* Metric Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -240,38 +284,55 @@ export default function Dashboard() {
                Sin jugadas procesadas en sorteos activos por vencer.
             </div>
          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(240px, 1fr))`, gap: '1rem' }}>
-               {upcomingDrawsHot.map((drawData) => (
-                  <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0.8rem' }}>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.4rem', marginBottom: '0.6rem' }}>
-                        <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#0d9488' }}>{drawData.drawName}</span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', backgroundColor: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{drawData.drawTime}</span>
-                     </div>
+            <div>
+               {/* Leyenda de colores */}
+               <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap', fontSize: '0.7rem', fontWeight: 'bold', alignItems: 'center' }}>
+                 <span style={{ color: '#6b7280' }}>Nivel de riesgo:</span>
+                 <span style={{ backgroundColor: '#f0fdf4', border: '1px solid #22c55e', color: '#15803d', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🟢 Bajo</span>
+                 <span style={{ backgroundColor: '#fefce8', border: '1px solid #eab308', color: '#a16207', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🟡 Medio</span>
+                 <span style={{ backgroundColor: '#fff7ed', border: '1px solid #f97316', color: '#c2410c', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🟠 Alto</span>
+                 <span style={{ backgroundColor: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🔴 Crítico</span>
+               </div>
+               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(260px, 1fr))`, gap: '1rem' }}>
+                 {upcomingDrawsHot.map((drawData) => {
+                   const maxAmt = Math.max(...drawData.topNumbers.map(n => n.totalAmount), 1);
+                   return (
+                     <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0.8rem' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.4rem', marginBottom: '0.6rem' }}>
+                         <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#0d9488' }}>{drawData.drawName}</span>
+                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', backgroundColor: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{drawData.drawTime}</span>
+                       </div>
 
-                     {drawData.topNumbers.length === 0 ? (
-                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>Sin apuntes aún para este sorteo...</p>
-                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                           {drawData.topNumbers.map((numItem, nIdx) => (
-                              <div key={nIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '0.35rem 0.6rem', borderRadius: '6px', border: numItem.totalAmount >= 5.0 ? '1px solid #fca5a5' : '1px solid #e2e8f0' }}>
-                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#94a3b8', width: '16px' }}>#{nIdx + 1}</span>
-                                    <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem', color: '#0f172a' }}>{numItem.number}</span>
+                       {drawData.topNumbers.length === 0 ? (
+                         <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>Sin apuntes aún para este sorteo...</p>
+                       ) : (
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                           {drawData.topNumbers.map((numItem, nIdx) => {
+                             const style = getHotNumberStyle(numItem.totalAmount, maxAmt);
+                             const barWidth = maxAmt > 0 ? Math.max((numItem.totalAmount / maxAmt) * 100, 4) : 4;
+                             return (
+                               <div key={nIdx} style={{ position: 'relative', overflow: 'hidden', backgroundColor: style.bg, padding: '0.4rem 0.6rem', borderRadius: '6px', border: `1px solid ${style.border}` }}>
+                                 {/* Barra de progreso de fondo */}
+                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, backgroundColor: style.border, opacity: 0.12 }} />
+                                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                     <span style={{ fontSize: '0.65rem', fontWeight: 'bold', backgroundColor: style.badge, color: '#fff', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{nIdx + 1}</span>
+                                     <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1.05rem', color: style.textColor, letterSpacing: '1px' }}>{numItem.number}</span>
+                                   </div>
+                                   <div style={{ textAlign: 'right' }}>
+                                     <span style={{ fontSize: '0.88rem', fontWeight: 'bold', color: style.textColor }}>${numItem.totalAmount.toFixed(2)}</span>
+                                     <span style={{ fontSize: '0.67rem', color: '#64748b', marginLeft: '0.3rem' }}>({numItem.viles}v / {numItem.ticketsCount}t)</span>
+                                   </div>
                                  </div>
-                                 <div style={{ textAlign: 'right' }}>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: numItem.totalAmount >= 5.0 ? '#dc2626' : '#0d9488' }}>
-                                       ${numItem.totalAmount.toFixed(2)}
-                                    </span>
-                                    <span style={{ fontSize: '0.7rem', color: '#64748b', marginLeft: '0.35rem', fontWeight: '500' }}>
-                                       ({numItem.viles} viles / {numItem.ticketsCount} tkts)
-                                    </span>
-                                 </div>
-                              </div>
-                           ))}
-                        </div>
-                     )}
-                  </div>
-               ))}
+                               </div>
+                             );
+                           })}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })}
+               </div>
             </div>
          )}
       </div>

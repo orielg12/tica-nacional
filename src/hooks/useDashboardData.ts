@@ -213,9 +213,17 @@ export function useDashboardData(selectedDateStr?: string) {
   useEffect(() => {
     fetchMetrics();
 
-    // Supabase Realtime live sync for instant dashboard updates
-    const channel = supabase.channel('dashboard-live-updates')
+    // 1. Fallback auto-polling (cada 30 segundos) para garantizar sincronía si el WebSocket se interrumpe
+    const interval = setInterval(() => {
+      fetchMetrics();
+    }, 30000);
+
+    // 2. Supabase Realtime live sync across tickets, ticket_numbers, payouts, covers
+    const channel = supabase.channel('dashboard-live-updates-all')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchMetrics();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, () => {
         fetchMetrics();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
@@ -227,6 +235,7 @@ export function useDashboardData(selectedDateStr?: string) {
       .subscribe();
 
     return () => {
+      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }, [selectedDateStr]);
