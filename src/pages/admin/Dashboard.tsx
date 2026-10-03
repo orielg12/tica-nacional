@@ -29,8 +29,8 @@ export default function Dashboard() {
   }[]>([]);
   const [loadingHotNumbers, setLoadingHotNumbers] = useState(false);
 
-  const fetchHotNumbers = async () => {
-    setLoadingHotNumbers(true);
+  const fetchHotNumbers = async (isInitial = false) => {
+    if (isInitial) setLoadingHotNumbers(true);
     try {
       const isSubAdmin = store.currentUser?.isSubAdmin;
       const subAdminVendorIds = isSubAdmin
@@ -149,34 +149,34 @@ export default function Dashboard() {
 
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchHotNumbers(), refetch()]);
+    await Promise.all([fetchHotNumbers(true), refetch()]);
     setLastRefreshTime(new Date());
     setIsRefreshing(false);
-  }, [fetchHotNumbers, refetch]);
+  }, [refetch]);
 
   useEffect(() => {
     store.fetchUsers();
     store.fetchLotteries();
-    fetchHotNumbers();
+    fetchHotNumbers(true);
 
-    // Polling de respaldo cada 30 segundos (Realtime WebSocket es el canal primario)
+    // Polling de respaldo cada 30 segundos (sin parpadeo)
     const timer = setInterval(() => {
-      fetchHotNumbers();
+      fetchHotNumbers(false);
       refetch();
       setLastRefreshTime(new Date());
     }, 30000);
 
-    // Realtime WebSocket (actualización instantánea al registrar ventas/premios)
+    // Realtime WebSocket (actualización instantánea silenciosa en segundo plano)
     const channel = supabase
       .channel('dashboard-realtime-monitor-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
         refetch();
-        fetchHotNumbers();
+        fetchHotNumbers(false);
         setLastRefreshTime(new Date());
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, () => {
         refetch();
-        fetchHotNumbers();
+        fetchHotNumbers(false);
         setLastRefreshTime(new Date());
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
@@ -189,7 +189,7 @@ export default function Dashboard() {
       clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [activeDate]);
+  }, [activeDate, refetch]);
 
   const getDayNameFromDateStr = (dateStr: string) => {
     if (!dateStr) return '';
