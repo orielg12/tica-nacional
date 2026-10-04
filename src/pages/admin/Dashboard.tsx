@@ -183,6 +183,11 @@ export default function Dashboard() {
         refetch();
         setLastRefreshTime(new Date());
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => {
+        refetch();
+        fetchHotNumbers(false);
+        setLastRefreshTime(new Date());
+      })
       .subscribe();
 
     return () => {

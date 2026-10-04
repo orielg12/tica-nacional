@@ -176,7 +176,7 @@ export async function fetchPendingWinners(
     const inferredMode = (ticket.total_amount / totalViles) >= 0.24 ? 0.25 : 0.20;
 
     items.forEach((item: any) => {
-      const result = results?.find((r: any) => r.draw_id === item.draw_id && r.date === ticketDate);
+      const result = results?.find((r: any) => r.draw_id === item.draw_id && (r.date === ticketDate || (targetDate && r.date === targetDate)));
       if (!result) return;
 
       const [first, second, third] = result.winning_number.split('-');

@@ -218,7 +218,7 @@ export function useDashboardData(selectedDateStr?: string) {
       fetchMetrics();
     }, 30000);
 
-    // 2. Supabase Realtime live sync across tickets, ticket_numbers, payouts, covers
+    // 2. Supabase Realtime live sync across tickets, ticket_numbers, payouts, covers, results
     const channel = supabase.channel('dashboard-live-updates-all')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
         fetchMetrics();
@@ -230,6 +230,9 @@ export function useDashboardData(selectedDateStr?: string) {
         fetchMetrics();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covers' }, () => {
+        fetchMetrics();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => {
         fetchMetrics();
       })
       .subscribe();
