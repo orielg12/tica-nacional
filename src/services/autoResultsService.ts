@@ -14,6 +14,10 @@ export interface AutoResultStatus {
  * Los 9 Sorteos permitidos exclusivamente en el sistema:
  * Mapeo: ID del sistema -> Nombre de búsqueda en loteriasdominicanas.com
  */
+/**
+ * Los 9 Sorteos permitidos exclusivamente en el sistema:
+ * Mapeo: ID del sistema -> Nombre de búsqueda en loteriasdominicanas.com
+ */
 const ALLOWED_DRAWS_MAP: Record<string, { pageGameName: string; pageTimeStr?: string; systemTimeStr: string }> = {
   '11am-primera': { pageGameName: 'la primera día', systemTimeStr: '11:00 AM' },
   '120-anguilla':  { pageGameName: 'anguilla', pageTimeStr: '1:00 pm', systemTimeStr: '12:00 PM' },
@@ -24,6 +28,13 @@ const ALLOWED_DRAWS_MAP: Record<string, { pageGameName: string; pageTimeStr?: st
   '200-anguilla':  { pageGameName: 'anguilla', pageTimeStr: '9:00 pm', systemTimeStr: '8:00 PM' },
   '2045-florida':  { pageGameName: 'florida noche', systemTimeStr: '8:45 PM' },
   '2130-newyork':  { pageGameName: 'new york noche', systemTimeStr: '9:30 PM' }
+};
+
+/**
+ * Mapeo explícito de game_id de la API oficial de loteriasdominicanas.com a draw_id del sistema
+ */
+const API_GAME_ID_MAP: Record<string, string> = {
+  '6966a6d2ea7015c3b8a3d5c0': '11am-primera', // La Primera Día (11:00 AM)
 };
 
 /**
@@ -39,6 +50,8 @@ export async function syncAutoResults(targetDate: string = getLocalISODate()): P
     return [];
   }
 
+  console.log(`[autoResultsService] Iniciando sincronización para fecha: ${targetDate}`);
+
   // 1. Obtener resultados ya guardados en Supabase
   const { data: existingResults, error: fetchErr } = await supabase
     .from('results')
@@ -46,7 +59,7 @@ export async function syncAutoResults(targetDate: string = getLocalISODate()): P
     .eq('date', targetDate);
 
   if (fetchErr) {
-    console.error("Error consultando resultados en Supabase:", fetchErr);
+    console.error("[autoResultsService] Error consultando resultados en Supabase:", fetchErr);
   }
 
   const existingMap = new Map<string, string>();
@@ -109,12 +122,19 @@ export async function syncAutoResults(targetDate: string = getLocalISODate()): P
     }
 
     if (winner) {
+      console.log(`[autoResultsService] Ejecutando upsert en Supabase: draw_id=${lot.id}, date=${targetDate}, winning_number=${winner}`);
       // Upsert a Supabase
       const { error: upsertErr } = await supabase.from('results').upsert({
         draw_id: lot.id,
         date: targetDate,
         winning_number: winner
       }, { onConflict: 'draw_id,date' });
+
+      if (upsertErr) {
+        console.error(`[autoResultsService] Error en upsert para ${lot.id}:`, upsertErr);
+      } else {
+        console.log(`[autoResultsService] ✅ Upsert exitoso en resultados para ${lot.id}`);
+      }
 
       // Guardar localmente
       store.addResult({
@@ -154,8 +174,10 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
 
   try {
     // 1. Consultar API oficial de loteriasdominicanas.com para obtener sesiones publicadas
-    const nowIso = new Date(targetDate + 'T12:00:00.000Z').toISOString();
-    const apiUrl = `https://api.loteriasdominicanas.com/dominicana/sessions?date=${encodeURIComponent(nowIso)}`;
+    // Formato de fecha para la API (04:00:00.000Z = medianoche local dominicana UTC-4)
+    const apiDateIso = `${targetDate}T04:00:00.000Z`;
+    const apiUrl = `https://api.loteriasdominicanas.com/dominicana/sessions?date=${encodeURIComponent(apiDateIso)}`;
+    console.log(`[autoResultsService] Consultando API URL: ${apiUrl}`);
     
     const apiRes = await fetch(apiUrl, {
       headers: {
@@ -166,13 +188,17 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
 
     if (apiRes.ok) {
       const sessions = await apiRes.json();
+      console.log(`[autoResultsService] Petición API OK. Sesiones recibidas: ${Array.isArray(sessions) ? sessions.length : 0}`);
       if (Array.isArray(sessions) && sessions.length > 0) {
         parseSessionsArray(sessions, map);
       }
+    } else {
+      console.warn(`[autoResultsService] Petición API retornó status ${apiRes.status}`);
     }
 
     // 2. Si la API no retorna resultados, consultar HTML / payload de https://loteriasdominicanas.com/
     if (Object.keys(map).length === 0) {
+      console.log(`[autoResultsService] Intentando fallback HTML en loteriasdominicanas.com...`);
       const pageRes = await fetch('https://loteriasdominicanas.com/', {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -182,10 +208,12 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
       if (pageRes.ok) {
         const html = await pageRes.text();
         parseLdPageHTML(html, map);
+      } else {
+        console.warn(`[autoResultsService] Fallback HTML retornó status ${pageRes.status}`);
       }
     }
   } catch (err) {
-    console.warn("Error al consultar loteriasdominicanas.com:", err);
+    console.warn("[autoResultsService] Error al consultar loteriasdominicanas.com:", err);
   }
 
   return map;
@@ -196,34 +224,47 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
  */
 function parseSessionsArray(sessions: any[], map: Record<string, string>) {
   for (const sess of sessions) {
-    if (!sess || !sess.game || !sess.score) continue;
+    if (!sess || !sess.score) continue;
     
-    const isGreen = sess.status === 'published' || sess.is_published === true || sess.color === 'green' || (sess.score && sess.score.length > 0);
-    if (!isGreen) continue;
-
-    const gameTitle = (sess.game.title || sess.game.name || '').toLowerCase();
-    const timeStr = (sess.time || sess.name || '').toLowerCase();
+    const gameId = String(sess.game_id || sess.game?.id || sess.game?._id || '');
 
     // Extraer los 3 números de izquierda a derecha (0, 1, 2)
-    const rawScores = sess.score[0] || sess.score;
+    const rawScores = Array.isArray(sess.score[0]) ? sess.score[0] : sess.score;
     if (!Array.isArray(rawScores) || rawScores.length < 3) continue;
 
     const num1 = String(rawScores[0]).padStart(2, '0');
     const num2 = String(rawScores[1]).padStart(2, '0');
-    const num3 = String(rawScores[2]).padStart(2, '0');
+    const num3 = String(rawScores[3] !== undefined ? rawScores[2] : rawScores[2]).padStart(2, '0');
     const formattedWinner = `${num1}-${num2}-${num3}`;
 
-    // Mapear con los 9 sorteos permitidos
-    for (const [drawId, config] of Object.entries(ALLOWED_DRAWS_MAP)) {
-      if (gameTitle.includes(config.pageGameName)) {
-        if (config.pageTimeStr) {
-          if (timeStr.includes(config.pageTimeStr) || gameTitle.includes(config.pageTimeStr)) {
-            map[drawId] = formattedWinner;
+    // 1. Intentar mapear por game_id explícito
+    let mappedDrawId = API_GAME_ID_MAP[gameId];
+
+    // 2. Fallback: mapear por game.title si el objeto game existe
+    if (!mappedDrawId && sess.game) {
+      const gameTitle = (sess.game.title || sess.game.name || '').toLowerCase();
+      const timeStr = (sess.time || sess.name || '').toLowerCase();
+
+      for (const [drawId, config] of Object.entries(ALLOWED_DRAWS_MAP)) {
+        if (gameTitle.includes(config.pageGameName)) {
+          if (config.pageTimeStr) {
+            if (timeStr.includes(config.pageTimeStr) || gameTitle.includes(config.pageTimeStr)) {
+              mappedDrawId = drawId;
+              break;
+            }
+          } else {
+            mappedDrawId = drawId;
+            break;
           }
-        } else {
-          map[drawId] = formattedWinner;
         }
       }
+    }
+
+    if (mappedDrawId) {
+      map[mappedDrawId] = formattedWinner;
+      console.log(`[autoResultsService] ✅ Sorteo detectado: game_id="${gameId}" -> draw_id="${mappedDrawId}" | score=[${rawScores.join(',')}] | winner="${formattedWinner}"`);
+    } else {
+      console.log(`[autoResultsService] ℹ️ Sesión recibida sin mapear: game_id="${gameId}" | score=[${rawScores.join(',')}]`);
     }
   }
 }
