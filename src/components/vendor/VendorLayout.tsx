@@ -39,11 +39,6 @@ export default function VendorLayout() {
 
   useEffect(() => {
     store.fetchUsers();
-    const interval = setInterval(() => {
-      store.fetchUsers();
-      store.fetchLotteries();
-    }, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {

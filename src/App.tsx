@@ -53,31 +53,45 @@ function App() {
     store.fetchLotteries();
     store.fetchUsers();
 
-    // Configurar canal de tiempo real para cambios en sorteos
+    // Sincronización reactiva inmediata ante cambios en BD
     const channel = supabase
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'lotteries' },
         () => {
-          // Fetch inmediato cuando hay cambio en la BD
           store.fetchLotteries();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          store.fetchUsers();
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[Realtime] Conectado a cambios de loterias');
+          console.log('[Realtime] Conectado a cambios de loterías y perfiles');
         }
       });
 
-    // Refresco preventivo cada 15 segundos (fallback si realtime falla)
-    const interval = setInterval(() => {
+    // Resincronización al volver a enfocar la app o recuperar conexión
+    const handleResync = () => {
       store.fetchLotteries();
       store.fetchUsers();
-    }, 15000);
+    };
+
+    window.addEventListener('focus', handleResync);
+    window.addEventListener('online', handleResync);
+
+    // Respaldo pasivo holgado cada 5 minutos (en lugar de cada 15 segundos)
+    const interval = setInterval(handleResync, 300000);
 
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleResync);
+      window.removeEventListener('online', handleResync);
       clearInterval(interval);
     };
   }, []);

@@ -67,12 +67,20 @@ export default function GranjitaPOS() {
     };
 
     updateAvailable();
-    const interval = setInterval(async () => {
-      await store.fetchLotteries();
-      updateAvailable();
-    }, 10000);
 
-    return () => clearInterval(interval);
+    const handleFocus = (e?: Event) => {
+      if (e?.type === 'visibilitychange' && document.visibilityState !== 'visible') return;
+      store.fetchLotteries();
+      updateAvailable();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, [store.lotteriesMaster, ticketDate]);
 
   const granjitaCart = store.cart.filter(item => item.isGranjita);

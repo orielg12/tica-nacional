@@ -223,7 +223,7 @@ export const useStore = create<State>()(
       }),
 
       fetchUsers: async () => {
-         const { data, error } = await supabase.from('profiles').select('*');
+         const { data, error } = await supabase.from('profiles').select('id, username, password, name, role, commission, status');
          if (!error && data) {
             const mappedUsers: User[] = data.map((d: any) => {
                const parts = (d.name || '').split('||');
@@ -306,7 +306,7 @@ export const useStore = create<State>()(
             password: user.password || '',
             commission: user.commission,
             status: user.status === 'Activo' ? 'active' : 'inactive'
-         }).select('*').single();
+         }).select('id, username, password, name, role, commission, status').single();
 
          if (!error && data) {
             set((state) => ({ users: [...state.users, { ...user, id: data.id }] }));
@@ -365,7 +365,7 @@ export const useStore = create<State>()(
       },
 
       fetchLotteries: async () => {
-         let { data, error } = await supabase.from('lotteries').select('*');
+         let { data, error } = await supabase.from('lotteries').select('id, name, hour, minute, days, is_active, close_minutes');
          if (!error && data) {
             // Sincronizar automáticamente cualquier lotería por defecto (incluyendo La Granjita) que falte en la BD
             const existingIds = new Set(data.map((d: any) => d.id));
@@ -381,7 +381,7 @@ export const useStore = create<State>()(
                   close_minutes: l.closeMinutes ?? 10
                }));
                await supabase.from('lotteries').insert(inserts);
-               const { data: refreshed } = await supabase.from('lotteries').select('*');
+               const { data: refreshed } = await supabase.from('lotteries').select('id, name, hour, minute, days, is_active, close_minutes');
                if (refreshed && refreshed.length > 0) data = refreshed;
             }
 
@@ -430,7 +430,7 @@ export const useStore = create<State>()(
             days: lottery.days || null,
             is_active: lottery.isActive,
             close_minutes: lottery.closeMinutes ?? 10
-         }).select('*').single();
+         }).select('id, name, hour, minute, days, is_active, close_minutes').single();
 
          if (!error && data) {
             set((state) => ({

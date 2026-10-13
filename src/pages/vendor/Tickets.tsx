@@ -1,7 +1,7 @@
 import { getPanamaLocalISODate, getStartOfPanamaDayUTC, getEndOfPanamaDayUTC } from '../../utils/dateUtils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabase';
-import { Printer, XCircle } from 'lucide-react';
+import { Printer, XCircle, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import TicketDetailsModal from '../../components/TicketDetailsModal';
 import { Capacitor } from '@capacitor/core';
@@ -19,6 +19,7 @@ export default function Tickets() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const [payoutsMap, setPayoutsMap] = useState<Record<string, number>>({});
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTickets = async () => {
     try {
@@ -61,16 +62,50 @@ export default function Tickets() {
     }
   };
 
+  const fetchTicketsRef = useRef(fetchTickets);
+  fetchTicketsRef.current = fetchTickets;
+
   useEffect(() => {
     setLoading(true);
     fetchTickets();
   }, [filterDate]);
 
-  // Refrescar cada 10s automáticamente
+  // Sincronización Realtime por eventos + recuperación al volver a la pantalla (sin polling cíclico)
   useEffect(() => {
-    const interval = setInterval(fetchTickets, 10000);
-    return () => clearInterval(interval);
-  }, [filterDate]);
+    const handleVisibilityOrFocus = (e?: Event) => {
+      // Evitar recargas innecesarias cuando la pestaña se oculta
+      if (e?.type === 'visibilitychange' && document.visibilityState !== 'visible') {
+        return;
+      }
+      fetchTicketsRef.current();
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    const currentVendor = store.currentUser?.username;
+    const filterConfig: any = { event: '*', schema: 'public', table: 'tickets' };
+    if (currentVendor) {
+      filterConfig.filter = `vendor_id=eq.${currentVendor}`;
+    }
+
+    const channel = supabase
+      .channel(`vendor-tickets-sync-${currentVendor || 'all'}`)
+      .on('postgres_changes', filterConfig, () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          fetchTicketsRef.current();
+        }, 800);
+      })
+      .subscribe();
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [store.currentUser?.username]);
 
   const handleAnular = async (ticket: any) => {
     // 1. Verificar si el ticket es del día de hoy y si alguno de sus sorteos ya cerró
@@ -238,8 +273,13 @@ export default function Tickets() {
             <h2 className="text-teal-400 font-bold text-xl">Mis Tickets</h2>
             <span className="text-gray-400 text-xs">Consulta de ventas por fecha y sorteo</span>
          </div>
-         <button onClick={fetchTickets} className="bg-slate-800 border border-slate-700 text-teal-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors">
-            Refrescar
+         <button 
+            onClick={() => { setLoading(true); fetchTickets(); }} 
+            disabled={loading}
+            className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 text-teal-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors disabled:opacity-50"
+         >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            {loading ? 'Actualizando...' : 'Refrescar'}
          </button>
       </header>
 

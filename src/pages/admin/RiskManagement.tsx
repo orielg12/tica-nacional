@@ -1,6 +1,6 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
 import { useState, useEffect } from 'react';
-import { Save, AlertTriangle, ExternalLink, Trash2, PlusCircle, ShieldAlert, Hash } from 'lucide-react';
+import { Save, AlertTriangle, ExternalLink, Trash2, PlusCircle, ShieldAlert, Hash, RefreshCw } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { useStore } from '../../store/useStore';
 import { GRANJITA_ANIMALS, formatAnimalDisplay } from '../../utils/granjitaAnimals';
@@ -12,6 +12,7 @@ export default function RiskManagement() {
   const [overflows, setOverflows] = useState<any[]>([]);
   const [totalPassed, setTotalPassed] = useState(0);
   const [bankNameInput, setBankNameInput] = useState(store.externalBankName);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Granjita Hard Limits State
   const [animalDefaultLimit, setAnimalDefaultLimit] = useState<number | ''>('');
@@ -116,12 +117,19 @@ export default function RiskManagement() {
        setTotalPassed(newTotalPassed);
      } catch (error) {
        console.error("Error updating risk realtime:", error);
+     } finally {
+       setIsRefreshing(false);
      }
+  };
+
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    fetchRiskData();
   };
 
   useEffect(() => {
     fetchRiskData();
-    const interval = setInterval(fetchRiskData, 5000);
+    const interval = setInterval(fetchRiskData, 60000);
     return () => clearInterval(interval);
   }, [currentLimitDb]);
 
@@ -275,6 +283,29 @@ export default function RiskManagement() {
            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#17233D' }}>Gestión de Riesgo y Limitantes</h2>
            <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>Configura topes por número de lotería, respaldo específico y limitantes para animales en La Granjita.</span>
          </div>
+         <button
+           onClick={handleManualRefresh}
+           disabled={isRefreshing}
+           style={{
+             display: 'flex',
+             alignItems: 'center',
+             gap: '0.5rem',
+             backgroundColor: '#0f766e',
+             color: '#fff',
+             border: 'none',
+             borderRadius: '6px',
+             padding: '0.6rem 1rem',
+             fontSize: '0.85rem',
+             fontWeight: 'bold',
+             cursor: isRefreshing ? 'not-allowed' : 'pointer',
+             opacity: isRefreshing ? 0.7 : 1,
+             transition: 'background-color 0.2s'
+           }}
+           title="Actualizar datos de ventas y riesgo en vivo"
+         >
+           <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+           {isRefreshing ? 'Actualizando...' : 'Actualizar en Vivo'}
+         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>

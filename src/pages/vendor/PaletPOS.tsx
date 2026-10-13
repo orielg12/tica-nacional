@@ -53,12 +53,9 @@ export default function PaletPOS() {
     };
 
     updateAvailable();
-    const interval = setInterval(async () => {
-      await store.fetchLotteries();
-      updateAvailable();
-    }, 10000);
 
-    const handleFocus = () => {
+    const handleFocus = (e?: Event) => {
+      if (e?.type === 'visibilitychange' && document.visibilityState !== 'visible') return;
       store.fetchLotteries();
       store.fetchUsers();
       updateAvailable();
@@ -68,7 +65,6 @@ export default function PaletPOS() {
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
     };
