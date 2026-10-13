@@ -1,5 +1,5 @@
 import { getLocalISODate, getStartOfDayUTC } from '../utils/dateUtils';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 import { useStore } from '../store/useStore';
 
@@ -36,7 +36,10 @@ export function useDashboardData(selectedDateStr?: string) {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchMetrics = async () => {
+  // Debounce ref compartido: colapsa N eventos rápidos en una sola llamada
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchMetrics = useCallback(async () => {
     try {
       // Si recibimos fecha, instanciamos a mediodía para evitar saltos UTC
       const today = selectedDateStr ? new Date(`${selectedDateStr}T12:00:00`) : new Date();
@@ -208,7 +211,15 @@ export function useDashboardData(selectedDateStr?: string) {
     } finally {
       if (loading) setLoading(false);
     }
-  };
+  }, [selectedDateStr]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dispara fetchMetrics una sola vez por ráfaga de eventos Realtime
+  const debouncedFetch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchMetrics();
+    }, 800);
+  }, [fetchMetrics]);
 
   useEffect(() => {
     fetchMetrics();
@@ -218,30 +229,21 @@ export function useDashboardData(selectedDateStr?: string) {
       fetchMetrics();
     }, 30000);
 
-    // 2. Supabase Realtime live sync across tickets, ticket_numbers, payouts, covers, results
+    // 2. Supabase Realtime live sync — eventos agrupados con debounce compartido
     const channel = supabase.channel('dashboard-live-updates-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-        fetchMetrics();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, () => {
-        fetchMetrics();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
-        fetchMetrics();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'covers' }, () => {
-        fetchMetrics();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => {
-        fetchMetrics();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, debouncedFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, debouncedFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, debouncedFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'covers' }, debouncedFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, debouncedFetch)
       .subscribe();
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [selectedDateStr]);
+  }, [selectedDateStr, fetchMetrics, debouncedFetch]);
 
   return { metrics, loading, refetch: fetchMetrics };
 }

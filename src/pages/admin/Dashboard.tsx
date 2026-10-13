@@ -1,5 +1,5 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDashboardData } from '../../hooks/useDashboardData';
 import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store/useStore';
@@ -18,6 +18,14 @@ export default function Dashboard() {
   const [activeDate, setActiveDate] = useState(getLocalISODate());
   const { metrics, refetch } = useDashboardData(activeDate);
   const store = useStore();
+
+  // Ref estable para refetch: evita que el useEffect de Realtime
+  // se re-ejecute (y re-registre canales) al cambiar la identidad de refetch.
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+
+  // Debounce para el monitor de números altos
+  const hotDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [chartView, setChartView] = useState<'weekly' | 'monthly'>('weekly');
 
@@ -166,35 +174,30 @@ export default function Dashboard() {
       setLastRefreshTime(new Date());
     }, 30000);
 
-    // Realtime WebSocket (actualización instantánea silenciosa en segundo plano)
+    // Realtime WebSocket — debounce compartido evita renderizados en cascada
+    const fireDebouncedUpdate = () => {
+      if (hotDebounceRef.current) clearTimeout(hotDebounceRef.current);
+      hotDebounceRef.current = setTimeout(() => {
+        refetchRef.current();
+        fetchHotNumbers(false);
+        setLastRefreshTime(new Date());
+      }, 800);
+    };
+
     const channel = supabase
       .channel('dashboard-realtime-monitor-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-        refetch();
-        fetchHotNumbers(false);
-        setLastRefreshTime(new Date());
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, () => {
-        refetch();
-        fetchHotNumbers(false);
-        setLastRefreshTime(new Date());
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
-        refetch();
-        setLastRefreshTime(new Date());
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => {
-        refetch();
-        fetchHotNumbers(false);
-        setLastRefreshTime(new Date());
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, fireDebouncedUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_numbers' }, fireDebouncedUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, fireDebouncedUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, fireDebouncedUpdate)
       .subscribe();
 
     return () => {
+      if (hotDebounceRef.current) clearTimeout(hotDebounceRef.current);
       clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [activeDate, refetch]);
+  }, [activeDate]); // refetch se accede via refetchRef — estable, sin re-registrar canales
 
   const getDayNameFromDateStr = (dateStr: string) => {
     if (!dateStr) return '';
