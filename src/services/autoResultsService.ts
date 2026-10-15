@@ -88,12 +88,44 @@ export async function syncAutoResults(targetDate: string = getLocalISODate()): P
     });
   }
 
-  // 2. Consultar FUENTE de resultados
-  const scrapedData = await fetchLoteriasDominicanasData(targetDate);
-
+  // 2. Verificar si hay sorteos pendientes que ya debieron jugar
   const now = new Date();
   const isToday = targetDate === getLocalISODate();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const pendingDraws = lotteries.filter(lot => {
+    const config = ALLOWED_DRAWS_MAP[lot.id];
+    if (!config) return false;
+    if (existingMap.has(lot.id)) return false; // Ya tiene resultado
+    if (isToday) {
+      const drawMinutes = lot.hour * 60 + lot.minute;
+      if (currentMinutes < drawMinutes) return false; // Aún no es hora
+    }
+    return true;
+  });
+
+  // Si no hay sorteos pendientes que ya debieron jugar, no consultar API externa
+  if (pendingDraws.length === 0) {
+    console.log(`[autoResultsService] No hay sorteos pendientes por consultar. Todos completos o aún no es hora.`);
+    // Devolver estado de todos los configurados
+    for (const lot of lotteries) {
+      const config = ALLOWED_DRAWS_MAP[lot.id];
+      if (!config) continue;
+      const existing = existingMap.get(lot.id);
+      resultsStatuses.push({
+        drawId: lot.id,
+        name: lot.name,
+        winningNumber: existing || null,
+        status: existing ? 'already_exists' : 'pending',
+        message: existing ? 'Resultado ya registrado' : `Sorteo programado para las ${config.systemTimeStr}`
+      });
+    }
+    return resultsStatuses;
+  }
+
+  console.log(`[autoResultsService] ${pendingDraws.length} sorteo(s) pendiente(s): ${pendingDraws.map(d => d.id).join(', ')}`);
+
+  const scrapedData = await fetchLoteriasDominicanasData(targetDate);
 
   for (const lot of lotteries) {
     const config = ALLOWED_DRAWS_MAP[lot.id];

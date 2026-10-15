@@ -42,20 +42,28 @@ export default function AdminLayout() {
       })
       .subscribe();
 
-    // Sincronización automática de resultados en segundo plano cada 60 segundos
-    const syncInterval = setInterval(() => {
+    // Sincronización inteligente de resultados: cada 3 minutos, para cuando todos están completos
+    let syncStopped = false;
+    const runSync = () => {
+      if (syncStopped) return;
       import('../../services/autoResultsService').then(mod => {
-        mod.syncAutoResults().catch(err => console.warn('Auto sync error:', err));
+        mod.syncAutoResults().then(statuses => {
+          // Si todos los sorteos configurados tienen resultado, parar polling
+          const pending = statuses.filter(s => s.status === 'pending' && !s.winningNumber);
+          if (statuses.length > 0 && pending.length === 0) {
+            console.log('[AdminLayout] Todos los resultados completos, deteniendo polling');
+            syncStopped = true;
+            clearInterval(syncInterval);
+          }
+        }).catch(err => console.warn('Auto sync error:', err));
       });
-    }, 60000);
-
-    // Ejecución inicial al abrir el panel admin
-    import('../../services/autoResultsService').then(mod => {
-      mod.syncAutoResults().catch(err => console.warn('Initial auto sync error:', err));
-    });
+    };
+    const syncInterval = setInterval(runSync, 180000); // 3 minutos
+    runSync(); // Ejecución inicial
 
     return () => {
       supabase.removeChannel(channel);
+      syncStopped = true;
       clearInterval(syncInterval);
     };
   }, []);
