@@ -35,6 +35,14 @@ const ALLOWED_DRAWS_MAP: Record<string, { pageGameName: string; pageTimeStr?: st
  */
 const API_GAME_ID_MAP: Record<string, string> = {
   '6966a6d2ea7015c3b8a3d5c0': '11am-primera', // La Primera Día (11:00 AM)
+  '6966a6d3ea7015c3b8a3d611': '120-anguilla',  // Anguilla 12:00 PM
+  '6966a6d2ea7015c3b8a3d515': '1230-florida',  // Florida Día (12:30 PM)
+  '6966a6d2ea7015c3b8a3d509': '1330-newyork',  // New York Tarde (1:30 PM)
+  '6966a6d3ea7015c3b8a3d617': '170-anguilla',  // Anguilla 5:00 PM / 6:00 PM
+  '6966a6d2ea7015c3b8a3d5c6': '6pm-primera',   // La Primera Tarde (6:00 PM)
+  '6966a6d3ea7015c3b8a3d61d': '200-anguilla',  // Anguilla Noche (8:00 PM / 9:00 PM)
+  '6966a6d2ea7015c3b8a3d51b': '2045-florida',  // Florida Noche (8:45 PM)
+  '6966a6d2ea7015c3b8a3d50f': '2130-newyork'   // New York Noche (9:30 PM)
 };
 
 /**
@@ -52,10 +60,10 @@ export async function syncAutoResults(targetDate: string = getLocalISODate()): P
 
   console.log(`[autoResultsService] Iniciando sincronización para fecha: ${targetDate}`);
 
-  // 1. Obtener resultados ya guardados en Supabase
+  // 1. Obtener resultados ya guardados en Supabase (solo columnas necesarias para ahorrar Egress)
   const { data: existingResults, error: fetchErr } = await supabase
     .from('results')
-    .select('*')
+    .select('draw_id, winning_number')
     .eq('date', targetDate);
 
   if (fetchErr) {
@@ -223,10 +231,14 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
  * Procesa las sesiones de la API de loteriasdominicanas.com
  */
 function parseSessionsArray(sessions: any[], map: Record<string, string>) {
-  for (const sess of sessions) {
+  for (const item of sessions) {
+    if (!item) continue;
+    
+    // La API actual agrupa por juego: { game_id, lastSession, sessions }
+    const sess = item.lastSession || (Array.isArray(item.sessions) && item.sessions[0]) || item;
     if (!sess || !sess.score) continue;
     
-    const gameId = String(sess.game_id || sess.game?.id || sess.game?._id || '');
+    const gameId = String(item.game_id || sess.game_id || sess.game?.id || sess.game?._id || '');
 
     // Extraer los 3 números de izquierda a derecha (0, 1, 2)
     const rawScores = Array.isArray(sess.score[0]) ? sess.score[0] : sess.score;
@@ -234,7 +246,7 @@ function parseSessionsArray(sessions: any[], map: Record<string, string>) {
 
     const num1 = String(rawScores[0]).padStart(2, '0');
     const num2 = String(rawScores[1]).padStart(2, '0');
-    const num3 = String(rawScores[3] !== undefined ? rawScores[2] : rawScores[2]).padStart(2, '0');
+    const num3 = String(rawScores[2]).padStart(2, '0');
     const formattedWinner = `${num1}-${num2}-${num3}`;
 
     // 1. Intentar mapear por game_id explícito
