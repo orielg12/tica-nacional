@@ -198,18 +198,40 @@ export default function ResultsManager() {
       const numPlayed = String(play.number_played).trim();
       let multiplier = 0;
       const matchTiers: string[] = [];
+      const isGranjita = isGranjitaLottery(lotteryId);
 
-      if (firstNum && numPlayed === firstNum) {
-        multiplier += (playSaleMode === 0.25 ? 14 : 11);
-        matchTiers.push("1er");
-      }
-      if (secondNum && numPlayed === secondNum) {
-        multiplier += 3;
-        matchTiers.push("2do");
-      }
-      if (thirdNum && numPlayed === thirdNum) {
-        multiplier += 2;
-        matchTiers.push("3er");
+      const isMatch = (played: string, winNum?: string) => {
+        if (!winNum) return false;
+        const p = String(played).trim();
+        const w = String(winNum).trim();
+        if (p === w) return true;
+        if (isGranjita) {
+          if (p === '00' || w === '00') return p === w;
+          if (p.replace(/^0+/, '') === w.replace(/^0+/, '')) return true;
+        } else {
+          if (p.padStart(2, '0') === w.padStart(2, '0')) return true;
+        }
+        return false;
+      };
+
+      if (isGranjita) {
+        if (isMatch(numPlayed, firstNum)) {
+          multiplier = 18;
+          matchTiers.push("Ganador");
+        }
+      } else {
+        if (firstNum && isMatch(numPlayed, firstNum)) {
+          multiplier += (playSaleMode === 0.25 ? 14 : 11);
+          matchTiers.push("1er");
+        }
+        if (secondNum && isMatch(numPlayed, secondNum)) {
+          multiplier += 3;
+          matchTiers.push("2do");
+        }
+        if (thirdNum && isMatch(numPlayed, thirdNum)) {
+          multiplier += 2;
+          matchTiers.push("3er");
+        }
       }
 
       if (multiplier > 0) {

@@ -2,7 +2,8 @@ import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/d
 import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabase';
 import { useStore } from '../../store/useStore';
-import {  Search } from 'lucide-react';
+import { Search, Printer } from 'lucide-react';
+import { BluetoothSerial } from '@e-is/capacitor-bluetooth-serial';
 
 export default function Sales() {
   const store = useStore();
@@ -56,9 +57,68 @@ export default function Sales() {
   }, []);
 
   const totalSales = tickets.filter(t => t.status !== 'cancelled').reduce((acc, t) => acc + (parseFloat(t.total_amount) || 0), 0);
+  const activeCount = tickets.filter(t => t.status !== 'cancelled').length;
+  const cancelledCount = tickets.filter(t => t.status === 'cancelled').length;
   const commissionPerc = store.currentUser?.commission || 0;
   const commissionCalculated = totalSales * (commissionPerc / 100);
   const totalNet = totalSales - commissionCalculated - totalPayouts;
+
+  const handlePrintReport = async () => {
+    const vendorName = store.currentUser?.username || 'VENDEDOR';
+    const nowStr = new Date().toLocaleString('es-PA');
+
+    const reportString = 
+`================================
+       CORTE DE VENTAS
+================================
+Cajero: ${vendorName.toUpperCase()}
+Fecha Emisión: ${nowStr}
+Rango: ${startDate} al ${endDate}
+--------------------------------
+Tickets Válidos:    ${activeCount}
+Tickets Anulados:   ${cancelledCount}
+--------------------------------
+Venta Bruta:        $${totalSales.toFixed(2)}
+Comisión (${commissionPerc}%):   -$${commissionCalculated.toFixed(2)}
+Premios Pagados:   -$${totalPayouts.toFixed(2)}
+--------------------------------
+TOTAL A ENTREGAR:   $${totalNet.toFixed(2)}
+================================
+
+
+
+
+`;
+
+    try {
+      // 1. Android APK vía Bluetooth Serial nativo
+      if ((window as any).Capacitor?.isNativePlatform?.()) {
+        const targetMac = localStorage.getItem('bt_printer_mac');
+        if (targetMac) {
+          await BluetoothSerial.connect({ address: targetMac });
+          await BluetoothSerial.write({ address: targetMac, value: reportString });
+          setTimeout(async () => {
+            await BluetoothSerial.disconnect({ address: targetMac });
+          }, 1000);
+          return;
+        }
+        window.location.href = 'intent:' + encodeURIComponent(reportString) + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+        return;
+      }
+
+      // 2. Navegador / PC
+      const printDiv = document.getElementById('print-section');
+      if (printDiv) {
+        printDiv.innerHTML = `<pre style="font-family:monospace;white-space:pre-wrap;font-size:14px;color:black;text-align:left;">${reportString}</pre>`;
+        setTimeout(() => { window.print(); }, 50);
+      } else {
+        window.location.href = 'intent:' + encodeURIComponent(reportString) + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+      }
+    } catch (e: any) {
+      console.warn("Error imprimiendo reporte:", e);
+      window.location.href = 'intent:' + encodeURIComponent(reportString) + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+    }
+  };
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden" style={{ padding: 'var(--spacing-md)' }}>
@@ -126,6 +186,14 @@ export default function Sales() {
                <span className="text-gray-300 font-bold">Total a Entregar:</span>
                <span className={`font-bold ${totalNet >= 0 ? 'text-teal-400' : 'text-red-400'}`}>${totalNet.toFixed(2)}</span>
             </div>
+
+            <button
+              onClick={handlePrintReport}
+              disabled={tickets.length === 0}
+              className="w-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-teal-500/50 text-teal-300 font-bold p-2.5 rounded-lg flex justify-center items-center gap-2 mt-3 transition-colors disabled:opacity-50"
+            >
+              <Printer size={16} /> Imprimir Corte de Caja
+            </button>
           </div>
           
           <div className="flex-1 flex flex-col mt-4 min-h-0">

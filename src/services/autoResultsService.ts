@@ -198,7 +198,7 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
       const sessions = await apiRes.json();
       console.log(`[autoResultsService] Petición API OK. Sesiones recibidas: ${Array.isArray(sessions) ? sessions.length : 0}`);
       if (Array.isArray(sessions) && sessions.length > 0) {
-        parseSessionsArray(sessions, map);
+        parseSessionsArray(sessions, map, targetDate);
       }
     } else {
       console.warn(`[autoResultsService] Petición API retornó status ${apiRes.status}`);
@@ -230,13 +230,18 @@ async function fetchLoteriasDominicanasData(targetDate: string): Promise<Record<
 /**
  * Procesa las sesiones de la API de loteriasdominicanas.com
  */
-function parseSessionsArray(sessions: any[], map: Record<string, string>) {
+function parseSessionsArray(sessions: any[], map: Record<string, string>, targetDate?: string) {
   for (const item of sessions) {
     if (!item) continue;
     
     // La API actual agrupa por juego: { game_id, lastSession, sessions }
     const sess = item.lastSession || (Array.isArray(item.sessions) && item.sessions[0]) || item;
     if (!sess || !sess.score) continue;
+
+    // Validación estricta de fecha: si la sesión no es de la fecha requerida (ej. sorteo nocturno que aún no juega), ignorar
+    if (targetDate && sess.date && !sess.date.startsWith(targetDate)) {
+      continue;
+    }
     
     const gameId = String(item.game_id || sess.game_id || sess.game?.id || sess.game?._id || '');
 

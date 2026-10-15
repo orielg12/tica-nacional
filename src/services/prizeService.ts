@@ -201,9 +201,17 @@ export async function fetchPendingWinners(
 
       let prizeMultiplier = 0;
       const posArr: string[] = [];
-      if (isMatch(numPlayed, first)) { prizeMultiplier += inferredMode === 0.25 ? 14 : 11; posArr.push('1er'); }
-      if (!isGranjita && isMatch(numPlayed, second)) { prizeMultiplier += 3; posArr.push('2do'); }
-      if (!isGranjita && isMatch(numPlayed, third)) { prizeMultiplier += 2; posArr.push('3er'); }
+      if (isGranjita) {
+        // Regla oficial de La Granjita: 18 veces el monto apostado al animal ganador
+        if (isMatch(numPlayed, first)) {
+          prizeMultiplier = 18;
+          posArr.push('Ganador');
+        }
+      } else {
+        if (isMatch(numPlayed, first)) { prizeMultiplier += inferredMode === 0.25 ? 14 : 11; posArr.push('1er'); }
+        if (isMatch(numPlayed, second)) { prizeMultiplier += 3; posArr.push('2do'); }
+        if (isMatch(numPlayed, third)) { prizeMultiplier += 2; posArr.push('3er'); }
+      }
 
       if (prizeMultiplier > 0) {
         const awardAmount = parseFloat(item.amount) * prizeMultiplier;

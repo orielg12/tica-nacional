@@ -43,8 +43,9 @@ export default function PastDraws() {
   const targetDateObj = new Date(year, month - 1, day);
   const targetDayName = currentDays[targetDateObj.getDay()];
 
-  // Filtrar cuáles sorteos juegan este día de la semana
+  // Filtrar cuáles sorteos juegan este día de la semana y que estén activos
   const scheduledDraws = store.lotteriesMaster.filter(l => {
+     if (l.isActive === false) return false;
      if (l.days && !l.days.includes(targetDayName as any)) return false;
      return true;
   });
