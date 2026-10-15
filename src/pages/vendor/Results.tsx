@@ -112,21 +112,38 @@ export default function Results() {
     String(w.ticket_number || '').includes(searchTerm))
   );
 
+  const totalPendingPrizes = filteredWinners.reduce((sum, w) => sum + w.remainingPrize, 0);
+
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-slate-950">
       {/* Top Header & Search (Fixed) */}
       <div className="flex-none p-4 pb-2">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-bold text-teal-400">Resultados y Premios</h2>
-          <button
-            onClick={() => loadWinners()}
-            disabled={isFetching}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-teal-300 border border-slate-700 active:bg-slate-700 font-bold text-sm transition-colors"
-            title="Refrescar Lista de Premios"
-          >
-            <RefreshCw size={18} className={isFetching ? 'animate-spin text-teal-400' : ''} />
-            <span>Refrescar</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-teal-400">Resultados y Premios</h2>
+            {totalPendingPrizes > 0 && (
+              <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-black">
+                {filteredWinners.length}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Banner Monto Total de Premios (Zona Amarilla) */}
+            <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/50 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
+              <span className="text-[10px] text-amber-200/90 font-bold uppercase tracking-wider">Total:</span>
+              <span className="text-amber-400 font-mono font-black text-base tracking-tight">
+                ${totalPendingPrizes.toFixed(2)}
+              </span>
+            </div>
+            <button
+              onClick={() => loadWinners()}
+              disabled={isFetching}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 text-teal-300 border border-slate-700 active:bg-slate-700 font-bold text-sm transition-colors"
+              title="Refrescar Lista de Premios"
+            >
+              <RefreshCw size={16} className={isFetching ? 'animate-spin text-teal-400' : ''} />
+            </button>
+          </div>
         </div>
         <p className="text-gray-400 text-xs mb-2">Tickets ganadores pendientes de cobro.</p>
 
@@ -172,38 +189,57 @@ export default function Results() {
         </div>
       </div>
 
-
       {/* Lista de Premios con Scroll Suave */}
       <div className="flex-1 overflow-y-auto px-4 pt-1 pb-32 space-y-3 touch-pan-y no-scrollbar">
         {isFetching && pendingWinners.length === 0 ? (
           <p className="text-gray-400 text-center mt-8">Cargando premios...</p>
         ) : filteredWinners.map(w => (
           <div key={w.key_id} className="flex flex-col gap-2 bg-slate-900 border border-amber-500/30 ring-1 ring-amber-500/20 p-4 rounded-xl relative shadow-md">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-              <span className="text-bold text-teal-400 font-mono text-lg">{w.number}</span>
-              <div className="flex flex-col items-end">
-                {w.alreadyPaid > 0 && (
-                  <span className="text-gray-500 font-mono text-xs line-through">${w.grossPrize.toFixed(2)}</span>
-                )}
-                <span className="text-amber-400 font-mono text-xl font-black">
-                  ${w.remainingPrize.toFixed(2)}
-                </span>
-                {w.alreadyPaid > 0 && (
-                  <span className="text-orange-400 font-mono text-xs">(-${w.alreadyPaid.toFixed(2)} ya cobrado)</span>
-                )}
+            {/* Cabecera del Ticket: Sorteo + Hora (zona roja) y Número desplazado a la derecha */}
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-800">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-black text-sky-400 tracking-wide uppercase">
+                    {w.lottery_name || 'Sorteo'}
+                  </span>
+                  {w.lottery_time && (
+                    <span className="text-[11px] font-bold text-amber-300 bg-amber-950/70 border border-amber-500/40 px-1.5 py-0.5 rounded">
+                      {w.lottery_time}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Ticket <span className="text-white font-mono font-bold">#{w.ticket_number || w.ticket_id.split('-')[0].toUpperCase()}</span>
+                  {w.ticket_date && <span className="text-slate-400 font-medium ml-1.5">({w.ticket_date})</span>}
+                </div>
+              </div>
+
+              {/* Número ganador desplazado a la derecha con el monto del premio */}
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-center justify-center bg-teal-950/60 border border-teal-500/40 px-2.5 py-1 rounded-lg">
+                  <span className="text-[9px] text-teal-300 font-bold uppercase tracking-wider">Número</span>
+                  <span className="text-bold text-teal-300 font-mono text-xl font-black">{w.number}</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  {w.alreadyPaid > 0 && (
+                    <span className="text-gray-500 font-mono text-xs line-through">${w.grossPrize.toFixed(2)}</span>
+                  )}
+                  <span className="text-amber-400 font-mono text-xl font-black">
+                    ${w.remainingPrize.toFixed(2)}
+                  </span>
+                  {w.alreadyPaid > 0 && (
+                    <span className="text-orange-400 font-mono text-[10px]">(-${w.alreadyPaid.toFixed(2)} cobrado)</span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-between items-center text-gray-400 text-xs mt-1">
+            <div className="flex justify-between items-center text-gray-400 text-xs mt-0.5">
               <div className="flex flex-col">
-                <span className="text-xs">
-                  Ticket: <span className="text-white font-mono font-bold">#{w.ticket_number || w.ticket_id.split('-')[0].toUpperCase()}</span>
-                  {w.ticket_date && <span className="text-teal-400 font-bold ml-2">({w.ticket_date})</span>}
-                </span>
-                <span className="text-xs text-sky-400 font-bold mt-0.5">{w.description}</span>
+                <span className="text-xs text-slate-300 font-semibold">{w.description}</span>
                 <span className="text-xs mt-0.5">Cliente: <span className="text-white font-bold">{w.client || 'General'}</span></span>
               </div>
-              <span className="text-amber-400 font-bold text-xs bg-amber-950/60 border border-amber-500/40 px-2.5 py-1 rounded-lg">Pendiente</span>
+              <span className="text-amber-400 font-bold text-[11px] bg-amber-950/60 border border-amber-500/40 px-2.5 py-0.5 rounded-lg">Pendiente</span>
             </div>
 
             {/* Acciones de Payout */}

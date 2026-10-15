@@ -1,6 +1,6 @@
 import { supabase } from '../utils/supabase';
 import { useStore } from '../store/useStore';
-import { isGranjitaLottery } from '../utils/lotteryRules';
+import { isGranjitaLottery, formatLotteryTime } from '../utils/lotteryRules';
 import { getPanamaLocalISODate, getStartOfPanamaDayUTC, getEndOfPanamaDayUTC } from '../utils/dateUtils';
 
 export interface PendingWinner {
@@ -14,6 +14,8 @@ export interface PendingWinner {
   reimbursement: number;
   client: string | null;
   description: string;
+  lottery_name?: string;
+  lottery_time?: string;
   vendor_id?: string;
   ticket_date?: string;
   status?: string;
@@ -31,88 +33,41 @@ export async function fetchPendingWinners(
   const isAdmin = (rawRole === 'admin') && !currentUser?.isSubAdmin;
   const isSubAdmin = currentUser?.isSubAdmin;
 
-  // Si se especifica una fecha histórica puntual (distinta de hoy), se consulta solo esa fecha.
-  // Por defecto (hoy), se consultan los tickets de HOY + tickets ANTERIORES que NO se hayan cobrado aún (status = 'active')
   const todayPanama = getPanamaLocalISODate();
-  const isHistoricalSpecificDate = targetDate && targetDate !== todayPanama;
+  const queryDate = targetDate || todayPanama;
+  const startOfDay = getStartOfPanamaDayUTC(queryDate);
+  const endOfDay = getEndOfPanamaDayUTC(queryDate);
 
   let tickets: any[] = [];
 
-  if (isHistoricalSpecificDate) {
-    const startOfDay = getStartOfPanamaDayUTC(targetDate!);
-    const endOfDay = getEndOfPanamaDayUTC(targetDate!);
-    let q = supabase
-      .from('tickets')
-      .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
-      .eq('is_bank_prize', false)
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
-      .in('status', ['active', 'paid'])
-      .order('created_at', { ascending: false });
+  let q = supabase
+    .from('tickets')
+    .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
+    .eq('is_bank_prize', false)
+    .gte('created_at', startOfDay)
+    .lte('created_at', endOfDay)
+    .in('status', ['active', 'paid'])
+    .order('created_at', { ascending: false });
 
-    if (!isAdmin) {
-      if (isSubAdmin) {
-        let users = store.users;
-        if (!users || users.length === 0) {
-          await store.fetchUsers();
-          users = useStore.getState().users;
-        }
-        const subAdminVendorIds = (users || [])
-          .filter((u: any) => u.parentAdminId === currentUser?.username)
-          .map((u: any) => u.username)
-          .concat(currentUser?.username || '');
-        q = q.in('vendor_id', subAdminVendorIds);
-      } else if (vendorId) {
-        q = q.eq('vendor_id', vendorId);
+  if (!isAdmin) {
+    if (isSubAdmin) {
+      let users = store.users;
+      if (!users || users.length === 0) {
+        await store.fetchUsers();
+        users = useStore.getState().users;
       }
+      const subAdminVendorIds = (users || [])
+        .filter((u: any) => u.parentAdminId === currentUser?.username)
+        .map((u: any) => u.username)
+        .concat(currentUser?.username || '');
+      q = q.in('vendor_id', subAdminVendorIds);
+    } else if (vendorId) {
+      q = q.eq('vendor_id', vendorId);
     }
-    const { data, error } = await q;
-    if (error) throw error;
-    tickets = data || [];
-  } else {
-    // Modo normal: HOY + ANTERIORES PENDIENTES DE COBRO (status='active')
-    const startOfToday = getStartOfPanamaDayUTC(todayPanama);
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-
-    let todayQuery = supabase
-      .from('tickets')
-      .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
-      .eq('is_bank_prize', false)
-      .gte('created_at', startOfToday)
-      .in('status', ['active', 'paid']);
-
-    let pastPendingQuery = supabase
-      .from('tickets')
-      .select('id, ticket_number, client_name, total_amount, created_at, status, vendor_id')
-      .eq('is_bank_prize', false)
-      .lt('created_at', startOfToday)
-      .gte('created_at', fourteenDaysAgo)
-      .eq('status', 'active'); // SOLO NO COBRADOS de días anteriores
-
-    if (!isAdmin) {
-      if (isSubAdmin) {
-        let users = store.users;
-        if (!users || users.length === 0) {
-          await store.fetchUsers();
-          users = useStore.getState().users;
-        }
-        const subAdminVendorIds = (users || [])
-          .filter((u: any) => u.parentAdminId === currentUser?.username)
-          .map((u: any) => u.username)
-          .concat(currentUser?.username || '');
-        todayQuery = todayQuery.in('vendor_id', subAdminVendorIds);
-        pastPendingQuery = pastPendingQuery.in('vendor_id', subAdminVendorIds);
-      } else if (vendorId) {
-        todayQuery = todayQuery.eq('vendor_id', vendorId);
-        pastPendingQuery = pastPendingQuery.eq('vendor_id', vendorId);
-      }
-    }
-
-    const [todayRes, pastRes] = await Promise.all([todayQuery, pastPendingQuery]);
-    if (todayRes.error) throw todayRes.error;
-    if (pastRes.error) throw pastRes.error;
-    tickets = [...(todayRes.data || []), ...(pastRes.data || [])];
   }
+  const { data, error } = await q;
+  if (error) throw error;
+  tickets = data || [];
 
   if (!tickets || tickets.length === 0) return [];
 
@@ -218,14 +173,15 @@ export async function fetchPendingWinners(
         const coveredAmount = item.covers?.reduce((sum: number, c: any) => sum + parseFloat(c.excess_amount || '0'), 0) || 0;
         const coveredAward = coveredAmount * prizeMultiplier;
         const pos = isGranjita ? 'Ganador' : posArr.join(' y ');
-        const desc = `${item.number_played} (${pos} en ${lotteryName})`;
-
+        const timeStr = lotteryObj ? formatLotteryTime(lotteryObj.hour, lotteryObj.minute) : '';
+        const desc = `${item.number_played} (${pos} en ${lotteryName}${timeStr ? ` ${timeStr}` : ''})`;
 
         if (!consolidated[ticket.id]) {
           consolidated[ticket.id] = {
             key_id: ticket.id, ticket_id: ticket.id, ticket_number: ticket.ticket_number,
             number: item.number_played, grossPrize: 0, alreadyPaid: 0, remainingPrize: 0,
             reimbursement: 0, client: ticket.client_name, description: [] as any,
+            lottery_name: lotteryName, lottery_time: timeStr,
             vendor_id: ticket.vendor_id, ticket_date: ticketDate, status: ticket.status
           };
         } else {
