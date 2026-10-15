@@ -150,9 +150,20 @@ export default function ResultsManager() {
         query = query.eq('draw_id', historyFilterLottery);
       }
 
-      const { data, error } = await query.limit(50);
+      const { data, error } = await query.limit(100);
       if (!error && data) {
-        setDbResults(data);
+        // Ordenar: primero por fecha descendente; y dentro de la misma fecha, por horario del sorteo (hora y minuto)
+        const sorted = [...data].sort((a, b) => {
+          if (a.date !== b.date) {
+            return b.date.localeCompare(a.date);
+          }
+          const lotA = store.lotteriesMaster.find(l => l.id === (a.draw_id || a.lotteryId));
+          const lotB = store.lotteriesMaster.find(l => l.id === (b.draw_id || b.lotteryId));
+          const timeA = lotA ? lotA.hour * 60 + lotA.minute : 9999;
+          const timeB = lotB ? lotB.hour * 60 + lotB.minute : 9999;
+          return timeB - timeA; // Más reciente a más temprano del día (o inverso si se desea ver el último arriba)
+        });
+        setDbResults(sorted);
       }
     } catch (err) {
       console.error("Error fetching history from Supabase:", err);
