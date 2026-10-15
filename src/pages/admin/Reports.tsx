@@ -1,6 +1,6 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
 import { LOTTERY_SCHEDULE } from '../../utils/lotteryRules';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabase';
 import { useStore } from '../../store/useStore';
 import { Calendar, ArrowRight, AlertCircle, Activity, Download, ChevronDown, ChevronUp } from 'lucide-react';
@@ -11,6 +11,9 @@ export default function AdminReports() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [covers, setCovers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Debounce ref para agrupar múltiples eventos Realtime y evitar recargas masivas
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Rango de fechas por defecto a Hoy
   const [startDate, setStartDate] = useState(getLocalISODate());
@@ -32,7 +35,7 @@ export default function AdminReports() {
     try {
       let query = supabase
         .from('tickets')
-        .select('*, ticket_numbers(amount, draw_id)')
+        .select('id, created_at, vendor_id, client_name, total_amount, status, ticket_numbers(amount, draw_id, number_played)')
         .gte('created_at', getStartOfDayUTC(startDate))
         .lte('created_at', getEndOfDayUTC(endDate))
         .order('created_at', { ascending: false });
@@ -91,17 +94,21 @@ export default function AdminReports() {
     store.fetchUsers();
     fetchGlobalSales();
 
-    // Suscripción Realtime para actualizar reportes en vivo
+    const triggerDebouncedFetch = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        fetchGlobalSales();
+      }, 800);
+    };
+
+    // Suscripción Realtime para actualizar reportes en vivo con debounce compartido
     const channel = supabase.channel('reports-live-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-        fetchGlobalSales();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, () => {
-        fetchGlobalSales();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, triggerDebouncedFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, triggerDebouncedFetch)
       .subscribe();
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
   }, [startDate, endDate]);
