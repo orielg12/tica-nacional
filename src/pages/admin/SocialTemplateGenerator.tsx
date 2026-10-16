@@ -39,6 +39,35 @@ interface TemplateConfig {
 }
 
 const TEMPLATES: Record<string, TemplateConfig> = {
+  tica: {
+    key: 'tica',
+    name: 'Costa Rica / Tica',
+    image: '/templates/tica.png',
+    boxColor: '#88cf6e',
+    boxBorder: 'dashed',
+    boxBorderColor: '#1e3a12',
+    header: {
+      yDraw: 254,
+      yDate: 326,
+      fontSizeDraw: 42,
+      fontSizeDate: 26,
+      color: '#000000',
+      drawTextTransform: 'uppercase'
+    },
+    headerCover: {
+      x: 160,
+      y: 220,
+      w: 500,
+      h: 130,
+      mode: 'sampleX',
+      samplePos: 700
+    },
+    boxes: [
+      { x: 308, y: 445, w: 238, h: 114, radius: 4 },
+      { x: 308, y: 606, w: 238, h: 114, radius: 4 },
+      { x: 308, y: 751, w: 238, h: 114, radius: 4 }
+    ]
+  },
   nica: {
     key: 'nica',
     name: 'Nicaragua',
@@ -258,7 +287,8 @@ export default function SocialTemplateGenerator() {
   const supportedLotteries = store.lotteriesMaster.filter(l => {
     const id = l.id.toLowerCase();
     const name = l.name.toLowerCase();
-    return id.includes('nica') || id.includes('monazo') || id.includes('honduras') ||
+    return id.includes('tica') || id.includes('costa') || name.includes('tica') ||
+           id.includes('nica') || id.includes('monazo') || id.includes('honduras') ||
            id.includes('newyork') || id.includes('florida') || id.includes('anguilla') ||
            id.includes('primera') || name.includes('primera');
   });
@@ -289,17 +319,18 @@ export default function SocialTemplateGenerator() {
   // Detectar la plantilla correspondiente según el id del sorteo
   const getTemplateKey = (drawId: string): string => {
     const id = drawId.toLowerCase();
-    if (id.includes('nica')) return 'nica';
+    if (id.includes('tica') || id.includes('costa')) return 'tica';
     if (id.includes('monazo')) return 'monazo';
+    if (id.includes('nica')) return 'nica';
     if (id.includes('honduras')) return 'honduras';
     if (id.includes('newyork')) return 'newyork';
     if (id.includes('florida')) return 'florida';
     if (id.includes('anguilla')) return 'anguilla';
     if (id.includes('primera')) return 'primera';
-    return 'nica';
+    return 'tica';
   };
 
-  const currentTemplate = TEMPLATES[getTemplateKey(selectedLotteryId)] || TEMPLATES.nica;
+  const currentTemplate = TEMPLATES[getTemplateKey(selectedLotteryId)] || TEMPLATES.tica;
   const currentLottery = store.lotteriesMaster.find(l => l.id === selectedLotteryId);
 
   // Formato de fecha larga en español: "15 de octubre de 2026"
@@ -313,12 +344,13 @@ export default function SocialTemplateGenerator() {
     }
   };
 
-  // Texto de título del sorteo + hora (ej: "Nica 12:00 pm", "MONAZO 2:00PM")
+  // Texto de título del sorteo + hora (ej: "TICA 8:30PM", "Nica 12:00 pm", "MONAZO 2:00PM")
   const getDrawTitleText = (): string => {
     if (!currentLottery) return '';
     const timeStr = formatLotteryTime(currentLottery.hour, currentLottery.minute);
     const key = getTemplateKey(selectedLotteryId);
 
+    if (key === 'tica') return `TICA ${timeStr.replace(' ', '')}`;
     if (key === 'nica') return `Nica ${timeStr.toLowerCase()}`;
     if (key === 'monazo') return `MONAZO ${timeStr.replace(' ', '')}`;
     if (key === 'honduras') return `HONDURAS ${timeStr.toLowerCase()}`;
