@@ -31,10 +31,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Nicaragua',
     image: '/templates/nica.png',
     header: {
-      yDraw: 310,
-      yDate: 358,
-      fontSizeDraw: 44,
-      fontSizeDate: 26,
+      yDraw: 320,
+      yDate: 368,
+      fontSizeDraw: 40,
+      fontSizeDate: 30,
       color: '#000000'
     },
     boxes: [
@@ -48,10 +48,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Monazo',
     image: '/templates/monazo.png',
     header: {
-      yDraw: 300,
-      yDate: 345,
-      fontSizeDraw: 42,
-      fontSizeDate: 25,
+      yDraw: 290,
+      yDate: 342,
+      fontSizeDraw: 40,
+      fontSizeDate: 30,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
@@ -66,10 +66,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Florida',
     image: '/templates/florida.png',
     header: {
-      yDraw: 300,
-      yDate: 345,
-      fontSizeDraw: 42,
-      fontSizeDate: 25,
+      yDraw: 290,
+      yDate: 342,
+      fontSizeDraw: 40,
+      fontSizeDate: 30,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
@@ -84,10 +84,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'New York',
     image: '/templates/newyork.png',
     header: {
-      yDraw: 300,
-      yDate: 348,
-      fontSizeDraw: 44,
-      fontSizeDate: 26,
+      yDraw: 326,
+      yDate: 368,
+      fontSizeDraw: 38,
+      fontSizeDate: 30,
       color: '#000000'
     },
     boxes: [
@@ -120,10 +120,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Costa Rica / Tica',
     image: '/templates/tica.png',
     header: {
-      yDraw: 280,
-      yDate: 325,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
+      yDraw: 290,
+      yDate: 342,
+      fontSizeDraw: 40,
+      fontSizeDate: 30,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
@@ -138,10 +138,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Honduras',
     image: '/templates/honduras.png',
     header: {
-      yDraw: 300,
-      yDate: 345,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
+      yDraw: 330,
+      yDate: 374,
+      fontSizeDraw: 38,
+      fontSizeDate: 30,
       color: '#000000'
     },
     boxes: [
@@ -155,10 +155,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Anguilla',
     image: '/templates/anguilla.png',
     header: {
-      yDraw: 300,
-      yDate: 345,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
+      yDraw: 330,
+      yDate: 380,
+      fontSizeDraw: 40,
+      fontSizeDate: 30,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
