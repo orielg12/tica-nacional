@@ -273,7 +273,7 @@ export default function VendorLayout() {
       </div>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`flex-1 w-full overflow-hidden relative ${isDarkMode ? 'bg-slate-950' : 'bg-white'}`}>
+      <main className={`flex-1 w-full overflow-y-auto relative ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-900'}`}>
         <Outlet />
       </main>
 

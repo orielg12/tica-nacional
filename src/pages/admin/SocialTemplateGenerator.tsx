@@ -182,6 +182,30 @@ export default function SocialTemplateGenerator() {
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
 
+  // Detección reactiva de modo oscuro para VendorLayout y AdminLayout
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== 'undefined') {
+      const themeAttr = document.documentElement.getAttribute('data-theme');
+      if (themeAttr) return themeAttr === 'dark';
+      if (document.body.classList.contains('dark')) return true;
+    }
+    const saved = localStorage.getItem('go-theme');
+    if (saved) return saved === 'dark';
+    return false;
+  });
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark' || document.body.classList.contains('dark');
+      setIsDark(isDarkNow);
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Filtrar loterías relevantes que tienen plantilla
@@ -458,14 +482,26 @@ export default function SocialTemplateGenerator() {
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        padding: '1.25rem',
+        paddingBottom: '6rem',
+        maxWidth: '1200px',
+        margin: '0 auto',
+        boxSizing: 'border-box'
+      }}
+    >
       {/* Título y Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#0f172a', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h1 style={{ margin: 0, fontSize: '1.6rem', color: isDark ? '#f8fafc' : '#0f172a', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <Sparkles size={26} color="#eab308" /> Generador de Plantillas y Reels
           </h1>
-          <p style={{ margin: '0.2rem 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+          <p style={{ margin: '0.2rem 0 0', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.9rem' }}>
             Genera imágenes y videos de 5 segundos listos para Instagram Reels y Canales de WhatsApp en 1 clic.
           </p>
         </div>
@@ -473,23 +509,39 @@ export default function SocialTemplateGenerator() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
         {/* PANEL DE CONTROL / AJUSTES */}
-        <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ margin: '0 0 1.2rem', color: '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>
+        <div style={{
+          background: isDark ? '#1e293b' : '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '14px',
+          border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
+          boxShadow: isDark ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px rgba(0,0,0,0.03)'
+        }}>
+          <h3 style={{ margin: '0 0 1.2rem', color: isDark ? '#f1f5f9' : '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>
             ⚙️ Datos del Sorteo
           </h3>
 
           {/* Sorteo */}
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: isDark ? '#cbd5e1' : '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
               Selecciona el Sorteo
             </label>
             <select
               value={selectedLotteryId}
               onChange={(e) => setSelectedLotteryId(e.target.value)}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none', background: '#f8fafc', fontWeight: 'bold', fontSize: '0.95rem' }}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: '8px',
+                border: isDark ? '1.5px solid #475569' : '1.5px solid #cbd5e1',
+                outline: 'none',
+                background: isDark ? '#0f172a' : '#f8fafc',
+                color: isDark ? '#f8fafc' : '#0f172a',
+                fontWeight: 'bold',
+                fontSize: '0.95rem'
+              }}
             >
               {supportedLotteries.map(l => (
-                <option key={l.id} value={l.id}>
+                <option key={l.id} value={l.id} style={{ background: isDark ? '#0f172a' : '#ffffff', color: isDark ? '#f8fafc' : '#0f172a' }}>
                   {l.name} - {formatLotteryTime(l.hour, l.minute)}
                 </option>
               ))}
@@ -498,20 +550,30 @@ export default function SocialTemplateGenerator() {
 
           {/* Fecha */}
           <div style={{ marginBottom: '1.2rem' }}>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: isDark ? '#cbd5e1' : '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
               Fecha del Resultado
             </label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none', background: '#f8fafc', fontWeight: 'bold' }}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: '8px',
+                border: isDark ? '1.5px solid #475569' : '1.5px solid #cbd5e1',
+                outline: 'none',
+                background: isDark ? '#0f172a' : '#f8fafc',
+                color: isDark ? '#f8fafc' : '#0f172a',
+                colorScheme: isDark ? 'dark' : 'light',
+                fontWeight: 'bold'
+              }}
             />
           </div>
 
           {/* 3 Números Ganadores */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: isDark ? '#cbd5e1' : '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
               Números Ganadores (1er, 2do y 3er Premio)
             </label>
             <div style={{ display: 'flex', gap: '0.6rem', width: '100%', boxSizing: 'border-box' }}>
@@ -521,7 +583,20 @@ export default function SocialTemplateGenerator() {
                 value={firstNum}
                 onChange={(e) => setFirstNum(e.target.value.replace(/\D/g, ''))}
                 placeholder="1er"
-                style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                  padding: '0.8rem 0.2rem',
+                  fontSize: '1.4rem',
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  borderRadius: '8px',
+                  border: '2px solid #eab308',
+                  background: isDark ? '#291b00' : '#fefce8',
+                  color: isDark ? '#fef08a' : '#000000',
+                  outline: 'none'
+                }}
               />
               <input
                 type="text"
@@ -529,7 +604,20 @@ export default function SocialTemplateGenerator() {
                 value={secondNum}
                 onChange={(e) => setSecondNum(e.target.value.replace(/\D/g, ''))}
                 placeholder="2do"
-                style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                  padding: '0.8rem 0.2rem',
+                  fontSize: '1.4rem',
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  borderRadius: '8px',
+                  border: '2px solid #eab308',
+                  background: isDark ? '#291b00' : '#fefce8',
+                  color: isDark ? '#fef08a' : '#000000',
+                  outline: 'none'
+                }}
               />
               <input
                 type="text"
@@ -537,17 +625,36 @@ export default function SocialTemplateGenerator() {
                 value={thirdNum}
                 onChange={(e) => setThirdNum(e.target.value.replace(/\D/g, ''))}
                 placeholder="3er"
-                style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                  padding: '0.8rem 0.2rem',
+                  fontSize: '1.4rem',
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  borderRadius: '8px',
+                  border: '2px solid #eab308',
+                  background: isDark ? '#291b00' : '#fefce8',
+                  color: isDark ? '#fef08a' : '#000000',
+                  outline: 'none'
+                }}
               />
             </div>
-            <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
+            <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b' }}>
               * Si el sorteo ya se guardó en el sistema, los números se colocan automáticamente.
             </p>
           </div>
 
           {/* Opción de actualizar Fecha y Hora en la imagen */}
-          <div style={{ marginBottom: '1.4rem', background: '#f8fafc', padding: '0.9rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: '#1e293b' }}>
+          <div style={{
+            marginBottom: '1.4rem',
+            background: isDark ? '#0f172a' : '#f8fafc',
+            padding: '0.9rem',
+            borderRadius: '10px',
+            border: isDark ? '1px solid #334155' : '1px solid #e2e8f0'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: isDark ? '#f8fafc' : '#1e293b' }}>
               <input
                 type="checkbox"
                 checked={updateHeader}
@@ -563,10 +670,18 @@ export default function SocialTemplateGenerator() {
                   placeholder={`Título/Hora: ej. ${getDrawTitleText()}`}
                   value={customDrawTitle}
                   onChange={(e) => setCustomDrawTitle(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#ffffff' }}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '6px',
+                    border: isDark ? '1px solid #475569' : '1px solid #cbd5e1',
+                    fontSize: '0.85rem',
+                    background: isDark ? '#1e293b' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a'
+                  }}
                 />
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                  Fecha calculada: <strong>{formatLongDate(selectedDate)}</strong>
+                <span style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                  Fecha calculada: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>{formatLongDate(selectedDate)}</strong>
                 </span>
               </div>
             )}
@@ -602,7 +717,7 @@ export default function SocialTemplateGenerator() {
               style={{
                 width: '100%',
                 padding: '0.9rem',
-                background: isGeneratingVideo ? '#94a3b8' : '#e11d48',
+                background: isGeneratingVideo ? '#64748b' : '#e11d48',
                 color: 'white',
                 border: 'none',
                 borderRadius: '10px',
@@ -643,17 +758,40 @@ export default function SocialTemplateGenerator() {
         </div>
 
         {/* VISTA PREVIA DEL LIENZO */}
-        <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{
+          background: isDark ? '#1e293b' : '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '14px',
+          border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
+          boxShadow: isDark ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px rgba(0,0,0,0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '1rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: isDark ? '#cbd5e1' : '#475569', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Eye size={16} /> Vista Previa en Vivo:
             </span>
-            <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold', background: '#ecfdf5', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+            <span style={{
+              fontSize: '0.75rem',
+              color: isDark ? '#6ee7b7' : '#10b981',
+              fontWeight: 'bold',
+              background: isDark ? '#064e3b' : '#ecfdf5',
+              padding: '0.2rem 0.5rem',
+              borderRadius: '4px'
+            }}>
               819 × 1024 px
             </span>
           </div>
 
-          <div style={{ width: '100%', maxWidth: '380px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)', border: '1px solid #cbd5e1' }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '380px',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: isDark ? '0 10px 25px -5px rgba(0,0,0,0.6)' : '0 10px 25px -5px rgba(0,0,0,0.15)',
+            border: isDark ? '1px solid #475569' : '1px solid #cbd5e1'
+          }}>
             <canvas
               ref={canvasRef}
               style={{ width: '100%', height: 'auto', display: 'block' }}
