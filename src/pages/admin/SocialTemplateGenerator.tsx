@@ -10,8 +10,10 @@ interface TemplateConfig {
   name: string;
   image: string;
   header: {
-    yDraw: number; // Y para nombre de sorteo y hora
-    yDate: number; // Y para fecha
+    xDraw?: number; // X para hora (default: centrado 819/2)
+    yDraw: number;  // Y para nombre de sorteo y hora
+    xDate?: number; // X para fecha (default: centrado 819/2)
+    yDate: number;  // Y para fecha
     fontSizeDraw: number;
     fontSizeDate: number;
     color: string;
@@ -99,16 +101,18 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'La Primera',
     image: '/templates/primera.png',
     header: {
-      yDraw: 310,
-      yDate: 358,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
+      xDraw: 670,
+      yDraw: 205,
+      fontSizeDraw: 38,
+      xDate: 410,
+      yDate: 295,
+      fontSizeDate: 30,
       color: '#000000'
     },
     boxes: [
-      { centerX: 410, centerY: 494 },
-      { centerX: 410, centerY: 641 },
-      { centerX: 410, centerY: 789 }
+      { centerX: 380, centerY: 480 },
+      { centerX: 380, centerY: 640 },
+      { centerX: 380, centerY: 790 }
     ]
   },
   tica: {
@@ -116,17 +120,17 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Costa Rica / Tica',
     image: '/templates/tica.png',
     header: {
-      yDraw: 300,
-      yDate: 345,
+      yDraw: 280,
+      yDate: 320,
       fontSizeDraw: 42,
       fontSizeDate: 25,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
     boxes: [
-      { centerX: 425, centerY: 515 },
-      { centerX: 425, centerY: 680 },
-      { centerX: 425, centerY: 835 }
+      { centerX: 385, centerY: 475 },
+      { centerX: 385, centerY: 640 },
+      { centerX: 385, centerY: 800 }
     ]
   },
   honduras: {
@@ -134,16 +138,16 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Honduras',
     image: '/templates/honduras.png',
     header: {
-      yDraw: 310,
-      yDate: 358,
+      yDraw: 300,
+      yDate: 345,
       fontSizeDraw: 42,
-      fontSizeDate: 26,
+      fontSizeDate: 25,
       color: '#000000'
     },
     boxes: [
-      { centerX: 410, centerY: 473 },
-      { centerX: 410, centerY: 636 },
-      { centerX: 410, centerY: 799 }
+      { centerX: 390, centerY: 450 },
+      { centerX: 390, centerY: 615 },
+      { centerX: 390, centerY: 775 }
     ]
   },
   anguilla: {
@@ -151,17 +155,17 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'Anguilla',
     image: '/templates/anguilla.png',
     header: {
-      yDraw: 310,
-      yDate: 358,
+      yDraw: 300,
+      yDate: 340,
       fontSizeDraw: 42,
-      fontSizeDate: 26,
+      fontSizeDate: 25,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
     boxes: [
-      { centerX: 410, centerY: 494 },
-      { centerX: 410, centerY: 641 },
-      { centerX: 410, centerY: 789 }
+      { centerX: 400, centerY: 420 },
+      { centerX: 400, centerY: 575 },
+      { centerX: 400, centerY: 730 }
     ]
   }
 };
@@ -311,20 +315,23 @@ export default function SocialTemplateGenerator() {
       // 2. Dibujar título del sorteo con hora (ej. Nica 12:00 pm, FLORIDA 12:30PM)
       if (updateHeader) {
         const drawTitle = (customDrawTitle.trim() || getDrawTitleText());
+        const xDraw = currentTemplate.header.xDraw ?? (819 / 2);
+        const xDate = currentTemplate.header.xDate ?? (819 / 2);
+
         ctx.font = `900 ${currentTemplate.header.fontSizeDraw}px "Arial Black", Arial, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = currentTemplate.header.color;
         ctx.fillText(
           currentTemplate.header.drawTextTransform === 'uppercase' ? drawTitle.toUpperCase() : drawTitle,
-          819 / 2,
+          xDraw,
           currentTemplate.header.yDraw
         );
 
         // 3. Dibujar fecha larga (ej. 16 de octubre de 2026)
         ctx.font = `700 ${currentTemplate.header.fontSizeDate}px Arial, sans-serif`;
         ctx.fillStyle = currentTemplate.header.color;
-        ctx.fillText(formatLongDate(selectedDate), 819 / 2, currentTemplate.header.yDate);
+        ctx.fillText(formatLongDate(selectedDate), xDate, currentTemplate.header.yDate);
       }
 
       // 4. Dibujar números ganadores perfectamente centrados dentro de las cajas
