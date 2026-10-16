@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../utils/supabase';
 import { formatLotteryTime } from '../../utils/lotteryRules';
 import { getPanamaLocalISODate } from '../../utils/dateUtils';
 import { Download, Film, Sparkles, Share2, Eye } from 'lucide-react';
@@ -8,10 +9,6 @@ interface TemplateConfig {
   key: string;
   name: string;
   image: string;
-  boxColor: string; // color de fondo de las 3 cajas
-  boxBorder: 'dashed' | 'solid' | 'none';
-  boxBorderColor: string;
-  // Posiciones relativas en base a 819 x 1024
   header: {
     yDraw: number; // Y para nombre de sorteo y hora
     yDate: number; // Y para fecha
@@ -20,251 +17,151 @@ interface TemplateConfig {
     color: string;
     drawTextTransform?: 'uppercase' | 'none';
   };
-  headerCover?: {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    mode: 'sampleX' | 'sampleY' | 'solid';
-    samplePos?: number;
-    solidColor?: string;
-  };
   boxes: Array<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    radius?: number;
+    centerX: number;
+    centerY: number;
   }>;
 }
 
 const TEMPLATES: Record<string, TemplateConfig> = {
-  tica: {
-    key: 'tica',
-    name: 'Costa Rica / Tica',
-    image: '/templates/tica.png',
-    boxColor: '#88cf6e',
-    boxBorder: 'dashed',
-    boxBorderColor: '#1e3a12',
-    header: {
-      yDraw: 254,
-      yDate: 326,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
-      color: '#000000',
-      drawTextTransform: 'uppercase'
-    },
-    headerCover: {
-      x: 160,
-      y: 220,
-      w: 500,
-      h: 130,
-      mode: 'sampleX',
-      samplePos: 700
-    },
-    boxes: [
-      { x: 308, y: 445, w: 238, h: 114, radius: 4 },
-      { x: 308, y: 606, w: 238, h: 114, radius: 4 },
-      { x: 308, y: 751, w: 238, h: 114, radius: 4 }
-    ]
-  },
   nica: {
     key: 'nica',
     name: 'Nicaragua',
     image: '/templates/nica.png',
-    boxColor: '#ffe500',
-    boxBorder: 'dashed',
-    boxBorderColor: '#000000',
     header: {
-      yDraw: 298,
-      yDate: 360,
+      yDraw: 310,
+      yDate: 358,
       fontSizeDraw: 44,
       fontSizeDate: 26,
       color: '#000000'
     },
-    headerCover: {
-      x: 150,
-      y: 265,
-      w: 520,
-      h: 125,
-      mode: 'sampleX',
-      samplePos: 700
-    },
     boxes: [
-      { x: 292, y: 405, w: 246, h: 120, radius: 4 },
-      { x: 292, y: 562, w: 246, h: 120, radius: 4 },
-      { x: 292, y: 720, w: 246, h: 120, radius: 4 }
+      { centerX: 410, centerY: 473 },
+      { centerX: 410, centerY: 636 },
+      { centerX: 410, centerY: 799 }
     ]
   },
   monazo: {
     key: 'monazo',
     name: 'Monazo',
     image: '/templates/monazo.png',
-    boxColor: '#88cf6e',
-    boxBorder: 'dashed',
-    boxBorderColor: '#1e3a12',
     header: {
-      yDraw: 254,
-      yDate: 326,
+      yDraw: 300,
+      yDate: 345,
       fontSizeDraw: 42,
-      fontSizeDate: 26,
+      fontSizeDate: 25,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
-    headerCover: {
-      x: 160,
-      y: 220,
-      w: 500,
-      h: 130,
-      mode: 'sampleX',
-      samplePos: 700
-    },
     boxes: [
-      { x: 308, y: 445, w: 238, h: 114, radius: 4 },
-      { x: 308, y: 606, w: 238, h: 114, radius: 4 },
-      { x: 308, y: 751, w: 238, h: 114, radius: 4 }
-    ]
-  },
-  honduras: {
-    key: 'honduras',
-    name: 'Honduras',
-    image: '/templates/honduras.png',
-    boxColor: '#ffeb3b',
-    boxBorder: 'dashed',
-    boxBorderColor: '#000000',
-    header: {
-      yDraw: 305,
-      yDate: 356,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
-      color: '#000000'
-    },
-    headerCover: {
-      x: 140,
-      y: 265,
-      w: 540,
-      h: 125,
-      mode: 'sampleX',
-      samplePos: 700
-    },
-    boxes: [
-      { x: 292, y: 401, w: 245, h: 122, radius: 4 },
-      { x: 292, y: 560, w: 245, h: 122, radius: 4 },
-      { x: 292, y: 720, w: 245, h: 122, radius: 4 }
-    ]
-  },
-  newyork: {
-    key: 'newyork',
-    name: 'New York',
-    image: '/templates/newyork.png',
-    boxColor: '#e0f2fe',
-    boxBorder: 'dashed',
-    boxBorderColor: '#0369a1',
-    header: {
-      yDraw: 302,
-      yDate: 355,
-      fontSizeDraw: 42,
-      fontSizeDate: 26,
-      color: '#000000'
-    },
-    headerCover: {
-      x: 140,
-      y: 265,
-      w: 540,
-      h: 125,
-      mode: 'sampleY',
-      samplePos: 245
-    },
-    boxes: [
-      { x: 292, y: 388, w: 245, h: 120, radius: 4 },
-      { x: 292, y: 558, w: 245, h: 120, radius: 4 },
-      { x: 292, y: 718, w: 245, h: 120, radius: 4 }
+      { centerX: 425, centerY: 515 },
+      { centerX: 425, centerY: 680 },
+      { centerX: 425, centerY: 835 }
     ]
   },
   florida: {
     key: 'florida',
     name: 'Florida',
     image: '/templates/florida.png',
-    boxColor: '#7dd3fc',
-    boxBorder: 'dashed',
-    boxBorderColor: '#075985',
     header: {
-      yDraw: 254,
-      yDate: 318,
+      yDraw: 300,
+      yDate: 345,
       fontSizeDraw: 42,
-      fontSizeDate: 26,
+      fontSizeDate: 25,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
-    headerCover: {
-      x: 160,
-      y: 220,
-      w: 500,
-      h: 125,
-      mode: 'sampleX',
-      samplePos: 700
-    },
     boxes: [
-      { x: 308, y: 444, w: 236, h: 114, radius: 4 },
-      { x: 308, y: 606, w: 236, h: 114, radius: 4 },
-      { x: 308, y: 756, w: 236, h: 114, radius: 4 }
+      { centerX: 425, centerY: 515 },
+      { centerX: 425, centerY: 680 },
+      { centerX: 425, centerY: 835 }
     ]
   },
-  anguilla: {
-    key: 'anguilla',
-    name: 'Anguilla',
-    image: '/templates/anguilla.png',
-    boxColor: '#facc15',
-    boxBorder: 'none',
-    boxBorderColor: 'transparent',
+  newyork: {
+    key: 'newyork',
+    name: 'New York',
+    image: '/templates/newyork.png',
     header: {
-      yDraw: 294,
-      yDate: 369,
-      fontSizeDraw: 42,
+      yDraw: 300,
+      yDate: 348,
+      fontSizeDraw: 44,
       fontSizeDate: 26,
-      color: '#000000',
-      drawTextTransform: 'uppercase'
-    },
-    headerCover: {
-      x: 140,
-      y: 255,
-      w: 540,
-      h: 140,
-      mode: 'sampleX',
-      samplePos: 700
+      color: '#000000'
     },
     boxes: [
-      { x: 287, y: 422, w: 246, h: 120, radius: 4 },
-      { x: 287, y: 570, w: 246, h: 120, radius: 4 },
-      { x: 287, y: 718, w: 246, h: 120, radius: 4 }
+      { centerX: 411, centerY: 459 },
+      { centerX: 411, centerY: 636 },
+      { centerX: 411, centerY: 799 }
     ]
   },
   primera: {
     key: 'primera',
     name: 'La Primera',
     image: '/templates/primera.png',
-    boxColor: '#fcd34d',
-    boxBorder: 'dashed',
-    boxBorderColor: '#78350f',
     header: {
-      yDraw: 235,
-      yDate: 315,
+      yDraw: 310,
+      yDate: 358,
       fontSizeDraw: 42,
       fontSizeDate: 26,
       color: '#000000'
     },
-    headerCover: {
-      x: 160,
-      y: 280,
-      w: 500,
-      h: 55,
-      mode: 'sampleX',
-      samplePos: 700
+    boxes: [
+      { centerX: 410, centerY: 494 },
+      { centerX: 410, centerY: 641 },
+      { centerX: 410, centerY: 789 }
+    ]
+  },
+  tica: {
+    key: 'tica',
+    name: 'Costa Rica / Tica',
+    image: '/templates/tica.png',
+    header: {
+      yDraw: 300,
+      yDate: 345,
+      fontSizeDraw: 42,
+      fontSizeDate: 25,
+      color: '#000000',
+      drawTextTransform: 'uppercase'
     },
     boxes: [
-      { x: 287, y: 420, w: 246, h: 120, radius: 4 },
-      { x: 287, y: 566, w: 246, h: 120, radius: 4 },
-      { x: 287, y: 708, w: 246, h: 120, radius: 4 }
+      { centerX: 425, centerY: 515 },
+      { centerX: 425, centerY: 680 },
+      { centerX: 425, centerY: 835 }
+    ]
+  },
+  honduras: {
+    key: 'honduras',
+    name: 'Honduras',
+    image: '/templates/honduras.png',
+    header: {
+      yDraw: 310,
+      yDate: 358,
+      fontSizeDraw: 42,
+      fontSizeDate: 26,
+      color: '#000000'
+    },
+    boxes: [
+      { centerX: 410, centerY: 473 },
+      { centerX: 410, centerY: 636 },
+      { centerX: 410, centerY: 799 }
+    ]
+  },
+  anguilla: {
+    key: 'anguilla',
+    name: 'Anguilla',
+    image: '/templates/anguilla.png',
+    header: {
+      yDraw: 310,
+      yDate: 358,
+      fontSizeDraw: 42,
+      fontSizeDate: 26,
+      color: '#000000',
+      drawTextTransform: 'uppercase'
+    },
+    boxes: [
+      { centerX: 410, centerY: 494 },
+      { centerX: 410, centerY: 641 },
+      { centerX: 410, centerY: 789 }
     ]
   }
 };
@@ -300,20 +197,52 @@ export default function SocialTemplateGenerator() {
     }
   }, [supportedLotteries, selectedLotteryId]);
 
-  // Cargar números ganadores registrados para la lotería y fecha seleccionadas
+  // Cargar números ganadores automáticamente desde Supabase y Store
   useEffect(() => {
     if (!selectedLotteryId) return;
-    const res = store.results.find(r => r.lotteryId === selectedLotteryId && r.date === selectedDate);
-    if (res && res.winning_number) {
-      const parts = res.winning_number.split('-');
+    let isMounted = true;
+
+    // 1. Revisar memoria local primero
+    const local = store.results.find(
+      r => (r.lotteryId === selectedLotteryId || (r as any).draw_id === selectedLotteryId) && r.date === selectedDate
+    );
+    if (local && local.winning_number) {
+      const parts = local.winning_number.split('-');
       setFirstNum(parts[0] || '');
       setSecondNum(parts[1] || '');
       setThirdNum(parts[2] || '');
-    } else {
-      setFirstNum('');
-      setSecondNum('');
-      setThirdNum('');
+      return;
     }
+
+    // 2. Si no está en memoria, consultar a Supabase en la nube
+    async function fetchFromSupabase() {
+      try {
+        const { data } = await supabase
+          .from('results')
+          .select('winning_number')
+          .eq('draw_id', selectedLotteryId)
+          .eq('date', selectedDate)
+          .maybeSingle();
+
+        if (isMounted) {
+          if (data && data.winning_number) {
+            const parts = data.winning_number.split('-');
+            setFirstNum(parts[0] || '');
+            setSecondNum(parts[1] || '');
+            setThirdNum(parts[2] || '');
+          } else {
+            setFirstNum('');
+            setSecondNum('');
+            setThirdNum('');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching result from Supabase:', err);
+      }
+    }
+
+    fetchFromSupabase();
+    return () => { isMounted = false; };
   }, [selectedLotteryId, selectedDate, store.results]);
 
   // Detectar la plantilla correspondiente según el id del sorteo
@@ -327,10 +256,10 @@ export default function SocialTemplateGenerator() {
     if (id.includes('florida')) return 'florida';
     if (id.includes('anguilla')) return 'anguilla';
     if (id.includes('primera')) return 'primera';
-    return 'tica';
+    return 'nica';
   };
 
-  const currentTemplate = TEMPLATES[getTemplateKey(selectedLotteryId)] || TEMPLATES.tica;
+  const currentTemplate = TEMPLATES[getTemplateKey(selectedLotteryId)] || TEMPLATES.nica;
   const currentLottery = store.lotteriesMaster.find(l => l.id === selectedLotteryId);
 
   // Formato de fecha larga en español: "15 de octubre de 2026"
@@ -361,7 +290,7 @@ export default function SocialTemplateGenerator() {
     return `${currentLottery.name} ${timeStr}`;
   };
 
-  // Dibujar Canvas
+  // Dibujar Canvas sobre la plantilla nítida de Canva
   const drawCanvas = (revealStep: number = 3) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -376,22 +305,11 @@ export default function SocialTemplateGenerator() {
       canvas.width = 819;
       canvas.height = 1024;
 
-      // 1. Dibujar imagen de fondo base
+      // 1. Dibujar plantilla original limpia exportada de Canva
       ctx.drawImage(img, 0, 0, 819, 1024);
 
-      // 2. Si está activo actualizar texto de fecha y hora:
-      if (updateHeader && currentTemplate.headerCover) {
-        const hc = currentTemplate.headerCover;
-        if (hc.mode === 'sampleX' && hc.samplePos) {
-          ctx.drawImage(img, hc.samplePos, hc.y, 4, hc.h, hc.x, hc.y, hc.w, hc.h);
-        } else if (hc.mode === 'sampleY' && hc.samplePos) {
-          ctx.drawImage(img, hc.x, hc.samplePos, hc.w, 4, hc.x, hc.y, hc.w, hc.h);
-        } else if (hc.mode === 'solid' && hc.solidColor) {
-          ctx.fillStyle = hc.solidColor;
-          ctx.fillRect(hc.x, hc.y, hc.w, hc.h);
-        }
-
-        // Título del sorteo con hora
+      // 2. Dibujar título del sorteo con hora (ej. Nica 12:00 pm, FLORIDA 12:30PM)
+      if (updateHeader) {
         const drawTitle = (customDrawTitle.trim() || getDrawTitleText());
         ctx.font = `900 ${currentTemplate.header.fontSizeDraw}px "Arial Black", Arial, sans-serif`;
         ctx.textAlign = 'center';
@@ -403,47 +321,29 @@ export default function SocialTemplateGenerator() {
           currentTemplate.header.yDraw
         );
 
-        // Fecha larga
+        // 3. Dibujar fecha larga (ej. 16 de octubre de 2026)
         ctx.font = `700 ${currentTemplate.header.fontSizeDate}px Arial, sans-serif`;
         ctx.fillStyle = currentTemplate.header.color;
         ctx.fillText(formatLongDate(selectedDate), 819 / 2, currentTemplate.header.yDate);
       }
 
-      // 3. Dibujar cajas de números ganadores tapando el número anterior
-      const nums = [firstNum || '--', secondNum || '--', thirdNum || '--'];
+      // 4. Dibujar números ganadores perfectamente centrados dentro de las cajas
+      const nums = [firstNum, secondNum, thirdNum];
 
       currentTemplate.boxes.forEach((box, idx) => {
-        // Rellenar caja con color base para tapar el número original
-        ctx.fillStyle = currentTemplate.boxColor;
-        ctx.fillRect(box.x, box.y, box.w, box.h);
-
-        // Borde
-        if (currentTemplate.boxBorder === 'dashed') {
-          ctx.strokeStyle = currentTemplate.boxBorderColor;
-          ctx.lineWidth = 1.8;
-          ctx.setLineDash([6, 6]);
-          ctx.strokeRect(box.x, box.y, box.w, box.h);
-          ctx.setLineDash([]);
-        } else if (currentTemplate.boxBorder === 'solid') {
-          ctx.strokeStyle = currentTemplate.boxBorderColor;
-          ctx.lineWidth = 2;
-          ctx.strokeRect(box.x, box.y, box.w, box.h);
-        }
-
-        // Si este número debe revelarse (en animación de Reel o completo en imagen estática)
-        if (idx < revealStep) {
+        if (idx < revealStep && nums[idx]) {
           const val = nums[idx];
-          ctx.font = '900 86px "Arial Black", Impact, sans-serif';
+          ctx.font = '900 86px "Arial Black", Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
-          // Sombra suave en el texto
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-          ctx.fillText(val, box.x + box.w / 2 + 3, box.y + box.h / 2 + 5);
+          // Sombra suave en el texto para máxima profundidad
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+          ctx.fillText(val, box.centerX + 2, box.centerY + 4);
 
           // Texto negro nítido
           ctx.fillStyle = '#000000';
-          ctx.fillText(val, box.x + box.w / 2, box.y + box.h / 2);
+          ctx.fillText(val, box.centerX, box.centerY);
         }
       });
     };
@@ -603,14 +503,14 @@ export default function SocialTemplateGenerator() {
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
               Números Ganadores (1er, 2do y 3er Premio)
             </label>
-            <div style={{ display: 'flex', gap: '0.6rem' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', width: '100%', boxSizing: 'border-box' }}>
               <input
                 type="text"
                 maxLength={2}
                 value={firstNum}
                 onChange={(e) => setFirstNum(e.target.value.replace(/\D/g, ''))}
                 placeholder="1er"
-                style={{ flex: 1, padding: '0.8rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
+                style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
               />
               <input
                 type="text"
@@ -618,7 +518,7 @@ export default function SocialTemplateGenerator() {
                 value={secondNum}
                 onChange={(e) => setSecondNum(e.target.value.replace(/\D/g, ''))}
                 placeholder="2do"
-                style={{ flex: 1, padding: '0.8rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
+                style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
               />
               <input
                 type="text"
@@ -626,7 +526,7 @@ export default function SocialTemplateGenerator() {
                 value={thirdNum}
                 onChange={(e) => setThirdNum(e.target.value.replace(/\D/g, ''))}
                 placeholder="3er"
-                style={{ flex: 1, padding: '0.8rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
+                style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: '900', textAlign: 'center', borderRadius: '8px', border: '2px solid #eab308', background: '#fefce8', outline: 'none' }}
               />
             </div>
             <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>

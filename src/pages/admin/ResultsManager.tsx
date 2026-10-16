@@ -349,13 +349,19 @@ export default function ResultsManager() {
         return;
       }
     } else {
-      if (!prizes.first || !prizes.second || !prizes.third) {
-        alert("Debes llenar los 3 números ganadores.");
+      if (!prizes.first) {
+        alert("Debes ingresar al menos el 1er premio ganador.");
         return;
       }
     }
 
-    const winningNumStr = isGranjita ? prizes.first : `${prizes.first}-${prizes.second}-${prizes.third}`;
+    const winningNumStr = isGranjita
+      ? prizes.first
+      : (prizes.second && prizes.third)
+        ? `${prizes.first}-${prizes.second}-${prizes.third}`
+        : (prizes.second)
+          ? `${prizes.first}-${prizes.second}`
+          : prizes.first;
     setLoading(true);
     
     try {
@@ -459,7 +465,7 @@ export default function ResultsManager() {
               type="date" 
               value={selectedDate} 
               onChange={(e) => setSelectedDate(e.target.value)} 
-              style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontWeight: 'bold', background: '#f8fafc' }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontWeight: 'bold', background: '#f8fafc' }}
             />
           </div>
 
@@ -468,7 +474,7 @@ export default function ResultsManager() {
             <select 
               value={lotteryId}
               onChange={(e) => setLotteryId(e.target.value)}
-              style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontWeight: 'bold', background: '#f8fafc' }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontWeight: 'bold', background: '#f8fafc' }}
             >
               {store.lotteriesMaster.map(l => (
                 <option key={l.id} value={l.id}>{l.name} - {formatLotteryTime(l.hour, l.minute)}</option>
@@ -484,7 +490,7 @@ export default function ResultsManager() {
               <select
                 value={prizes.first}
                 onChange={(e) => setPrizes({ first: e.target.value, second: '', third: '' })}
-                style={{ width: '100%', padding: '0.9rem', fontSize: '1.1rem', fontWeight: 'bold', borderRadius: '8px', border: '2px solid #0d9488', background: '#f0fdf4', outline: 'none', cursor: 'pointer' }}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '0.9rem', fontSize: '1.1rem', fontWeight: 'bold', borderRadius: '8px', border: '2px solid #0d9488', background: '#f0fdf4', outline: 'none', cursor: 'pointer' }}
               >
                 <option value="">-- Selecciona el Animal Ganador --</option>
                 {GRANJITA_ANIMALS.map(a => (
@@ -495,38 +501,38 @@ export default function ResultsManager() {
               </select>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#16a34a', textTransform: 'uppercase', marginBottom: '0.4rem' }}>1er Premio</label>
+            <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '2rem', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 'bold', color: '#16a34a', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>1er Premio</label>
                 <input 
                   type="text" 
                   maxLength={2} 
                   value={prizes.first}
                   onChange={(e) => setPrizes(prev => ({...prev, first: e.target.value.replace(/\D/g, '')}))}
                   placeholder="00" 
-                  style={{ width: '100%', padding: '0.8rem', fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', borderRadius: '6px', border: '2px solid #16a34a', outline: 'none', background: '#f0fdf4' }}
+                  style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: 'bold', textAlign: 'center', borderRadius: '6px', border: '2px solid #16a34a', outline: 'none', background: '#f0fdf4' }}
                 />
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', marginBottom: '0.4rem' }}>2do Premio</label>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>2do Premio</label>
                 <input 
                   type="text" 
                   maxLength={2} 
                   value={prizes.second}
                   onChange={(e) => setPrizes(prev => ({...prev, second: e.target.value.replace(/\D/g, '')}))}
                   placeholder="00" 
-                  style={{ width: '100%', padding: '0.8rem', fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', borderRadius: '6px', border: '2px solid #2563eb', outline: 'none', background: '#eff6ff' }}
+                  style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: 'bold', textAlign: 'center', borderRadius: '6px', border: '2px solid #2563eb', outline: 'none', background: '#eff6ff' }}
                 />
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem' }}>3er Premio</label>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>3er Premio</label>
                 <input 
                   type="text" 
                   maxLength={2} 
                   value={prizes.third}
                   onChange={(e) => setPrizes(prev => ({...prev, third: e.target.value.replace(/\D/g, '')}))}
                   placeholder="00" 
-                  style={{ width: '100%', padding: '0.8rem', fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', borderRadius: '6px', border: '2px solid #cbd5e1', outline: 'none', background: '#f8fafc' }}
+                  style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '0.8rem 0.2rem', fontSize: '1.4rem', fontWeight: 'bold', textAlign: 'center', borderRadius: '6px', border: '2px solid #cbd5e1', outline: 'none', background: '#f8fafc' }}
                 />
               </div>
             </div>
