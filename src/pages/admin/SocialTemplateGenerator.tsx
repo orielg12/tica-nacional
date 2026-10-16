@@ -38,9 +38,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       color: '#000000'
     },
     boxes: [
-      { centerX: 410, centerY: 473 },
-      { centerX: 410, centerY: 636 },
-      { centerX: 410, centerY: 799 }
+      { centerX: 413, centerY: 473 },
+      { centerX: 413, centerY: 636 },
+      { centerX: 413, centerY: 799 }
     ]
   },
   monazo: {
@@ -56,9 +56,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       drawTextTransform: 'uppercase'
     },
     boxes: [
-      { centerX: 425, centerY: 515 },
-      { centerX: 425, centerY: 680 },
-      { centerX: 425, centerY: 835 }
+      { centerX: 426, centerY: 515 },
+      { centerX: 426, centerY: 681 },
+      { centerX: 426, centerY: 830 }
     ]
   },
   florida: {
@@ -74,9 +74,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       drawTextTransform: 'uppercase'
     },
     boxes: [
-      { centerX: 425, centerY: 515 },
-      { centerX: 425, centerY: 680 },
-      { centerX: 425, centerY: 835 }
+      { centerX: 427, centerY: 515 },
+      { centerX: 427, centerY: 681 },
+      { centerX: 427, centerY: 835 }
     ]
   },
   newyork: {
@@ -91,9 +91,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       color: '#000000'
     },
     boxes: [
-      { centerX: 411, centerY: 459 },
-      { centerX: 411, centerY: 636 },
-      { centerX: 411, centerY: 799 }
+      { centerX: 413, centerY: 460 },
+      { centerX: 413, centerY: 636 },
+      { centerX: 413, centerY: 799 }
     ]
   },
   primera: {
@@ -101,18 +101,18 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     name: 'La Primera',
     image: '/templates/primera.png',
     header: {
-      xDraw: 670,
-      yDraw: 205,
-      fontSizeDraw: 38,
+      xDraw: 665,
+      yDraw: 235,
+      fontSizeDraw: 42,
       xDate: 410,
-      yDate: 295,
-      fontSizeDate: 30,
+      yDate: 335,
+      fontSizeDate: 34,
       color: '#000000'
     },
     boxes: [
-      { centerX: 380, centerY: 480 },
-      { centerX: 380, centerY: 640 },
-      { centerX: 380, centerY: 790 }
+      { centerX: 410, centerY: 494 },
+      { centerX: 410, centerY: 641 },
+      { centerX: 410, centerY: 789 }
     ]
   },
   tica: {
@@ -121,16 +121,16 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     image: '/templates/tica.png',
     header: {
       yDraw: 280,
-      yDate: 320,
+      yDate: 325,
       fontSizeDraw: 42,
-      fontSizeDate: 25,
+      fontSizeDate: 26,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
     boxes: [
-      { centerX: 385, centerY: 475 },
-      { centerX: 385, centerY: 640 },
-      { centerX: 385, centerY: 800 }
+      { centerX: 427, centerY: 515 },
+      { centerX: 427, centerY: 681 },
+      { centerX: 427, centerY: 835 }
     ]
   },
   honduras: {
@@ -141,13 +141,13 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       yDraw: 300,
       yDate: 345,
       fontSizeDraw: 42,
-      fontSizeDate: 25,
+      fontSizeDate: 26,
       color: '#000000'
     },
     boxes: [
-      { centerX: 390, centerY: 450 },
-      { centerX: 390, centerY: 615 },
-      { centerX: 390, centerY: 775 }
+      { centerX: 414, centerY: 473 },
+      { centerX: 414, centerY: 636 },
+      { centerX: 414, centerY: 799 }
     ]
   },
   anguilla: {
@@ -156,16 +156,16 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     image: '/templates/anguilla.png',
     header: {
       yDraw: 300,
-      yDate: 340,
+      yDate: 345,
       fontSizeDraw: 42,
-      fontSizeDate: 25,
+      fontSizeDate: 26,
       color: '#000000',
       drawTextTransform: 'uppercase'
     },
     boxes: [
-      { centerX: 400, centerY: 420 },
-      { centerX: 400, centerY: 575 },
-      { centerX: 400, centerY: 730 }
+      { centerX: 411, centerY: 494 },
+      { centerX: 411, centerY: 646 },
+      { centerX: 411, centerY: 799 }
     ]
   }
 };
@@ -290,7 +290,11 @@ export default function SocialTemplateGenerator() {
     if (key === 'newyork') return `NEW YORK  ${timeStr.toLowerCase()}`;
     if (key === 'florida') return `FLORIDA ${timeStr.replace(' ', '')}`;
     if (key === 'anguilla') return `ANGUILLA ${timeStr.toUpperCase()}`;
-    if (key === 'primera') return `11 AM`;
+    if (key === 'primera') {
+      const h = currentLottery.hour % 12 || 12;
+      const ampm = currentLottery.hour >= 12 ? 'PM' : 'AM';
+      return currentLottery.minute === 0 ? `${h} ${ampm}` : timeStr;
+    }
     return `${currentLottery.name} ${timeStr}`;
   };
 

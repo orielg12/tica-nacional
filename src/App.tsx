@@ -142,6 +142,7 @@ function App() {
                   <Route path="results" element={<VendorResults />} />
                   <Route path="forecasts" element={<ForecastsView />} />
                   <Route path="tickets" element={<VendorTickets />} />
+                  <Route path="templates" element={<AdminTemplates />} />
                 </Route>
               </Route>
             </Routes>

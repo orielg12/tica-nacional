@@ -58,6 +58,7 @@ export default function VendorLayout() {
     { name: 'Consulta Sorteos', icon: CalendarDays, path: '/vendor/past-draws' },
     { name: 'Reporte de Ventas', icon: CalendarDays, path: '/vendor/sales' },
     { name: 'Cierre de Caja (Z)', icon: Banknote, path: '/vendor/close' },
+    ...(store.currentUser?.username === 'vendedor1' ? [{ name: '🎨 Plantillas Sociales', icon: Sparkles, path: '/vendor/templates' }] : []),
   ];
 
   const activeCart = useMemo(() => {
