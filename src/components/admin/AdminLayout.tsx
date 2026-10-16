@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Trophy, Users, Building, Calendar, Settings, FileText, ChevronRight, LogOut, Ticket, Bell, Menu, X, Sparkles, Plus } from 'lucide-react';
+import { LayoutDashboard, Trophy, Users, Building, Calendar, Settings, FileText, ChevronRight, LogOut, Ticket, Bell, Menu, X, Sparkles, Plus, Film } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -77,6 +77,7 @@ export default function AdminLayout() {
     { group: 'PRINCIPAL', items: [
       { to: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} />, exact: true },
       { to: '/admin/results', label: 'Resultados', icon: <Trophy size={18} /> },
+      { to: '/admin/templates', label: 'Plantillas y Reels 🎬', icon: <Film size={18} /> },
       { to: '/admin/forecasts', label: 'Pronósticos', icon: <Sparkles size={18} /> },
     ]},
     { group: 'GESTIÓN', items: [
