@@ -467,21 +467,36 @@ export default function SocialTemplateGenerator() {
     }
   };
 
-  // Generar Video Reel (MP4 / WebM de 5 segundos con animación de revelación)
+  // Generar Video Reel (video estático de 5 segundos sin animaciones, descarga y comparte directamente)
   const handleGenerateReel = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     if (typeof MediaRecorder === 'undefined') {
-      alert('Tu navegador no soporta MediaRecorder para grabar video directamente. Te sugerimos descargar la imagen.');
+      alert('Tu dispositivo no soporta grabación de video directamente desde el navegador. Te sugerimos usar el botón de Compartir Imagen.');
       return;
     }
 
     setIsGeneratingVideo(true);
     setVideoProgress(10);
 
-    const stream = canvas.captureStream(30);
-    const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+    // Asegurar que el canvas tiene la plantilla completa con todos los números
+    drawCanvas(3);
+
+    const stream = canvas.captureStream(25);
+    
+    // Determinar formato soportado
+    let mime = 'video/webm';
+    if (MediaRecorder.isTypeSupported('video/mp4; codecs="avc1.42E01E"')) {
+      mime = 'video/mp4; codecs="avc1.42E01E"';
+    } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+      mime = 'video/mp4';
+    } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+      mime = 'video/webm; codecs=vp9';
+    } else if (MediaRecorder.isTypeSupported('video/webm')) {
+      mime = 'video/webm';
+    }
+
     const recorder = new MediaRecorder(stream, { mimeType: mime });
     const chunks: Blob[] = [];
 
@@ -489,40 +504,102 @@ export default function SocialTemplateGenerator() {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mime });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+    recorder.onstop = async () => {
+      setVideoProgress(95);
+      const videoBlob = new Blob(chunks, { type: mime.split(';')[0] });
       const lotName = currentLottery ? currentLottery.name.toLowerCase().replace(/\s+/g, '-') : 'sorteo';
-      link.download = `reel-${lotName}-${selectedDate}.${mime === 'video/mp4' ? 'mp4' : 'webm'}`;
-      link.href = url;
-      link.click();
-      setIsGeneratingVideo(false);
-      setVideoProgress(0);
-      drawCanvas(3); // restaurar completo
+      const isMp4 = mime.includes('mp4');
+      const ext = isMp4 ? 'mp4' : 'webm';
+      const fileName = `reel_${lotName}_${selectedDate}_${Date.now()}.${ext}`;
+
+      // Convertir blob a Base64 para Capacitor Filesystem
+      const reader = new FileReader();
+      reader.readAsDataURL(videoBlob);
+      reader.onloadend = async () => {
+        const base64Data = (reader.result as string).split(',')[1];
+
+        if (Capacitor.isNativePlatform()) {
+          try {
+            // 1. Guardar en Caché para el Share Intent de Android
+            await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Cache
+            });
+
+            // 2. Intentar guardar en Documents / Descargas del dispositivo
+            try {
+              await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data,
+                directory: Directory.Documents
+              });
+            } catch (saveErr) {
+              console.warn('No se pudo guardar en Documents:', saveErr);
+            }
+
+            const fileUriResult = await Filesystem.getUri({
+              path: fileName,
+              directory: Directory.Cache
+            });
+
+            // 3. Abrir Share Sheet nativo de Android (WhatsApp, Instagram Reels, Guardar en galería, etc.)
+            await Share.share({
+              title: `Reel ${currentLottery?.name || ''}`,
+              text: `Reel oficial de ${currentLottery?.name || ''} - ${selectedDate}`,
+              files: [fileUriResult.uri],
+              dialogTitle: 'Compartir y Guardar Reel'
+            });
+          } catch (nativeErr: any) {
+            console.error('Error al compartir Reel en Android:', nativeErr);
+            alert('Error al procesar el Reel: ' + (nativeErr?.message || JSON.stringify(nativeErr)));
+          }
+        } else {
+          // Web / Navegador: descargar archivo
+          const url = URL.createObjectURL(videoBlob);
+          const link = document.createElement('a');
+          link.download = fileName;
+          link.href = url;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+          // Si el navegador soporta compartir archivos nativamente
+          if (navigator.share && navigator.canShare) {
+            const file = new File([videoBlob], fileName, { type: videoBlob.type });
+            if (navigator.canShare({ files: [file] })) {
+              try {
+                await navigator.share({
+                  title: `Reel ${currentLottery?.name || ''}`,
+                  text: `Reel oficial de ${currentLottery?.name || ''} - ${selectedDate}`,
+                  files: [file]
+                });
+              } catch {}
+            }
+          }
+        }
+
+        setIsGeneratingVideo(false);
+        setVideoProgress(0);
+      };
     };
 
-    recorder.start();
+    recorder.start(500); // Guardar fragmentos cada 500ms
 
-    // Animación de 5 segundos:
-    // Seg 0.0 - 1.2: Aparece 1er premio
-    // Seg 1.2 - 2.4: Aparece 2do premio
-    // Seg 2.4 - 5.0: Aparece 3er premio completo (pausa final)
-    drawCanvas(1);
-    setVideoProgress(30);
-
-    setTimeout(() => {
-      drawCanvas(2);
-      setVideoProgress(60);
-    }, 1200);
-
-    setTimeout(() => {
+    // Mantener el canvas activo durante los 5 segundos sin animaciones (imagen limpia y completa)
+    let elapsed = 0;
+    const progressInterval = setInterval(() => {
+      elapsed += 500;
+      const pct = Math.min(90, Math.round((elapsed / 5000) * 85) + 10);
+      setVideoProgress(pct);
+      // Re-dibujar el mismo frame para garantizar flujo de video continuo en el codificador
       drawCanvas(3);
-      setVideoProgress(90);
-    }, 2400);
+    }, 500);
 
     setTimeout(() => {
-      recorder.stop();
+      clearInterval(progressInterval);
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      }
     }, 5000);
   };
 
@@ -776,7 +853,7 @@ export default function SocialTemplateGenerator() {
                 boxShadow: '0 4px 6px rgba(225,29,72,0.2)'
               }}
             >
-              <Film size={18} /> {isGeneratingVideo ? `Grabando Reel (${videoProgress}%)...` : '🎬 Descargar Reel MP4 (Video 5s)'}
+              <Film size={18} /> {isGeneratingVideo ? `Generando Reel (${videoProgress}%)...` : '🎬 Descargar y Compartir Reel (5s)'}
             </button>
 
             <button
