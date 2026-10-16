@@ -3,7 +3,10 @@ import { useStore } from '../../store/useStore';
 import { supabase } from '../../utils/supabase';
 import { formatLotteryTime } from '../../utils/lotteryRules';
 import { getPanamaLocalISODate } from '../../utils/dateUtils';
-import { Download, Film, Sparkles, Share2, Eye } from 'lucide-react';
+import { Download, Film, Sparkles, Share2, Eye, Loader2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 interface TemplateConfig {
   key: string;
@@ -181,6 +184,7 @@ export default function SocialTemplateGenerator() {
   const [customDrawTitle, setCustomDrawTitle] = useState('');
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Detección reactiva de modo oscuro para VendorLayout y AdminLayout
   const [isDark, setIsDark] = useState(() => {
@@ -403,22 +407,63 @@ export default function SocialTemplateGenerator() {
   const handleShareNative = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    const lotName = currentLottery ? currentLottery.name.toLowerCase().replace(/\s+/g, '-') : 'sorteo';
+    const fileName = `resultado_${lotName}_${selectedDate}.png`;
+
+    setIsSharing(true);
     try {
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `resultado-${selectedDate}.png`, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const base64Raw = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+          await Filesystem.writeFile({
+            path: fileName,
+            data: base64Raw,
+            directory: Directory.Cache
+          });
+          const fileUriResult = await Filesystem.getUri({
+            path: fileName,
+            directory: Directory.Cache
+          });
+          await Share.share({
             title: `Resultados ${currentLottery?.name || ''}`,
             text: `Resultados oficiales de ${currentLottery?.name || ''} - ${selectedDate}`,
-            files: [file]
+            files: [fileUriResult.uri],
+            dialogTitle: 'Compartir Resultados'
           });
+          setIsSharing(false);
+          return;
+        } catch (nativeErr: any) {
+          console.warn('Capacitor Share error, falling back to download:', nativeErr);
+        }
+      }
+
+      // Fallback para Web / Navegador
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          handleDownloadImage();
+          setIsSharing(false);
+          return;
+        }
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              title: `Resultados ${currentLottery?.name || ''}`,
+              text: `Resultados oficiales de ${currentLottery?.name || ''} - ${selectedDate}`,
+              files: [file]
+            });
+          } catch {
+            handleDownloadImage();
+          }
         } else {
           handleDownloadImage();
         }
+        setIsSharing(false);
       }, 'image/png');
     } catch (e) {
       handleDownloadImage();
+      setIsSharing(false);
     }
   };
 
@@ -736,23 +781,32 @@ export default function SocialTemplateGenerator() {
 
             <button
               onClick={handleShareNative}
+              disabled={isSharing}
               style={{
                 width: '100%',
                 padding: '0.85rem',
-                background: '#2563eb',
+                background: isSharing ? '#64748b' : '#2563eb',
                 color: 'white',
                 border: 'none',
                 borderRadius: '10px',
                 fontWeight: 'bold',
                 fontSize: '0.95rem',
-                cursor: 'pointer',
+                cursor: isSharing ? 'wait' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.6rem'
               }}
             >
-              <Share2 size={18} /> Compartir en WhatsApp / Redes
+              {isSharing ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> Abriendo WhatsApp / Redes...
+                </>
+              ) : (
+                <>
+                  <Share2 size={18} /> Compartir en WhatsApp / Redes
+                </>
+              )}
             </button>
           </div>
         </div>
