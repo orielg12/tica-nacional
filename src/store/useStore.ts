@@ -66,6 +66,7 @@ interface State {
   partnerCapital: number;
   partnerSplit: number;
   partnerReinvestPct: number;
+  partnerOperatorCommissionPct: number;
   
   externalBankName: string;
   telegramToken: string;
@@ -75,7 +76,6 @@ interface State {
   // Actions
   setCancelGraceMinutes: (mins: number) => void;
   toggleVendorForecasts: (enable: boolean) => void;
-  updatePartnerConfig: (active: boolean, capital: number, split: number, reinvest: number) => void;
   setExternalBankName: (name: string) => void;
   setSaleMode: (mode: number) => void;
   addNumber: (num: string, amount: number, isGranjita?: boolean) => void;
@@ -105,6 +105,7 @@ interface State {
   editMasterLottery: (id: string, updates: Partial<LotteryConfig>) => Promise<boolean>;
   updateRiskLimit: (limit: number) => void;
   updateTicketConfig: (header: string, footer: string) => void;
+  updatePartnerConfig: (active: boolean, capital: number, split: number, reinvest: number, operatorCommission?: number) => void;
   
   login: (username: string, password?: string) => boolean;
   logout: () => void;
@@ -132,9 +133,10 @@ export const useStore = create<State>()(
       saleMode: 0.20,
       
       partnerModeActive: false,
-      partnerCapital: 7000,
-      partnerSplit: 70,
+      partnerCapital: 5000,
+      partnerSplit: 50,
       partnerReinvestPct: 0,
+      partnerOperatorCommissionPct: 10,
       
       
       externalBankName: 'Loteka Centro',
@@ -150,12 +152,15 @@ export const useStore = create<State>()(
       
       setExternalBankName: (name) => set({ externalBankName: name }),
       
-      updatePartnerConfig: (active, capital, split, reinvest) => set({
-         partnerModeActive: active,
-         partnerCapital: capital,
-         partnerSplit: split,
-         partnerReinvestPct: reinvest
-      }),
+      updatePartnerConfig: (active: boolean, capital: number, split: number, reinvest: number, operatorCommission?: number) => {
+         set({
+            partnerModeActive: active,
+            partnerCapital: capital,
+            partnerSplit: split,
+            partnerReinvestPct: reinvest,
+            ...(operatorCommission !== undefined ? { partnerOperatorCommissionPct: operatorCommission } : {})
+         });
+      },
       
       addNumber: (num, amount, isGranjita = false) => {
         const newItem: CartItem = {

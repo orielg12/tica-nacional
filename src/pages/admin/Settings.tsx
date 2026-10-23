@@ -27,9 +27,10 @@ export default function AdminSettings() {
   const [isWiping, setIsWiping] = useState(false);
 
   const [partnerActive, setPartnerActive] = useState(store.partnerModeActive || false);
-  const [partnerCap, setPartnerCap] = useState((store.partnerCapital || 7000).toString());
-  const [partnerSplitPct, setPartnerSplitPct] = useState((store.partnerSplit || 70).toString());
+  const [partnerCap, setPartnerCap] = useState((store.partnerCapital || 5000).toString());
+  const [partnerSplitPct, setPartnerSplitPct] = useState((store.partnerSplit || 50).toString());
   const [partnerReinvestPct, setPartnerReinvestPct] = useState((store.partnerReinvestPct || 0).toString());
+  const [partnerOperatorPct, setPartnerOperatorPct] = useState(((store as any).partnerOperatorCommissionPct ?? 10).toString());
   const [enableForecasts, setEnableForecasts] = useState(store.enableVendorForecasts || false);
 
   const handleSaveSecurity = (e: React.FormEvent) => {
@@ -65,8 +66,9 @@ export default function AdminSettings() {
     const cap = parseFloat(partnerCap);
     const split = parseFloat(partnerSplitPct);
     const reinvest = parseFloat(partnerReinvestPct);
+    const operatorComm = parseFloat(partnerOperatorPct);
     
-    if (isNaN(cap) || cap < 0 || isNaN(split) || split < 0 || split > 100 || isNaN(reinvest) || reinvest < 0 || reinvest > 100) {
+    if (isNaN(cap) || cap < 0 || isNaN(split) || split < 0 || split > 100 || isNaN(reinvest) || reinvest < 0 || reinvest > 100 || isNaN(operatorComm) || operatorComm < 0 || operatorComm > 100) {
       alert("Valores numéricos inválidos para el módulo de socios.");
       return;
     }
@@ -76,7 +78,7 @@ export default function AdminSettings() {
       return;
     }
 
-    store.updatePartnerConfig(partnerActive, cap, split, reinvest);
+    store.updatePartnerConfig(partnerActive, cap, split, reinvest, operatorComm);
     alert("Configuración de socios y reinversión actualizada.");
   };
 
@@ -275,6 +277,17 @@ export default function AdminSettings() {
                   onChange={(e) => setPartnerCap(e.target.value)}
                   disabled={!partnerActive}
                   style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', fontSize: '0.9rem' }}
+                />
+             </div>
+             <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#10b981', marginBottom: '0.3rem' }}>% Comisión Operativa (tu sueldo sobre ventas brutas)</label>
+                <input 
+                  type="number" 
+                  step="1"
+                  value={partnerOperatorPct}
+                  onChange={(e) => setPartnerOperatorPct(e.target.value)}
+                  disabled={!partnerActive}
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #10b981', fontSize: '0.9rem', backgroundColor: '#ecfdf5', fontWeight: 'bold' }}
                 />
              </div>
              <div>

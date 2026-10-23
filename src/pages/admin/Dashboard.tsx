@@ -33,8 +33,18 @@ export default function Dashboard() {
     drawId: string;
     drawName: string;
     drawTime: string;
-    topNumbers: { number: string; viles: number; totalAmount: number; ticketsCount: number }[];
+    allNumbers: {
+      number: string;
+      viles: number;
+      totalAmount: number;
+      ticketsCount: number;
+      viles020: number;
+      amount020: number;
+      viles025: number;
+      amount025: number;
+    }[];
   }[]>([]);
+  const [monitorModality, setMonitorModality] = useState<'all' | '0.20' | '0.25'>('all');
   const [loadingHotNumbers, setLoadingHotNumbers] = useState(false);
 
   const fetchHotNumbers = async (isInitial = false) => {
@@ -78,7 +88,7 @@ export default function Dashboard() {
 
       const { data, error } = await supabase
         .from('ticket_numbers')
-        .select('number_played, amount, draw_id, ticket:ticket_id(id, status, total_amount, vendor_id)')
+        .select('number_played, amount, draw_id, ticket:ticket_id(id, status, total_amount, vendor_id, ticket_numbers(amount))')
         .in('draw_id', targetIds)
         .gte('created_at', startOfDay)
         .lte('created_at', endOfDay);
@@ -88,9 +98,10 @@ export default function Dashboard() {
       }
 
       const validPlays = (!error && data) ? data.filter((tn: any) => {
-        if (tn.ticket?.status === 'cancelled') return false;
+        const ticketObj = Array.isArray(tn.ticket) ? tn.ticket[0] : tn.ticket;
+        if (ticketObj?.status === 'cancelled') return false;
         if (isSubAdmin && subAdminVendorIds && subAdminVendorIds.length > 0) {
-          return subAdminVendorIds.includes(tn.ticket?.vendor_id);
+          return subAdminVendorIds.includes(ticketObj?.vendor_id);
         }
         return true;
       }) : [];
@@ -102,35 +113,67 @@ export default function Dashboard() {
         const drawPlays = validPlays.filter((tn: any) => tn.draw_id === lotto.id);
         if (drawPlays.length === 0) return; // Solo mostrar sorteos con jugadas procesadas
 
-        const countMap: Record<string, { viles: number; totalAmount: number; ticketsCount: number }> = {};
+        const countMap: Record<string, {
+          number: string;
+          viles: number;
+          totalAmount: number;
+          ticketsCount: number;
+          viles020: number;
+          amount020: number;
+          viles025: number;
+          amount025: number;
+        }> = {};
 
         drawPlays.forEach((tn: any) => {
           const num = String(tn.number_played).padStart(2, '0');
           const viles = parseFloat(tn.amount || '0');
-          const ticketMode = Number(store.saleMode) || 0.20;
-          const amt = viles * ticketMode;
+          if (viles <= 0) return;
 
-          if (!countMap[num]) countMap[num] = { viles: 0, totalAmount: 0, ticketsCount: 0 };
+          const ticketObj = Array.isArray(tn.ticket) ? tn.ticket[0] : tn.ticket;
+          const ticketTotalAmount = parseFloat(ticketObj?.total_amount || '0');
+          const totalTicketViles = (ticketObj?.ticket_numbers || []).reduce((sum: number, n: any) => sum + parseFloat(n.amount || '0'), 0) || 1;
+          const pricePerVil = totalTicketViles > 0 ? (ticketTotalAmount / totalTicketViles) : (Number(store.saleMode) || 0.20);
+          const isQuarter = pricePerVil >= 0.235;
+
+          const unitPrice = isQuarter ? 0.25 : 0.20;
+          const amt = viles * unitPrice;
+
+          if (!countMap[num]) {
+            countMap[num] = {
+              number: num,
+              viles: 0,
+              totalAmount: 0,
+              ticketsCount: 0,
+              viles020: 0,
+              amount020: 0,
+              viles025: 0,
+              amount025: 0
+            };
+          }
+
           countMap[num].viles += viles;
           countMap[num].totalAmount += amt;
           countMap[num].ticketsCount += 1;
+
+          if (isQuarter) {
+            countMap[num].viles025 += viles;
+            countMap[num].amount025 += amt;
+          } else {
+            countMap[num].viles020 += viles;
+            countMap[num].amount020 += amt;
+          }
         });
 
-        // Ordenar por viles / dinero apostado
-        const topNumbers = Object.entries(countMap)
-          .map(([num, d]) => ({ number: num, viles: d.viles, totalAmount: d.totalAmount, ticketsCount: d.ticketsCount }))
-          .filter(item => item.viles > 0)
-          .sort((a, b) => b.totalAmount - a.totalAmount)
-          .slice(0, 8);
+        const allNumbers = Object.values(countMap);
 
-        if (topNumbers.length > 0) {
+        if (allNumbers.length > 0) {
           const timeStr = `${lotto.hour > 12 ? lotto.hour - 12 : (lotto.hour === 0 ? 12 : lotto.hour)}:${lotto.minute.toString().padStart(2, '0')} ${lotto.hour >= 12 ? 'PM' : 'AM'}`;
 
           resultsByDraw.push({
             drawId: lotto.id,
             drawName: lotto.name,
             drawTime: timeStr,
-            topNumbers
+            allNumbers
           });
         }
       });
@@ -272,64 +315,168 @@ export default function Dashboard() {
       </div>
 
       {/* MONITOR DE NÚMEROS ALTOS POR SORTEO PRÓXIMO / ACTIVO */}
-      <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.2rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
-         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-               <Flame size={20} color="#ef4444" />
-               <h4 style={{ margin: 0, fontSize: '1rem', color: '#17233D', fontWeight: 'bold' }}>
-                  Monitor de Números Altos (Jugadas Procesadas)
-               </h4>
+      <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+               <Flame size={24} color="#ef4444" />
+               <div>
+                  <h4 style={{ margin: 0, fontSize: '1.12rem', color: '#17233D', fontWeight: 800 }}>
+                     Monitor de Números Altos (Jugadas Procesadas)
+                  </h4>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                     Sorteos activos en tiempo real con mayor acumulación de dinero
+                  </span>
+               </div>
             </div>
-            <span style={{ fontSize: '0.75rem', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 'bold' }}>
-               ● Solo sorteos activos con viles apostados
-            </span>
+
+            {/* Selector de Modalidad */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+               <button
+                  type="button"
+                  onClick={() => setMonitorModality('all')}
+                  style={{
+                     padding: '0.35rem 0.85rem',
+                     fontSize: '0.78rem',
+                     fontWeight: 700,
+                     borderRadius: '6px',
+                     border: 'none',
+                     cursor: 'pointer',
+                     backgroundColor: monitorModality === 'all' ? '#17233D' : 'transparent',
+                     color: monitorModality === 'all' ? '#fff' : '#64748b',
+                     transition: 'all 0.15s ease-in-out'
+                  }}
+               >
+                  Todas
+               </button>
+               <button
+                  type="button"
+                  onClick={() => setMonitorModality('0.20')}
+                  style={{
+                     padding: '0.35rem 0.85rem',
+                     fontSize: '0.78rem',
+                     fontWeight: 700,
+                     borderRadius: '6px',
+                     border: 'none',
+                     cursor: 'pointer',
+                     backgroundColor: monitorModality === '0.20' ? '#0d9488' : 'transparent',
+                     color: monitorModality === '0.20' ? '#fff' : '#64748b',
+                     transition: 'all 0.15s ease-in-out'
+                  }}
+               >
+                  Solo $0.20
+               </button>
+               <button
+                  type="button"
+                  onClick={() => setMonitorModality('0.25')}
+                  style={{
+                     padding: '0.35rem 0.85rem',
+                     fontSize: '0.78rem',
+                     fontWeight: 700,
+                     borderRadius: '6px',
+                     border: 'none',
+                     cursor: 'pointer',
+                     backgroundColor: monitorModality === '0.25' ? '#7c3aed' : 'transparent',
+                     color: monitorModality === '0.25' ? '#fff' : '#64748b',
+                     transition: 'all 0.15s ease-in-out'
+                  }}
+               >
+                  Solo $0.25
+               </button>
+            </div>
          </div>
 
          {loadingHotNumbers ? (
-            <div style={{ color: '#94a3b8', fontSize: '0.85rem', padding: '1rem', textAlign: 'center' }}>Cargando jugadas procesadas...</div>
+            <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '1.5rem', textAlign: 'center' }}>Cargando jugadas procesadas...</div>
          ) : upcomingDrawsHot.length === 0 ? (
-            <div style={{ color: '#94a3b8', fontSize: '0.85rem', padding: '1rem', textAlign: 'center', fontStyle: 'italic' }}>
+            <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '1.5rem', textAlign: 'center', fontStyle: 'italic' }}>
                Sin jugadas procesadas en sorteos activos por vencer.
             </div>
          ) : (
             <div>
                {/* Leyenda de colores */}
-               <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap', fontSize: '0.7rem', fontWeight: 'bold', alignItems: 'center' }}>
-                 <span style={{ color: '#6b7280' }}>Nivel de riesgo:</span>
-                 <span style={{ backgroundColor: '#f0fdf4', border: '1px solid #22c55e', color: '#15803d', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🟢 Bajo</span>
-                 <span style={{ backgroundColor: '#fefce8', border: '1px solid #eab308', color: '#a16207', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🟡 Medio</span>
-                 <span style={{ backgroundColor: '#fff7ed', border: '1px solid #f97316', color: '#c2410c', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🟠 Alto</span>
-                 <span style={{ backgroundColor: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>🔴 Crítico</span>
+               <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap', fontSize: '0.75rem', fontWeight: 'bold', alignItems: 'center' }}>
+                 <span style={{ color: '#64748b' }}>Nivel de riesgo acumulado:</span>
+                 <span style={{ backgroundColor: '#f0fdf4', border: '1px solid #22c55e', color: '#15803d', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🟢 Bajo</span>
+                 <span style={{ backgroundColor: '#fefce8', border: '1px solid #eab308', color: '#a16207', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🟡 Medio</span>
+                 <span style={{ backgroundColor: '#fff7ed', border: '1px solid #f97316', color: '#c2410c', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🟠 Alto</span>
+                 <span style={{ backgroundColor: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🔴 Crítico</span>
                </div>
-               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(260px, 1fr))`, gap: '1rem' }}>
+               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(280px, 1fr))`, gap: '1.25rem' }}>
                  {upcomingDrawsHot.map((drawData) => {
-                   const maxAmt = Math.max(...drawData.topNumbers.map(n => n.totalAmount), 1);
+                   let displayNumbers = drawData.allNumbers;
+                   if (monitorModality === '0.20') {
+                     displayNumbers = drawData.allNumbers
+                       .filter(n => n.viles020 > 0)
+                       .sort((a, b) => b.amount020 - a.amount020);
+                   } else if (monitorModality === '0.25') {
+                     displayNumbers = drawData.allNumbers
+                       .filter(n => n.viles025 > 0)
+                       .sort((a, b) => b.amount025 - a.amount025);
+                   } else {
+                     displayNumbers = drawData.allNumbers
+                       .filter(n => n.viles > 0)
+                       .sort((a, b) => b.totalAmount - a.totalAmount);
+                   }
+                   const topNumbers = displayNumbers.slice(0, 8);
+                   const maxAmt = Math.max(
+                     ...topNumbers.map(n => monitorModality === '0.20' ? n.amount020 : monitorModality === '0.25' ? n.amount025 : n.totalAmount),
+                     1
+                   );
+
                    return (
-                     <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0.8rem' }}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.4rem', marginBottom: '0.6rem' }}>
-                         <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#0d9488' }}>{drawData.drawName}</span>
-                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', backgroundColor: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{drawData.drawTime}</span>
+                     <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '1rem' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.6rem', marginBottom: '0.75rem' }}>
+                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0d9488' }}>{drawData.drawName}</span>
+                         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#fff', padding: '0.15rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>{drawData.drawTime}</span>
                        </div>
 
-                       {drawData.topNumbers.length === 0 ? (
-                         <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>Sin apuntes aún para este sorteo...</p>
+                       {topNumbers.length === 0 ? (
+                         <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '0.5rem 0', fontStyle: 'italic', textAlign: 'center' }}>
+                           Sin jugadas registradas {monitorModality !== 'all' ? `en modalidad $${monitorModality}` : ''} para este sorteo.
+                         </p>
                        ) : (
-                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                           {drawData.topNumbers.map((numItem, nIdx) => {
-                             const style = getHotNumberStyle(numItem.totalAmount, maxAmt);
-                             const barWidth = maxAmt > 0 ? Math.max((numItem.totalAmount / maxAmt) * 100, 4) : 4;
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                           {topNumbers.map((numItem, nIdx) => {
+                             const displayedAmount = monitorModality === '0.20' ? numItem.amount020 : monitorModality === '0.25' ? numItem.amount025 : numItem.totalAmount;
+                             const displayedViles = monitorModality === '0.20' ? numItem.viles020 : monitorModality === '0.25' ? numItem.viles025 : numItem.viles;
+                             const style = getHotNumberStyle(displayedAmount, maxAmt);
+                             const barWidth = maxAmt > 0 ? Math.max((displayedAmount / maxAmt) * 100, 4) : 4;
+
                              return (
-                               <div key={nIdx} style={{ position: 'relative', overflow: 'hidden', backgroundColor: style.bg, padding: '0.4rem 0.6rem', borderRadius: '6px', border: `1px solid ${style.border}` }}>
+                               <div key={nIdx} style={{ position: 'relative', overflow: 'hidden', backgroundColor: style.bg, padding: '0.55rem 0.8rem', borderRadius: '8px', border: `1.5px solid ${style.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
                                  {/* Barra de progreso de fondo */}
-                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, backgroundColor: style.border, opacity: 0.12 }} />
+                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, backgroundColor: style.border, opacity: 0.15 }} />
                                  <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                     <span style={{ fontSize: '0.65rem', fontWeight: 'bold', backgroundColor: style.badge, color: '#fff', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{nIdx + 1}</span>
-                                     <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1.05rem', color: style.textColor, letterSpacing: '1px' }}>{numItem.number}</span>
+                                   {/* Número jugado GRANDE y visible */}
+                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                     <span style={{ fontSize: '0.82rem', fontWeight: 900, backgroundColor: style.badge, color: '#fff', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>{nIdx + 1}</span>
+                                     <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '1.75rem', color: style.textColor, letterSpacing: '1px', lineHeight: 1 }}>{numItem.number}</span>
                                    </div>
+                                   {/* Montos y desglose */}
                                    <div style={{ textAlign: 'right' }}>
-                                     <span style={{ fontSize: '0.88rem', fontWeight: 'bold', color: style.textColor }}>${numItem.totalAmount.toFixed(2)}</span>
-                                     <span style={{ fontSize: '0.67rem', color: '#64748b', marginLeft: '0.3rem' }}>({numItem.viles}v / {numItem.ticketsCount}t)</span>
+                                     <div style={{ fontSize: '1.25rem', fontWeight: 900, color: style.textColor, lineHeight: 1.1 }}>
+                                       ${displayedAmount.toFixed(2)}
+                                     </div>
+                                     {monitorModality === 'all' ? (
+                                       <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end', alignItems: 'center', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                                         <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>
+                                           {displayedViles} viles ({numItem.ticketsCount}t)
+                                         </span>
+                                         {numItem.viles020 > 0 && numItem.viles025 > 0 && (
+                                           <span style={{ fontSize: '0.68rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '0.08rem 0.35rem', borderRadius: '4px', fontWeight: 600 }}>
+                                             0.20: {numItem.viles020}v | 0.25: {numItem.viles025}v
+                                           </span>
+                                         )}
+                                       </div>
+                                     ) : monitorModality === '0.20' ? (
+                                       <div style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: 700, marginTop: '0.2rem' }}>
+                                         {displayedViles} viles ($0.20)
+                                       </div>
+                                     ) : (
+                                       <div style={{ fontSize: '0.78rem', color: '#7c3aed', fontWeight: 700, marginTop: '0.2rem' }}>
+                                         {displayedViles} viles ($0.25)
+                                       </div>
+                                     )}
                                    </div>
                                  </div>
                                </div>

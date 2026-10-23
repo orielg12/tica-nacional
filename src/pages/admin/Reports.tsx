@@ -19,6 +19,7 @@ export default function AdminReports() {
   const [startDate, setStartDate] = useState(getLocalISODate());
   const [endDate, setEndDate] = useState(getLocalISODate());
   const [selectedVendor, setSelectedVendor] = useState<string>('all');
+  const [selectedModality, setSelectedModality] = useState<'all' | '0.20' | '0.25'>('all');
   const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
 
   const currentUser = store.currentUser;
@@ -33,18 +34,29 @@ export default function AdminReports() {
   const fetchGlobalSales = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('tickets')
-        .select('id, created_at, vendor_id, client_name, total_amount, status, ticket_numbers(amount, draw_id, number_played)')
-        .gte('created_at', getStartOfDayUTC(startDate))
-        .lte('created_at', getEndOfDayUTC(endDate))
-        .order('created_at', { ascending: false });
+      // Paginación en bloques de 1000 para traer el 100% de los tickets sin topar en el límite de Supabase
+      const allTicketsData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        let query = supabase
+          .from('tickets')
+          .select('id, created_at, vendor_id, client_name, total_amount, status, ticket_numbers(amount, draw_id, number_played)')
+          .gte('created_at', getStartOfDayUTC(startDate))
+          .lte('created_at', getEndOfDayUTC(endDate))
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
 
-      if (subAdminVendorIds && subAdminVendorIds.length > 0) {
-        query = query.in('vendor_id', subAdminVendorIds);
+        if (subAdminVendorIds && subAdminVendorIds.length > 0) {
+          query = query.in('vendor_id', subAdminVendorIds);
+        }
+
+        const { data, error } = await query;
+        if (error || !data || data.length === 0) break;
+        allTicketsData.push(...data);
+        if (data.length < step) break;
+        from += step;
       }
-
-      const { data, error } = await query;
         
       const { data: coversData } = await supabase
         .from('covers')
@@ -52,30 +64,25 @@ export default function AdminReports() {
         .gte('created_at', getStartOfDayUTC(startDate))
         .lte('created_at', getEndOfDayUTC(endDate));
 
-      if (!error && data) {
-        setTickets(data);
+      if (allTicketsData.length > 0) {
+        setTickets(allTicketsData);
         
-        if (data.length > 0) {
-          const ticketIds = data.map(t => t.id);
-          const chunkSize = 50;
-          const chunks: string[][] = [];
-          for (let i = 0; i < ticketIds.length; i += chunkSize) {
-            chunks.push(ticketIds.slice(i, i + chunkSize));
-          }
-          const payoutPromises = chunks.map(chunk =>
-            supabase
-              .from('payouts')
-              .select('ticket_id, amount, paid_by')
-              .in('ticket_id', chunk)
-          );
-          const results = await Promise.all(payoutPromises);
-          const allPayouts = results.flatMap(r => r.data || []);
-          setPayouts(allPayouts);
-        } else {
-          setPayouts([]);
+        const ticketIds = allTicketsData.map(t => t.id);
+        const chunkSize = 100;
+        const chunks: string[][] = [];
+        for (let i = 0; i < ticketIds.length; i += chunkSize) {
+          chunks.push(ticketIds.slice(i, i + chunkSize));
         }
+        const payoutPromises = chunks.map(chunk =>
+          supabase
+            .from('payouts')
+            .select('ticket_id, amount, paid_by')
+            .in('ticket_id', chunk)
+        );
+        const results = await Promise.all(payoutPromises);
+        const allPayouts = results.flatMap(r => r.data || []);
+        setPayouts(allPayouts);
       } else {
-
         setTickets([]);
         setPayouts([]);
       }
@@ -252,25 +259,51 @@ export default function AdminReports() {
   // --- VARIABLES DE VISTA (GLOBAL vs VENDEDOR SELECCIONADO) ---
   const isGlobal = selectedVendor === 'all';
   
-  const displayGross = isGlobal ? globalGross : (vendorTotals[selectedVendor]?.gross || 0);
-  const displayCommission = isGlobal ? globalCommission : (vendorTotals[selectedVendor]?.commission || 0);
-  const displayPrizes = isGlobal ? totalPayoutNet : (vendorTotals[selectedVendor]?.prizesPaid || 0);
-  const displayNet = isGlobal ? globalNet : (displayGross - displayCommission - displayPrizes);
+  const baseGross = isGlobal ? globalGross : (vendorTotals[selectedVendor]?.gross || 0);
+  const baseCommission = isGlobal ? globalCommission : (vendorTotals[selectedVendor]?.commission || 0);
+  const basePrizes = isGlobal ? totalPayoutNet : (vendorTotals[selectedVendor]?.prizesPaid || 0);
+  const baseNet = isGlobal ? globalNet : (baseGross - baseCommission - basePrizes);
   
-  const displayActiveCount = isGlobal ? activeTickets.length : (vendorTotals[selectedVendor]?.ticketCount || 0);
-  const displayCancelledCount = isGlobal ? cancelledTickets.length : (vendorTotals[selectedVendor]?.cancelledCount || 0);
-  const displayCancelledAmount = isGlobal ? totalCancelledAmount : (vendorTotals[selectedVendor]?.cancelledAmount || 0);
-  const displayTotalIssued = displayActiveCount + displayCancelledCount;
+  const baseActiveCount = isGlobal ? activeTickets.length : (vendorTotals[selectedVendor]?.ticketCount || 0);
+  const baseCancelledCount = isGlobal ? cancelledTickets.length : (vendorTotals[selectedVendor]?.cancelledCount || 0);
+  const baseCancelledAmount = isGlobal ? totalCancelledAmount : (vendorTotals[selectedVendor]?.cancelledAmount || 0);
 
   const display020Tickets = isGlobal ? global020Tickets : (vendorTotals[selectedVendor]?.tickets020 || 0);
   const display020Ventas = isGlobal ? global020Ventas : (vendorTotals[selectedVendor]?.ventas020 || 0);
   const display020Comisiones = isGlobal ? global020Comisiones : (vendorTotals[selectedVendor]?.comisiones020 || 0);
   const display020Premios = isGlobal ? global020Premios : (vendorTotals[selectedVendor]?.premios020 || 0);
+  const display020Net = display020Ventas - display020Comisiones - display020Premios;
 
   const display025Tickets = isGlobal ? global025Tickets : (vendorTotals[selectedVendor]?.tickets025 || 0);
   const display025Ventas = isGlobal ? global025Ventas : (vendorTotals[selectedVendor]?.ventas025 || 0);
   const display025Comisiones = isGlobal ? global025Comisiones : (vendorTotals[selectedVendor]?.comisiones025 || 0);
   const display025Premios = isGlobal ? global025Premios : (vendorTotals[selectedVendor]?.premios025 || 0);
+  const display025Net = display025Ventas - display025Comisiones - display025Premios;
+
+  // Filtrado según la Modalidad seleccionada (all, 0.20, 0.25)
+  let displayGross = baseGross;
+  let displayCommission = baseCommission;
+  let displayPrizes = basePrizes;
+  let displayNet = baseNet;
+  let displayActiveCount = baseActiveCount;
+
+  if (selectedModality === '0.20') {
+    displayGross = display020Ventas;
+    displayCommission = display020Comisiones;
+    displayPrizes = display020Premios;
+    displayNet = display020Net;
+    displayActiveCount = display020Tickets;
+  } else if (selectedModality === '0.25') {
+    displayGross = display025Ventas;
+    displayCommission = display025Comisiones;
+    displayPrizes = display025Premios;
+    displayNet = display025Net;
+    displayActiveCount = display025Tickets;
+  }
+
+  const displayCancelledCount = selectedModality === 'all' ? baseCancelledCount : 0;
+  const displayCancelledAmount = selectedModality === 'all' ? baseCancelledAmount : 0;
+  const displayTotalIssued = displayActiveCount + displayCancelledCount;
 
   const currentLotteryViles = isGlobal ? lotterySalesViles : (vendorTotals[selectedVendor]?.lotterySalesViles || {});
   const currentLotteryUSD = isGlobal ? lotterySalesUSD : (vendorTotals[selectedVendor]?.lotterySalesUSD || {});
@@ -384,9 +417,9 @@ export default function AdminReports() {
       </div>
 
       {/* FILTER BAR */}
-      <div className="rpt-filter-bar" style={{ display: 'flex', gap: '1rem', backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', alignItems: 'flex-end' }}>
-         <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Fecha Inicio</label>
+      <div className="rpt-filter-bar" style={{ display: 'flex', gap: '1rem', backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+         <div style={{ flex: 1, minWidth: '150px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Fecha Inicio</label>
             <input 
               type="date" 
               value={startDate}
@@ -397,8 +430,8 @@ export default function AdminReports() {
          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: '0.8rem', color: '#cbd5e1' }}>
             <ArrowRight size={20} />
          </div>
-         <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Fecha Fin</label>
+         <div style={{ flex: 1, minWidth: '150px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Fecha Fin</label>
             <input 
               type="date" 
               value={endDate}
@@ -406,12 +439,12 @@ export default function AdminReports() {
               style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem' }}
             />
          </div>
-         <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Cajero</label>
+         <div style={{ flex: 1, minWidth: '150px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Cajero</label>
             <select 
               value={selectedVendor}
               onChange={(e) => setSelectedVendor(e.target.value)}
-              style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem', backgroundColor: '#fff' }}
+              style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #ced4da', width: '100%', fontSize: '0.95rem', backgroundColor: '#fff', fontWeight: 'bold' }}
             >
                <option value="all">Todos los Cajeros</option>
                {Object.keys(vendorTotals).map(vid => (
@@ -419,10 +452,22 @@ export default function AdminReports() {
                ))}
             </select>
          </div>
+         <div style={{ flex: 1, minWidth: '150px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#6c757d', marginBottom: '0.5rem' }}>Modalidad</label>
+            <select 
+              value={selectedModality}
+              onChange={(e) => setSelectedModality(e.target.value as any)}
+              style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #3b82f6', width: '100%', fontSize: '0.95rem', backgroundColor: '#eff6ff', fontWeight: 'bold', color: '#1e40af' }}
+            >
+               <option value="all">Todas ($0.20 + $0.25)</option>
+               <option value="0.20">Solo Modalidad $0.20</option>
+               <option value="0.25">Solo Modalidad $0.25</option>
+            </select>
+         </div>
          <button 
            onClick={fetchGlobalSales}
            disabled={loading}
-           style={{ padding: '0.8rem 1.5rem', height: '100%', border: 'none', backgroundColor: '#17233D', color: '#fff', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+           style={{ padding: '0.8rem 1.5rem', height: '48px', border: 'none', backgroundColor: '#17233D', color: '#fff', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
          >
             <Calendar size={18} /> {loading ? 'Calculando...' : 'Filtrar Periodo'}
          </button>
@@ -430,35 +475,37 @@ export default function AdminReports() {
 
       {/* GLOBAL SUMMARY (OPERATIVO) */}
       <div className="rpt-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
-         <div style={{ backgroundColor: '#fff', padding: '1.2rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderLeft: '4px solid #3b82f6' }}>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Tickets Emitidos</p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', color: '#1e293b' }}>{displayTotalIssued}</h3>
+         <div style={{ backgroundColor: '#fff', padding: '1.4rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderLeft: '5px solid #3b82f6' }}>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tickets Emitidos</p>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', fontWeight: 800, color: '#1e293b' }}>{displayTotalIssued}</h3>
          </div>
-         <div style={{ backgroundColor: '#fff', padding: '1.2rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderLeft: '4px solid #10b981' }}>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Tickets Activos</p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', color: '#1e293b' }}>{displayActiveCount}</h3>
+         <div style={{ backgroundColor: '#fff', padding: '1.4rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderLeft: '5px solid #10b981' }}>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tickets Activos</p>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', fontWeight: 800, color: '#047857' }}>{displayActiveCount}</h3>
          </div>
-         <div style={{ backgroundColor: '#fff', padding: '1.2rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderLeft: '4px solid #ef4444' }}>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Tickets Anulados</p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', color: '#ef4444' }}>{displayCancelledCount} <span style={{fontSize:'0.9rem', color:'#94a3b8', fontWeight:'normal'}}>(-${displayCancelledAmount.toFixed(2)})</span></h3>
+         <div style={{ backgroundColor: '#fff', padding: '1.4rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderLeft: '5px solid #ef4444' }}>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tickets Anulados</p>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', fontWeight: 800, color: '#ef4444' }}>{displayCancelledCount} <span style={{fontSize:'1rem', color:'#94a3b8', fontWeight: 600}}>(-${displayCancelledAmount.toFixed(2)})</span></h3>
          </div>
       </div>
 
       {/* TOP LOTTERIES */}
       {sortedLotteries.length > 0 && (
          <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem' }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#17233D', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-               <Activity size={18} color="#f59e0b" /> Sorteos con Mayor Actividad
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.15rem', color: '#17233D', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+               <Activity size={20} color="#f59e0b" /> Sorteos con Mayor Actividad
             </h3>
-            <div className="rpt-lottery-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div className="rpt-lottery-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                {sortedLotteries.slice(0, 5).map((lottery, idx) => (
-                  <div key={lottery.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div key={lottery.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
                      <div>
-                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginRight: '0.5rem' }}>#{idx + 1}</span>
-                        <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 'bold' }}>{lottery.name}</span>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>{lottery.viles} viles jugados</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                           <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 900, backgroundColor: '#e2e8f0', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>#{idx + 1}</span>
+                           <span style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 'bold' }}>{lottery.name}</span>
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>{lottery.viles.toLocaleString()} viles jugados</div>
                      </div>
-                     <span style={{ fontSize: '1.1rem', color: '#15803d', fontWeight: 'bold' }}>${lottery.usd.toFixed(2)}</span>
+                     <span style={{ fontSize: '1.4rem', color: '#15803d', fontWeight: 900 }}>${lottery.usd.toFixed(2)}</span>
                   </div>
                ))}
             </div>
@@ -466,62 +513,67 @@ export default function AdminReports() {
       )}
 
       {/* GLOBAL TICKERS */}
-      <div className="rpt-money-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '4px solid #3b82f6' }}>
+      <div className="rpt-money-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+         <div style={{ backgroundColor: '#fff', padding: '1.6rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '5px solid #3b82f6' }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#6c757d', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-               {isGlobal ? "Venta Bruta Global" : "Venta Bruta Cajero"}
+               {selectedModality !== 'all' ? `Venta ($${selectedModality})` : (isGlobal ? "Venta Bruta Global" : "Venta Bruta Cajero")}
             </p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.8rem', color: '#17233D' }}>${displayGross.toFixed(2)}</h3>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2.3rem', fontWeight: 800, color: '#17233D' }}>${displayGross.toFixed(2)}</h3>
          </div>
-         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '4px solid #f59e0b' }}>
+         <div style={{ backgroundColor: '#fff', padding: '1.6rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '5px solid #f59e0b' }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#6c757d', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {isGlobal ? "Comisiones Pagadas" : "Comisiones Cajero"}
             </p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.8rem', color: '#f59e0b' }}>${displayCommission.toFixed(2)}</h3>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2.3rem', fontWeight: 800, color: '#d97706' }}>${displayCommission.toFixed(2)}</h3>
          </div>
-         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '4px solid #ef4444' }}>
+         <div style={{ backgroundColor: '#fff', padding: '1.6rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderLeft: '5px solid #ef4444' }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#6c757d', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {isGlobal ? "Premios Pagados" : "Premios Cajero"}
             </p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.8rem', color: '#ef4444' }}>${displayPrizes.toFixed(2)}</h3>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2.3rem', fontWeight: 800, color: '#dc2626' }}>${displayPrizes.toFixed(2)}</h3>
          </div>
-         <div style={{ backgroundColor: '#17233D', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 12px rgba(23,35,61,0.2)', borderLeft: '4px solid #10b981', color: '#fff' }}>
+         <div style={{ backgroundColor: '#0f172a', padding: '1.6rem', borderRadius: '8px', boxShadow: '0 6px 16px rgba(15,23,42,0.3)', borderLeft: '5px solid #10b981', color: '#fff' }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-               {isGlobal ? "Utilidad Liquida a Recibir" : "Utilidad Liquida Cajero"}
+               {isGlobal ? "Utilidad Líquida a Recibir" : "Utilidad Líquida Cajero"}
             </p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#15803d' }}>${displayNet.toFixed(2)}</h3>
+            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2.5rem', fontWeight: 900, color: '#4ade80', textShadow: '0 0 12px rgba(74,222,128,0.2)' }}>
+               ${displayNet.toFixed(2)}
+            </h3>
          </div>
       </div>
 
 
       {/* ANALYTICS BY MODALITY */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
          {/* 0.20 BLOCK */}
-         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderTop: '4px solid #64748b' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.8rem' }}>
-               <Activity size={20} color="#64748b" />
-               <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#334155', textTransform: 'uppercase' }}>Estado Financiero: $0.20</h3>
+         <div style={{ backgroundColor: '#fff', padding: '1.8rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderTop: '5px solid #64748b', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.8rem' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Activity size={22} color="#64748b" />
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1e293b', textTransform: 'uppercase' }}>Modalidad $0.20</h3>
+               </div>
+               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', backgroundColor: '#f1f5f9', padding: '0.2rem 0.6rem', borderRadius: '12px', color: '#475569' }}>Paga x11</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.9rem' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Tickets Vendidos:</span>
-                  <span style={{ fontWeight: 'bold', color: '#334155' }}>{display020Tickets}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '1rem' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Tickets Vendidos:</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#1e293b' }}>{display020Tickets}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Venta Bruta:</span>
-                  <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>${display020Ventas.toFixed(2)}</span>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Venta Bruta:</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#2563eb' }}>${display020Ventas.toFixed(2)}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Premios Pagados:</span>
-                  <span style={{ fontWeight: 'bold', color: '#ef4444' }}>-${display020Premios.toFixed(2)}</span>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Premios Pagados:</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#dc2626' }}>-${display020Premios.toFixed(2)}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Comisiones:</span>
-                  <span style={{ fontWeight: 'bold', color: '#eab308' }}>-${display020Comisiones.toFixed(2)}</span>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Comisiones (10%):</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#d97706' }}>-${display020Comisiones.toFixed(2)}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', fontSize: '1.1rem' }}>
-                  <span style={{ color: '#334155', fontWeight: 'bold' }}>GANANCIA NETA:</span>
-                  <span style={{ fontWeight: 900, color: (display020Ventas - display020Premios - display020Comisiones) >= 0 ? '#10b981' : '#ef4444' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', paddingTop: '0.8rem', borderTop: '2px dashed #cbd5e1' }}>
+                  <span style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '1.1rem' }}>GANANCIA NETA:</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.5rem', color: (display020Ventas - display020Premios - display020Comisiones) >= 0 ? '#16a34a' : '#ef4444' }}>
                      ${(display020Ventas - display020Premios - display020Comisiones).toFixed(2)}
                   </span>
                </div>
@@ -529,31 +581,34 @@ export default function AdminReports() {
          </div>
 
          {/* 0.25 BLOCK */}
-         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderTop: '4px solid #0284c7' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.8rem' }}>
-               <Activity size={20} color="#0284c7" />
-               <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0284c7', textTransform: 'uppercase' }}>Estado Financiero: $0.25</h3>
+         <div style={{ backgroundColor: '#fff', padding: '1.8rem', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)', borderTop: '5px solid #0284c7', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.8rem' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Activity size={22} color="#0284c7" />
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#0369a1', textTransform: 'uppercase' }}>Modalidad $0.25</h3>
+               </div>
+               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', backgroundColor: '#e0f2fe', padding: '0.2rem 0.6rem', borderRadius: '12px', color: '#0369a1' }}>Paga x14</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.9rem' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Tickets Vendidos:</span>
-                  <span style={{ fontWeight: 'bold', color: '#334155' }}>{display025Tickets}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '1rem' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Tickets Vendidos:</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#1e293b' }}>{display025Tickets}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Venta Bruta:</span>
-                  <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>${display025Ventas.toFixed(2)}</span>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Venta Bruta:</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#2563eb' }}>${display025Ventas.toFixed(2)}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Premios Pagados:</span>
-                  <span style={{ fontWeight: 'bold', color: '#ef4444' }}>-${display025Premios.toFixed(2)}</span>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Premios Pagados:</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#dc2626' }}>-${display025Premios.toFixed(2)}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Comisiones:</span>
-                  <span style={{ fontWeight: 'bold', color: '#eab308' }}>-${display025Comisiones.toFixed(2)}</span>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Comisiones (10%):</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#d97706' }}>-${display025Comisiones.toFixed(2)}</span>
                </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', fontSize: '1.1rem' }}>
-                  <span style={{ color: '#334155', fontWeight: 'bold' }}>GANANCIA NETA:</span>
-                  <span style={{ fontWeight: 900, color: (display025Ventas - display025Premios - display025Comisiones) >= 0 ? '#10b981' : '#ef4444' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', paddingTop: '0.8rem', borderTop: '2px dashed #cbd5e1' }}>
+                  <span style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '1.1rem' }}>GANANCIA NETA:</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.5rem', color: (display025Ventas - display025Premios - display025Comisiones) >= 0 ? '#16a34a' : '#ef4444' }}>
                      ${(display025Ventas - display025Premios - display025Comisiones).toFixed(2)}
                   </span>
                </div>

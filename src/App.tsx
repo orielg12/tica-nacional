@@ -13,6 +13,7 @@ const AdminReports = lazy(() => import('./pages/admin/Reports'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminTickets = lazy(() => import('./pages/admin/TicketsManager'));
 const AdminManualSale = lazy(() => import('./pages/admin/ManualSale'));
+const AdminPartnerReports = lazy(() => import('./pages/admin/PartnerReports'));
 const AdminTemplates = lazy(() => import('./pages/admin/SocialTemplateGenerator'));
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 const ForecastsView = lazy(() => import('./components/shared/ForecastsView'));
@@ -123,6 +124,7 @@ function App() {
                   <Route path="tickets" element={<AdminTickets />} />
                   <Route path="reports" element={<AdminReports />} />
                   <Route path="manual-sale" element={<AdminManualSale />} />
+                  <Route path="partner" element={<AdminPartnerReports />} />
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
               </Route>
