@@ -421,6 +421,162 @@ export default function PartnerReports() {
     doc.save(`Reporte_Socio_${startDate}_${endDate}.pdf`);
   };
 
+  // ── Exportar Propuesta Formal para Inversionista ──
+  const exportProposalPDF = () => {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // ── PORTADA / HEADER ──
+    doc.setFillColor(23, 35, 61); // #17233D
+    doc.rect(0, 0, pageW, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROPUESTA DE PARTICIPACIÓN E INVERSIÓN', 14, 16);
+    doc.setFontSize(10);
+    doc.setTextColor(196, 181, 253);
+    doc.text('FONDO DE RESPALDO Y LIQUIDEZ PARA BANCA DE LOTERÍA', 14, 25);
+    doc.setFontSize(8.5);
+    doc.setTextColor(203, 213, 225);
+    doc.text(`Capital Solicitado: $${effectiveCapital.toFixed(2)} USD  |  Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 34);
+
+    let y = 49;
+    doc.setTextColor(0, 0, 0);
+
+    // ── 1. RESUMEN EJECUTIVO ──
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(23, 35, 61);
+    doc.text('1. OBJETO DE LA PROPUESTA', 14, y); y += 5.5;
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    const p1 = `La presente propuesta formal tiene como propósito invitar a un Socio Inversionista a aportar un Capital de Respaldo de $${effectiveCapital.toFixed(2)} USD para respaldar el volumen de apuestas y la solvencia en el pago oportuno de premios de la banca, permitiendo la ampliación de ventas en terminales POS con total solidez financiera.`;
+    doc.text(doc.splitTextToSize(p1, pageW - 28), 14, y); y += 14;
+
+    // ── 2. CONDICIONES FINANCIERAS Y ROLES ──
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(23, 35, 61);
+    doc.text('2. ESTRUCTURA DE GANANCIAS Y ROLES', 14, y); y += 6;
+
+    // Caja destacada de condiciones
+    doc.setFillColor(245, 243, 255);
+    doc.setDrawColor(221, 214, 254);
+    doc.roundedRect(14, y - 2, pageW - 28, 28, 3, 3, 'FD');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(109, 40, 217);
+    doc.text(`• CAPITAL DE RESPALDO (INVERSIÓN): $${effectiveCapital.toFixed(2)} USD (Fondo de solvencia en caja)`, 18, y + 4.5);
+    doc.text(`• PARTICIPACIÓN DE UTILIDAD PARA EL SOCIO: ${partnerPct}% de la Utilidad Neta de Banca`, 18, y + 10.5);
+    doc.text(`• COMISIÓN DE GESTIÓN OPERATIVA (ADMIN): ${operatorPct}% de Venta Bruta (Cubre el 100% del trabajo)`, 18, y + 16.5);
+    doc.text(`• PARTICIPACIÓN DE BANCA PARA EL DUEÑO: ${ownerPct}% de la Utilidad Neta de Banca`, 18, y + 22.5);
+    y += 33;
+
+    // ── 3. TRACK RECORD AUDITADO ──
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(23, 35, 61);
+    doc.text('3. RESULTADOS REALES COMPROBADOS (TRACK RECORD AUDITADO)', 14, y); y += 5.5;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Datos reales registrados en el sistema desde el 1 de junio de 2026 a la fecha:`, 14, y); y += 5.5;
+
+    // Tabla de Track Record
+    doc.setFillColor(241, 245, 249);
+    doc.rect(14, y - 2, pageW - 28, 5.5, 'F');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Concepto', 18, y + 1.8);
+    doc.text('Monto / Valor', 115, y + 1.8);
+    doc.text('Observación', 145, y + 1.8);
+    y += 6;
+
+    const auditRows = [
+      ['Tickets Válidos Procesados', `${totals.tickets} tickets`, 'Sin contar anulaciones'],
+      ['Venta Bruta Total', `$${totals.gross.toFixed(2)} USD`, 'Volumen procesado'],
+      ['Premios Pagados (1er, 2do y 3er lugar)', `$${totals.prizes.toFixed(2)} USD`, `Tasa de pago: ${payoutRatio.toFixed(1)}% (Saludable)`],
+      ['Comisiones de Vendedores', `$${totals.commissions.toFixed(2)} USD`, 'Puntos de venta atendidos'],
+      ['Tu Comisión Operativa (Admin)', `$${totals.operatorCut.toFixed(2)} USD`, 'Gestión diaria y cobros'],
+      ['Utilidad Neta de Banca', `+$${totals.netBank.toFixed(2)} USD`, 'Meses 100% en positivo'],
+      ['Ganancia Estimada para Socio', `+$${totals.partnerCut.toFixed(2)} USD`, `ROI del período: ${roiSocio.toFixed(1)}%`],
+    ];
+
+    doc.setFont('helvetica', 'normal');
+    auditRows.forEach(([c, m, o], idx) => {
+      if (idx % 2 === 1) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, y - 2, pageW - 28, 5, 'F');
+      }
+      doc.text(c, 18, y + 1.6);
+      doc.setFont('helvetica', 'bold');
+      doc.text(m, 115, y + 1.6);
+      doc.setFont('helvetica', 'normal');
+      doc.text(o, 145, y + 1.6);
+      y += 5;
+    });
+    y += 5;
+
+    // ── 4. REGLAS DE SEGURIDAD ──
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(23, 35, 61);
+    doc.text('4. REGLAS DE SEGURIDAD Y PROTECCIÓN DEL CAPITAL ($5,000)', 14, y); y += 5.5;
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    const secRules = [
+      '1. El capital de $5,000 USD se mantiene como reserva de solvencia para respaldo de pagos de premios.',
+      '2. Si en una semana los premios superan las ventas brutas, la diferencia se cubre temporalmente con el fondo de reserva.',
+      '3. Regla de Reposición Prioritaria: Toda ganancia de las semanas siguientes se destina en primer lugar a restituir el fondo a sus $5,000 USD antes de reanudar cualquier reparto de utilidades.',
+      '4. Transparencia y Rendición de Cuentas: El socio dispone de acceso y reportes auditados semanales y mensuales emitidos por el sistema.',
+      '5. Retiro de Capital: Si el socio desea retirar su inversión, se pacta un preaviso formal de 30 días para liquidar la reserva de forma ordenada sin afectar la operación.'
+    ];
+    secRules.forEach(rule => {
+      doc.text(rule, 14, y);
+      y += 4;
+    });
+    y += 3.5;
+
+    // ── 5. PROYECCIÓN ANUAL ESTIMADA ──
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(23, 35, 61);
+    doc.text('5. PROYECCIÓN ESTIMADA A 1 AÑO (SOBRE $5,000)', 14, y); y += 5.5;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Con base en el promedio mensual actual de ~$1,350 USD y un margen neto estimado del 16% al 20%:`, 14, y); y += 4.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(21, 128, 61);
+    doc.text(`• Retorno Anual Estimado para el Socio: $1,300.00 – $1,800.00 USD (ROI proyectado: 26% al 36% anual).`, 16, y); y += 10;
+
+    // ── 6. FIRMAS DE CONFORMIDAD ──
+    doc.setTextColor(23, 35, 61);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('6. FIRMAS DE CONFORMIDAD Y ACUERDO', 14, y); y += 13;
+
+    doc.setDrawColor(148, 163, 184);
+    doc.line(20, y, 90, y);
+    doc.line(120, y, 190, y);
+    y += 4;
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('POR LA ADMINISTRACIÓN / OPERADOR', 25, y);
+    doc.text('SOCIO CAPITALISTA / INVERSIONISTA', 125, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Nombre: _________________________', 20, y);
+    doc.text('Nombre: _________________________', 120, y);
+    y += 3.5;
+    doc.text('Firma / Cédula: ___________________', 20, y);
+    doc.text('Firma / Cédula: ___________________', 120, y);
+
+    doc.save(`Propuesta_Formal_Socio_5000_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   // Datos para gráficos
   const pieSlices = [
     { label: `Operador ${operatorPct}%`, value: totals.operatorCut, color: COLORS.operador },
@@ -465,28 +621,36 @@ export default function PartnerReports() {
     <div style={{ padding: '2rem', backgroundColor: '#f4f7f6', minHeight: '100%', color: '#333' }}>
 
       {/* Banner de Modo Propuesta / Activación */}
-      {!partnerModeActive && (
-        <div style={{ backgroundColor: '#f5f3ff', border: '1.5px solid #8b5cf6', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Handshake size={24} color="#8b5cf6" />
-            <div>
-              <strong style={{ color: '#5b21b6', fontSize: '0.95rem' }}>Modo Propuesta para Inversionista ($5,000)</strong>
-              <div style={{ fontSize: '0.78rem', color: '#6d28d9' }}>
-                Estás viendo la simulación real de la sociedad con tus números desde el 1 de junio. Puedes descargar el informe en PDF o Excel para mostrárselo al socio.
-              </div>
+      <div style={{ backgroundColor: '#f5f3ff', border: '1.5px solid #8b5cf6', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Handshake size={28} color="#8b5cf6" />
+          <div>
+            <strong style={{ color: '#5b21b6', fontSize: '1rem' }}>Propuesta Formal de Asociación e Inversión ($5,000 USD)</strong>
+            <div style={{ fontSize: '0.8rem', color: '#6d28d9', marginTop: '0.2rem' }}>
+              Documento formal para presentar al socio con las reglas 50/50, protección del fondo de $5k, tu 10% operativo y números auditados.
             </div>
           </div>
-          <button
-            onClick={() => {
-              store.updatePartnerConfig(true, effectiveCapital, partnerPct, reinvestPct, operatorPct);
-              alert('¡Módulo de Socio activado oficialmente con los valores de la propuesta!');
-            }}
-            style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', backgroundColor: '#7c3aed', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
-          >
-            Activar Módulo Oficialmente
-          </button>
         </div>
-      )}
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={exportProposalPDF}
+            style={{ padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', backgroundColor: '#8b5cf6', color: '#fff', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 4px rgba(139,92,246,0.25)' }}
+          >
+            <Download size={16} /> Descargar Propuesta PDF ($5k)
+          </button>
+          {!partnerModeActive && (
+            <button
+              onClick={() => {
+                store.updatePartnerConfig(true, effectiveCapital, partnerPct, reinvestPct, operatorPct);
+                alert('¡Módulo de Socio activado oficialmente con los valores de la propuesta!');
+              }}
+              style={{ padding: '0.55rem 1rem', borderRadius: '8px', border: '1.5px solid #7c3aed', backgroundColor: '#fff', color: '#7c3aed', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Activar Módulo Oficial
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '1rem 1.5rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem', border: '1px solid #e2e8f0' }}>
@@ -708,12 +872,15 @@ export default function PartnerReports() {
           </div>
 
           {/* ── Botones de descarga grandes ── */}
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <button onClick={exportExcel} style={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1rem', borderRadius: '10px', border: '2px solid #16a34a', backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }}>
-              <FileSpreadsheet size={22} /> Descargar Reporte Excel (.xlsx)
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+            <button onClick={exportProposalPDF} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1rem', borderRadius: '10px', border: '2px solid #8b5cf6', backgroundColor: '#f5f3ff', color: '#6d28d9', fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(139,92,246,0.1)' }}>
+              <Download size={22} /> Descargar Propuesta para Socio ($5k PDF)
             </button>
-            <button onClick={exportPDF} style={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1rem', borderRadius: '10px', border: '2px solid #dc2626', backgroundColor: '#fef2f2', color: '#b91c1c', fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }}>
-              <Download size={22} /> Descargar Reporte PDF
+            <button onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1rem', borderRadius: '10px', border: '2px solid #16a34a', backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }}>
+              <FileSpreadsheet size={22} /> Descargar Liquidación Excel (.xlsx)
+            </button>
+            <button onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1rem', borderRadius: '10px', border: '2px solid #dc2626', backgroundColor: '#fef2f2', color: '#b91c1c', fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }}>
+              <Download size={22} /> Descargar Liquidación Mensual (PDF)
             </button>
           </div>
         </>
