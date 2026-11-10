@@ -1,7 +1,7 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDashboardData } from '../../hooks/useDashboardData';
-import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame, RefreshCw } from 'lucide-react';
+import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame, RefreshCw, Activity, Layers, TrendingUp, TrendingDown } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../utils/supabase';
 
@@ -251,11 +251,22 @@ export default function Dashboard() {
   };
 
   const selectedDayName = getDayNameFromDateStr(activeDate);
-  const activelotteriesCount = store.lotteriesMaster.filter(l => {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const isSelectedToday = activeDate === getLocalISODate();
+
+  const dayLotteries = store.lotteriesMaster.filter(l => {
     if (!l.isActive) return false;
     if (!l.days || l.days.length === 0) return true; // Si no hay días definidos, juega todos los días
     return l.days.includes(selectedDayName as any);
-  }).length;
+  });
+  const totalDayLotteries = dayLotteries.length;
+  const remainingLotteriesCount = isSelectedToday
+    ? dayLotteries.filter(l => {
+        const lotMinutes = l.hour * 60 + l.minute - (l.closeMinutes ?? 10);
+        return lotMinutes > currentMinutes;
+      }).length
+    : 0;
 
   const isSubAdmin = store.currentUser?.isSubAdmin;
   const activeVendorsCount = store.users.filter(u => {
@@ -313,6 +324,175 @@ export default function Dashboard() {
         <MetricCard title="DINERO CUBIERTO" value={`$${metrics.dineroCubierto.toFixed(2)}`} icon={<ShieldAlert size={18}/>} color="#ea868f" />
         <MetricCard title="REEMBOLSOS BANCA" value={`$${metrics.reembolsoRespaldo.toFixed(2)}`} icon={<ShieldAlert size={18}/>} color="#10b981" />
       </div>
+
+      {/* COMPARATIVA DIARIA POR MODALIDAD ($0.20 vs $0.25) */}
+      {(() => {
+        const m020 = metrics.modality020 || { ventas: 0, premios: 0, comisiones: 0, neto: 0, tickets: 0, payoutRatio: 0 };
+        const m025 = metrics.modality025 || { ventas: 0, premios: 0, comisiones: 0, neto: 0, tickets: 0, payoutRatio: 0 };
+        const totalSales = m020.ventas + m025.ventas;
+        const pct020 = totalSales > 0 ? (m020.ventas / totalSales) * 100 : 50;
+        const pct025 = totalSales > 0 ? (m025.ventas / totalSales) * 100 : 50;
+
+        return (
+          <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Layers size={22} color="#4f46e5" />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#17233D', fontWeight: 800 }}>
+                    Rendimiento por Modalidad de Banca (Diario)
+                  </h4>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Comparativa de ventas, premios y rentabilidad entre bancas $0.20 y $0.25
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.75rem', fontWeight: 700 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#0284c7' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#0284c7', display: 'inline-block' }} />
+                  Banca $0.20 ({pct020.toFixed(0)}%)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#7c3aed' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#7c3aed', display: 'inline-block' }} />
+                  Banca $0.25 ({pct025.toFixed(0)}%)
+                </span>
+              </div>
+            </div>
+
+            {/* Barra de Distribución de Ventas */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>
+                <span>Participación de Venta: $0.20 ({pct020.toFixed(1)}%)</span>
+                <span>$0.25 ({pct025.toFixed(1)}%)</span>
+              </div>
+              <div style={{ width: '100%', height: '10px', backgroundColor: '#f1f5f9', borderRadius: '999px', overflow: 'hidden', display: 'flex' }}>
+                <div style={{ width: `${pct020}%`, backgroundColor: '#0284c7', transition: 'width 0.4s ease' }} title={`$0.20: $${m020.ventas.toFixed(2)}`} />
+                <div style={{ width: `${pct025}%`, backgroundColor: '#7c3aed', transition: 'width 0.4s ease' }} title={`$0.25: $${m025.ventas.toFixed(2)}`} />
+              </div>
+            </div>
+
+            {/* Tarjetas Comparativas de Cada Modalidad */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              {/* Tarjeta Modalidad $0.20 */}
+              <div style={{ border: '1px solid #bae6fd', backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ backgroundColor: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800 }}>$0.20</span>
+                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0369a1' }}>Modalidad $0.20 (Paga x11)</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1' }}>
+                    {m020.tickets} tickets
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', padding: '0.75rem', border: '1px solid #e0f2fe' }}>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>VENTAS</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0284c7' }}>${m020.ventas.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>PREMIOS</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#dc2626' }}>${m020.premios.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>COMISIONES</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#d97706' }}>${m020.comisiones.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>SINIESTRALIDAD</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: m020.payoutRatio > 80 ? '#dc2626' : m020.payoutRatio > 65 ? '#d97706' : '#16a34a' }}>
+                      {m020.payoutRatio.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: m020.neto >= 0 ? '#ecfdf5' : '#fef2f2', padding: '0.6rem 0.8rem', borderRadius: '8px', border: `1px solid ${m020.neto >= 0 ? '#a7f3d0' : '#fecaca'}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 700, color: m020.neto >= 0 ? '#065f46' : '#991b1b' }}>
+                    {m020.neto >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    <span>Ganancia Neta $0.20</span>
+                  </div>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 900, color: m020.neto >= 0 ? '#059669' : '#dc2626' }}>
+                    ${m020.neto.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tarjeta Modalidad $0.25 */}
+              <div style={{ border: '1px solid #ddd6fe', backgroundColor: '#fbf7ff', borderRadius: '10px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ backgroundColor: '#7c3aed', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800 }}>$0.25</span>
+                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#5b21b6' }}>Modalidad $0.25 (Paga x14)</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#ede9fe', color: '#5b21b6' }}>
+                    {m025.tickets} tickets
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', padding: '0.75rem', border: '1px solid #ede9fe' }}>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>VENTAS</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#7c3aed' }}>${m025.ventas.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>PREMIOS</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#dc2626' }}>${m025.premios.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>COMISIONES</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#d97706' }}>${m025.comisiones.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>SINIESTRALIDAD</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: m025.payoutRatio > 80 ? '#dc2626' : m025.payoutRatio > 65 ? '#d97706' : '#16a34a' }}>
+                      {m025.payoutRatio.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: m025.neto >= 0 ? '#ecfdf5' : '#fef2f2', padding: '0.6rem 0.8rem', borderRadius: '8px', border: `1px solid ${m025.neto >= 0 ? '#a7f3d0' : '#fecaca'}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 700, color: m025.neto >= 0 ? '#065f46' : '#991b1b' }}>
+                    {m025.neto >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    <span>Ganancia Neta $0.25</span>
+                  </div>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 900, color: m025.neto >= 0 ? '#059669' : '#dc2626' }}>
+                    ${m025.neto.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mini Desglose 7 Días Modalidades si hay datos */}
+            {metrics.weeklyModality && metrics.weeklyModality.length > 0 && (
+              <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Activity size={14} color="#6366f1" /> Tendencia de Ventas (Últimos 7 Días por Modalidad)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${metrics.weeklyModality.length}, 1fr)`, gap: '4px', textAlign: 'center' }}>
+                  {metrics.weeklyModality.map((wm, idx) => {
+                    const dayTotal = wm.sales020 + wm.sales025;
+                    const p020 = dayTotal > 0 ? (wm.sales020 / dayTotal) * 100 : 50;
+                    return (
+                      <div key={idx} style={{ backgroundColor: '#f8fafc', padding: '6px 4px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#475569' }}>{wm.day}</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f172a', margin: '2px 0' }}>${dayTotal.toFixed(0)}</div>
+                        <div style={{ width: '100%', height: '5px', backgroundColor: '#ede9fe', borderRadius: '999px', overflow: 'hidden', display: 'flex' }}>
+                          <div style={{ width: `${p020}%`, backgroundColor: '#0284c7' }} />
+                          <div style={{ width: `${100 - p020}%`, backgroundColor: '#7c3aed' }} />
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#0284c7', fontWeight: 700 }}>${wm.sales020.toFixed(0)}</span>
+                          <span style={{ color: '#7c3aed', fontWeight: 700 }}>${wm.sales025.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* MONITOR DE NÚMEROS ALTOS POR SORTEO PRÓXIMO / ACTIVO */}
       <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
@@ -594,7 +774,17 @@ export default function Dashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
               <SummaryRow label="Total Bancas" value="1" />
               <SummaryRow label="Cajeros Activos" value={activeVendorsCount.toString()} />
-              <SummaryRow label="Sorteos Activos" value={activelotteriesCount.toString()} />
+              {isSelectedToday ? (
+                <SummaryRow 
+                  label="Sorteos por Cerrar Hoy" 
+                  value={`${remainingLotteriesCount} de ${totalDayLotteries}`} 
+                />
+              ) : (
+                <SummaryRow 
+                  label="Sorteos del Día" 
+                  value={`${totalDayLotteries} programados`} 
+                />
+              )}
               
               <div style={{ borderTop: '1px solid #eee', paddingTop: '0.8rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#333' }}>Ganancia Neta Hoy</span>

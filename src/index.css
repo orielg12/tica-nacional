@@ -1,4 +1,16 @@
 @import "tailwindcss";
+
+/* Safe Area Utilities for Android navigation bar & iOS home indicator */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px) !important;
+}
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 16px) !important;
+}
+.mb-safe {
+  margin-bottom: max(env(safe-area-inset-bottom, 0px), 24px) !important;
+}
+
 :root {
   /* ========================================================================= */
   /* DESIGN TOKENS - PREMIUM DARK MODE                                         */
@@ -717,3 +729,4 @@ body.light {
   filter: none !important;
   box-shadow: none !important;
 }
+

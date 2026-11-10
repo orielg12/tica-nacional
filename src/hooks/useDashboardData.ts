@@ -10,6 +10,23 @@ export interface WeeklySales {
   covers: number;
 }
 
+export interface ModalityStats {
+  ventas: number;
+  premios: number;
+  comisiones: number;
+  neto: number;
+  tickets: number;
+  payoutRatio: number;
+}
+
+export interface WeeklyModality {
+  day: string;
+  sales020: number;
+  sales025: number;
+  net020: number;
+  net025: number;
+}
+
 interface DashboardMetrics {
   ventasBrutas: number;
   comisiones: number;
@@ -20,7 +37,19 @@ interface DashboardMetrics {
   ticketsVendidos: number;
   weeklySales: WeeklySales[];
   monthlySales: WeeklySales[];
+  modality020: ModalityStats;
+  modality025: ModalityStats;
+  weeklyModality: WeeklyModality[];
 }
+
+const emptyModalityStats: ModalityStats = {
+  ventas: 0,
+  premios: 0,
+  comisiones: 0,
+  neto: 0,
+  tickets: 0,
+  payoutRatio: 0
+};
 
 export function useDashboardData(selectedDateStr?: string) {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -32,7 +61,10 @@ export function useDashboardData(selectedDateStr?: string) {
     gananciaNeta: 0,
     ticketsVendidos: 0,
     weeklySales: [],
-    monthlySales: []
+    monthlySales: [],
+    modality020: emptyModalityStats,
+    modality025: emptyModalityStats,
+    weeklyModality: []
   });
   const [loading, setLoading] = useState(true);
 
@@ -70,7 +102,7 @@ export function useDashboardData(selectedDateStr?: string) {
       // 1. Gross Sales (Tickets de últimos 30 días para el gráfico mensual)
       let query = supabase
         .from('tickets')
-        .select('id, created_at, total_amount, status, vendor_id')
+        .select('id, created_at, total_amount, status, vendor_id, ticket_numbers(amount)')
         .gte('created_at', getStartOfDayUTC(thirtyDaysAgoStr));
 
       if (subAdminVendorIds && subAdminVendorIds.length > 0) {
@@ -187,13 +219,122 @@ export function useDashboardData(selectedDateStr?: string) {
          commissionMap[u.id.toString()] = u.commission;
       });
 
+      // Mapear modalidad por ticket
+      const ticketModalityMap: Record<string, '0.20' | '0.25'> = {};
+      validTickets.forEach((t: any) => {
+        const amt = parseFloat(t.total_amount || '0');
+        const numbers = t.ticket_numbers || [];
+        const tiempos = numbers.reduce((sum: number, tn: any) => sum + parseFloat(tn.amount || '0'), 0) || 1;
+        const isQuarter = (amt / tiempos) >= 0.235;
+        ticketModalityMap[t.id] = isQuarter ? '0.25' : '0.20';
+      });
+
       let comisiones = 0;
-      todaysTickets.forEach(t => {
+      let ventas020 = 0, tickets020 = 0, comisiones020 = 0;
+      let ventas025 = 0, tickets025 = 0, comisiones025 = 0;
+
+      todaysTickets.forEach((t: any) => {
          const amount = parseFloat(t.total_amount || '0');
          const vid = t.vendor_id?.toString() || 'desconocido';
          const commPerc = commissionMap[vid] || 0;
-         comisiones += amount * (commPerc / 100);
+         const comm = amount * (commPerc / 100);
+         comisiones += comm;
+
+         const mod = ticketModalityMap[t.id] || '0.20';
+         if (mod === '0.25') {
+            ventas025 += amount;
+            tickets025 += 1;
+            comisiones025 += comm;
+         } else {
+            ventas020 += amount;
+            tickets020 += 1;
+            comisiones020 += comm;
+         }
       });
+
+      // Premios de hoy separados por modalidad
+      let premios020 = 0;
+      let premios025 = 0;
+
+      (payoutsData || []).forEach(p => {
+        if (p.paid_by === 'EXTERNAL_BANK_REIMBURSEMENT') return;
+        const dStr = (p.ticket_id && ticketDateMap[p.ticket_id]) 
+          ? ticketDateMap[p.ticket_id] 
+          : getLocalISODate(new Date(p.created_at));
+
+        if (dStr === todayStr) {
+          const amt = parseFloat(p.amount || '0');
+          const mod = (p.ticket_id && ticketModalityMap[p.ticket_id]) || '0.20';
+          if (mod === '0.25') {
+            premios025 += amt;
+          } else {
+            premios020 += amt;
+          }
+        }
+      });
+
+      const neto020 = ventas020 - comisiones020 - premios020;
+      const neto025 = ventas025 - comisiones025 - premios025;
+      const payoutRatio020 = ventas020 > 0 ? (premios020 / ventas020) * 100 : 0;
+      const payoutRatio025 = ventas025 > 0 ? (premios025 / ventas025) * 100 : 0;
+
+      const modality020: ModalityStats = {
+        ventas: ventas020,
+        premios: premios020,
+        comisiones: comisiones020,
+        neto: neto020,
+        tickets: tickets020,
+        payoutRatio: payoutRatio020
+      };
+
+      const modality025: ModalityStats = {
+        ventas: ventas025,
+        premios: premios025,
+        comisiones: comisiones025,
+        neto: neto025,
+        tickets: tickets025,
+        payoutRatio: payoutRatio025
+      };
+
+      // Desglose de últimos 7 días por modalidad
+      const weekModalityMap: Record<string, { sales020: number; sales025: number; payouts020: number; payouts025: number }> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dStr = getLocalISODate(d);
+        weekModalityMap[dStr] = { sales020: 0, sales025: 0, payouts020: 0, payouts025: 0 };
+      }
+
+      validTickets.forEach((t: any) => {
+        const dStr = getLocalISODate(new Date(t.created_at));
+        if (weekModalityMap[dStr]) {
+          const amt = parseFloat(t.total_amount || '0');
+          const mod = ticketModalityMap[t.id] || '0.20';
+          if (mod === '0.25') weekModalityMap[dStr].sales025 += amt;
+          else weekModalityMap[dStr].sales020 += amt;
+        }
+      });
+
+      (payoutsData || []).forEach(p => {
+        if (p.paid_by === 'EXTERNAL_BANK_REIMBURSEMENT') return;
+        const dStr = (p.ticket_id && ticketDateMap[p.ticket_id]) 
+          ? ticketDateMap[p.ticket_id] 
+          : getLocalISODate(new Date(p.created_at));
+        if (weekModalityMap[dStr]) {
+          const amt = parseFloat(p.amount || '0');
+          const mod = (p.ticket_id && ticketModalityMap[p.ticket_id]) || '0.20';
+          if (mod === '0.25') weekModalityMap[dStr].payouts025 += amt;
+          else weekModalityMap[dStr].payouts020 += amt;
+        }
+      });
+
+      const weeklyModality = Object.entries(weekModalityMap).map(([dateStr, d]) => ({
+        day: dayNames[new Date(dateStr + 'T12:00:00Z').getDay()],
+        sales020: d.sales020,
+        sales025: d.sales025,
+        net020: d.sales020 - d.payouts020,
+        net025: d.sales025 - d.payouts025
+      }));
 
       // 3. Dinero Cubierto y Premios (hoy)
       const dineroCubierto = monthMap[todayStr]?.covers || 0;
@@ -204,7 +345,20 @@ export function useDashboardData(selectedDateStr?: string) {
       const gananciaNeta = ventasBrutas - comisiones - dineroCubierto - premiosPagados + reembolsoRespaldo;
 
       if (ticketsData) {
-         setMetrics({ ventasBrutas, comisiones, dineroCubierto, premiosPagados, reembolsoRespaldo, gananciaNeta, ticketsVendidos, weeklySales, monthlySales });
+         setMetrics({ 
+           ventasBrutas, 
+           comisiones, 
+           dineroCubierto, 
+           premiosPagados, 
+           reembolsoRespaldo, 
+           gananciaNeta, 
+           ticketsVendidos, 
+           weeklySales, 
+           monthlySales,
+           modality020,
+           modality025,
+           weeklyModality
+         });
       }
     } catch (error) {
       console.error("Error loading realtime dashboard data:", error);

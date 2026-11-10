@@ -507,13 +507,15 @@ export default function PaletPOS() {
             <span className="text-2xl font-black text-teal-400 font-mono">${calculateTotal().toFixed(2)}</span>
           </div>
 
-          <button 
-            onClick={() => setShowCheckoutModal(true)}
-            disabled={paletCart.length === 0}
-            className="w-full bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 py-3 rounded-xl font-bold uppercase tracking-wider text-slate-950 text-base"
-          >
-            PROCESAR PALETS
-          </button>
+          <div style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 18px)' }}>
+            <button 
+              onClick={() => setShowCheckoutModal(true)}
+              disabled={paletCart.length === 0}
+              className="w-full bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 py-3 rounded-xl font-bold uppercase tracking-wider text-slate-950 text-base"
+            >
+              PROCESAR PALETS
+            </button>
+          </div>
         </div>
       </div>
 

@@ -1144,7 +1144,7 @@ export default function POS() {
             
             {/* EL BOTON MÁS GRANDE - PROCESAR MÓVIL (Solo visible si !isDesktop) */}
             {!isDesktop && (
-              <div>
+              <div style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 18px)' }}>
                 <button 
                   onClick={() => setShowCheckoutModal(true)}
                   disabled={posCart.length === 0}

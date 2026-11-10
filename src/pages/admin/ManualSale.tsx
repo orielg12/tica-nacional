@@ -156,7 +156,6 @@ export default function ManualSale() {
     setImportText('');
   };
 
-
   // Final sale calculations
   const numSelectedLotteries = selectedLotteryIds.length;
   const totalVilesPerLottery = plays.reduce((acc, p) => acc + p.amount, 0);
@@ -283,8 +282,8 @@ export default function ManualSale() {
   const vendors = store.users.filter(u => u.role === 'Vendedor' || u.role === 'vendor');
 
   return (
-    <div className="w-full bg-[#f8fafc] min-h-screen p-3 sm:p-5 lg:p-7">
-      <div className="max-w-6xl mx-auto space-y-5">
+    <div className="w-full min-h-screen px-3 sm:px-5 lg:px-8 py-5 bg-[#f8fafc]">
+      <div className="w-full max-w-[1600px] mx-auto space-y-5">
 
         {/* ── HEADER PRINCIPAL FINTECH ── */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -310,7 +309,7 @@ export default function ManualSale() {
           <button
             type="button"
             onClick={() => setShowImportModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm transition-all active:scale-95 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm transition-all active:scale-95 whitespace-nowrap"
           >
             <Clipboard size={16} />
             <span>Pegar Lista de WhatsApp</span>
@@ -336,410 +335,413 @@ export default function ManualSale() {
           </div>
         )}
 
-        {/* ── KPI MINI-METRIC CARDS (EN VIVO) ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-            <div className="flex justify-between items-center text-slate-500">
-              <span className="text-xs font-bold uppercase tracking-wider">Jugadas</span>
-              <Hash size={16} className="text-blue-600" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900">{plays.length}</span>
-              <span className="text-xs text-slate-400">líneas</span>
-            </div>
-          </div>
+        {/* ── LAYOUT RESPONSIVO DE DOS COLUMNAS EN DESKTOP ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-            <div className="flex justify-between items-center text-slate-500">
-              <span className="text-xs font-bold uppercase tracking-wider">Viles / Sorteo</span>
-              <Sparkles size={16} className="text-indigo-600" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-black font-mono text-indigo-700">{totalVilesPerLottery}</span>
-              <span className="text-xs text-slate-400">totales</span>
-            </div>
-          </div>
+          {/* COLUMNA IZQUIERDA: CONFIGURACIÓN, SORTEOS Y ENTRADA DE NÚMEROS */}
+          <div className="lg:col-span-7 space-y-5">
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-            <div className="flex justify-between items-center text-slate-500">
-              <span className="text-xs font-bold uppercase tracking-wider">Sorteos</span>
-              <Layers size={16} className={numSelectedLotteries > 0 ? "text-blue-600" : "text-amber-500"} />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className={`text-2xl sm:text-3xl font-black font-mono ${numSelectedLotteries > 0 ? 'text-blue-700' : 'text-amber-600'}`}>{numSelectedLotteries}</span>
-              <span className="text-xs text-slate-400">loterías</span>
-            </div>
-          </div>
+            {/* CARD: SELECTOR DE SORTEOS DESTINO */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <Layers size={20} className="text-blue-600" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                      Sorteos a Jugar
+                    </h3>
+                    <span className="text-xs text-slate-500">
+                      Selecciona uno o varios sorteos en los que se registrarán las jugadas.
+                    </span>
+                  </div>
+                  <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-bold ${numSelectedLotteries > 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                    {numSelectedLotteries} activo(s)
+                  </span>
+                </div>
 
-          <div className="bg-emerald-50/80 p-4 rounded-2xl border-2 border-emerald-300 shadow-xs flex flex-col justify-between">
-            <div className="flex justify-between items-center text-emerald-800">
-              <span className="text-xs font-black uppercase tracking-wider">TOTAL A COBRAR</span>
-              <DollarSign size={18} className="text-emerald-700" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-700">${totalDollarsAllLotteries.toFixed(2)}</span>
-            </div>
-          </div>
-
-        </div>
-
-        {/* ── CARD 1: SELECTOR DE SORTEOS DESTINO ── */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2.5">
-              <Layers size={20} className="text-blue-600" />
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Sorteos a Jugar
-                </h3>
-                <span className="text-xs text-slate-500">
-                  Puedes seleccionar un solo sorteo o múltiples sorteos simultáneamente.
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={selectAllLotteries}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors active:scale-95"
+                  >
+                    ✓ Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAllLotteries}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 font-bold text-xs rounded-xl transition-colors active:scale-95"
+                  >
+                    ✕ Ninguno
+                  </button>
+                </div>
               </div>
-              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-bold ${numSelectedLotteries > 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                {numSelectedLotteries} seleccionado(s)
-              </span>
+
+              {/* Grid de Chips de Sorteos */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                {allLotteries.map(l => {
+                  const isSelected = selectedLotteryIds.includes(l.id);
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => toggleLottery(l.id)}
+                      className={`p-3 rounded-xl border text-left flex items-center justify-between gap-2 transition-all active:scale-95 shadow-xs ${
+                        isSelected 
+                          ? 'bg-blue-600 border-blue-700 text-white shadow-md ring-2 ring-blue-200' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-xs truncate leading-tight">{l.name}</div>
+                        <div className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                          {formatLotteryTime(l.hour, l.minute)}
+                        </div>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${isSelected ? 'bg-white text-blue-700' : 'border border-slate-300 bg-slate-50'}`}>
+                        {isSelected && '✓'}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {allLotteries.length === 0 && (
+                <p className="text-center py-4 text-xs text-slate-400 italic">No hay sorteos activos configurados en el sistema.</p>
+              )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={selectAllLotteries}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors active:scale-95"
-              >
-                ✓ Seleccionar Todos
-              </button>
-              <button
-                type="button"
-                onClick={clearAllLotteries}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 font-bold text-xs rounded-xl transition-colors active:scale-95"
-              >
-                ✕ Desmarcar
-              </button>
-            </div>
-          </div>
+            {/* CARD: DATOS DE LA VENTA */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Vendedor */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1">
+                    <User size={14} className="text-blue-600" /> Vendedor Responsable *
+                  </label>
+                  <select
+                    value={vendorId}
+                    onChange={e => setVendorId(e.target.value)}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
+                  >
+                    <option value="">-- Seleccionar Vendedor --</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.username}>{v.username} ({v.name || 'Sin nombre'})</option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Grid de Chips de Sorteos */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 max-h-52 overflow-y-auto pr-1">
-            {allLotteries.map(l => {
-              const isSelected = selectedLotteryIds.includes(l.id);
-              return (
-                <button
-                  key={l.id}
-                  type="button"
-                  onClick={() => toggleLottery(l.id)}
-                  className={`p-3 rounded-xl border text-left flex items-center justify-between gap-2 transition-all active:scale-95 shadow-xs ${
-                    isSelected 
-                      ? 'bg-blue-600 border-blue-700 text-white shadow-md ring-2 ring-blue-200' 
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs truncate leading-tight">{l.name}</div>
-                    <div className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
-                      {formatLotteryTime(l.hour, l.minute)}
+                {/* Cliente */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                    Cliente (Opcional)
+                  </label>
+                  <SafeTextInput
+                    value={clientName}
+                    onChange={setClientName}
+                    placeholder="Nombre del cliente"
+                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
+                  />
+                </div>
+
+                {/* Modalidad / Denominación */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                    Modalidad / Precio por Vil
+                  </label>
+                  <div className="flex gap-2 h-11">
+                    <button
+                      type="button"
+                      onClick={() => setSaleMode(0.20)}
+                      className={`flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${
+                        saleMode === 0.20 
+                          ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      $0.20 (Paga x11)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSaleMode(0.25)}
+                      className={`flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${
+                        saleMode === 0.25 
+                          ? 'bg-purple-50 border-purple-600 text-purple-700 shadow-xs' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      $0.25 (Paga x14)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fecha */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1">
+                    <Calendar size={14} className="text-blue-600" /> Fecha de Emisión
+                  </label>
+                  <input
+                    type="date"
+                    value={saleDate}
+                    onChange={e => setSaleDate(e.target.value)}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
+                  />
+                </div>
+
+              </div>
+            </div>
+
+            {/* CARD: ENTRADA DE JUGADAS */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {editIdx !== null ? `✏️ Editando Jugada #${editIdx + 1}` : 'Entrada de Jugadas'}
+                </h3>
+                {editIdx !== null && (
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-bold"
+                  >
+                    Cancelar Edición
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                
+                {/* Viles */}
+                <div className="sm:col-span-4">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[11px] font-bold text-slate-600 uppercase">
+                      Viles (Monto)
+                    </label>
+                    <div className="flex gap-1">
+                      {[1, 5, 10].map(v => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setCurrentAmount(v.toString())}
+                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                        >
+                          +{v}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${isSelected ? 'bg-white text-blue-700' : 'border border-slate-300 bg-slate-50'}`}>
-                    {isSelected && '✓'}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          {allLotteries.length === 0 && (
-            <p className="text-center py-4 text-xs text-slate-400 italic">No hay sorteos activos configurados en el sistema.</p>
-          )}
-        </div>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min="1"
+                    value={currentAmount}
+                    onChange={e => setCurrentAmount(e.target.value)}
+                    placeholder="1"
+                    className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-slate-900 font-mono text-xl font-bold outline-none transition-colors"
+                  />
+                </div>
 
-        {/* ── CARD 2: DATOS DE LA VENTA (4 COLUMNAS SIMÉTRICAS) ── */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* Vendedor */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide flex items-center gap-1">
-                <User size={14} className="text-blue-600" /> Vendedor Responsable *
-              </label>
-              <select
-                value={vendorId}
-                onChange={e => setVendorId(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
-              >
-                <option value="">-- Seleccionar Vendedor --</option>
-                {vendors.map(v => (
-                  <option key={v.id} value={v.username}>{v.username} ({v.name || 'Sin nombre'})</option>
-                ))}
-              </select>
-            </div>
+                {/* Número */}
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                    Número (00 al 99)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={2}
+                    value={currentNumber}
+                    onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (editIdx !== null) confirmEdit();
+                        else addPlay();
+                      }
+                    }}
+                    placeholder="Ej. 45"
+                    className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-slate-900 font-mono text-xl font-black text-center outline-none transition-colors"
+                  />
+                </div>
 
-            {/* Cliente */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
-                Cliente (Opcional)
-              </label>
-              <SafeTextInput
-                value={clientName}
-                onChange={setClientName}
-                placeholder="Nombre del cliente"
-                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
-              />
-            </div>
-
-            {/* Modalidad / Denominación */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide">
-                Precio por Vil
-              </label>
-              <div className="flex gap-2 h-11">
-                <button
-                  type="button"
-                  onClick={() => setSaleMode(0.20)}
-                  className={`flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${
-                    saleMode === 0.20 
-                      ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs' 
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  $0.20 / vil
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSaleMode(0.25)}
-                  className={`flex-1 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all flex items-center justify-center ${
-                    saleMode === 0.25 
-                      ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs' 
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  $0.25 / vil
-                </button>
-              </div>
-            </div>
-
-            {/* Fecha */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wide flex items-center gap-1">
-                <Calendar size={14} className="text-blue-600" /> Fecha de Emisión
-              </label>
-              <input
-                type="date"
-                value={saleDate}
-                onChange={e => setSaleDate(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-300 text-slate-800 bg-white font-bold text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-colors"
-              />
-            </div>
-
-          </div>
-        </div>
-
-        {/* ── CARD 3: ENTRADA DE JUGADAS (SIMÉTRICA Y ÁGIL) ── */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              {editIdx !== null ? `✏️ Editando Jugada #${editIdx + 1}` : 'Entrada de Jugadas'}
-            </h3>
-            {editIdx !== null && (
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="text-xs text-slate-500 hover:text-slate-800 font-bold"
-              >
-                Cancelar Edición
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-            
-            {/* Viles */}
-            <div className="sm:col-span-4">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] font-bold text-slate-600 uppercase">
-                  Viles (Monto)
-                </label>
-                <div className="flex gap-1">
-                  {[1, 5, 10].map(v => (
+                {/* Botón Acción */}
+                <div className="sm:col-span-4">
+                  {editIdx !== null ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={confirmEdit}
+                        className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-1.5"
+                      >
+                        ✓ Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="h-12 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      key={v}
                       type="button"
-                      onClick={() => setCurrentAmount(v.toString())}
-                      className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      onClick={addPlay}
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-black text-sm shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
                     >
-                      +{v}
+                      <Plus size={18} />
+                      <span>AGREGAR JUGADA</span>
+                    </button>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Selector de Decenas Rápidas */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    Cargar Decena Completa (10 números con {currentAmount || 1} viles):
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => addDecade(d)}
+                      className="py-2 px-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 font-mono font-bold text-xs text-slate-700 transition-colors text-center active:scale-95"
+                    >
+                      {d}0 - {d}9
                     </button>
                   ))}
                 </div>
               </div>
-              <input
-                type="number"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                min="1"
-                value={currentAmount}
-                onChange={e => setCurrentAmount(e.target.value)}
-                placeholder="1"
-                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-slate-900 font-mono text-xl font-bold outline-none transition-colors"
-              />
             </div>
 
-            {/* Número */}
-            <div className="sm:col-span-4">
-              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                Número (00 al 99)
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={2}
-                value={currentNumber}
-                onChange={e => setCurrentNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (editIdx !== null) confirmEdit();
-                    else addPlay();
-                  }
-                }}
-                placeholder="Ej. 45"
-                className="w-full h-12 px-3 rounded-xl border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-slate-900 font-mono text-xl font-black text-center outline-none transition-colors"
-              />
+          </div>
+
+          {/* COLUMNA DERECHA: APUNTES REGISTRADOS, RESUMEN Y BOTÓN EMITIR (STICKY) */}
+          <div className="lg:col-span-5 space-y-5 lg:sticky lg:top-5">
+
+            {/* KPI MINI-METRIC CARDS (EN VIVO) */}
+            <div className="grid grid-cols-2 gap-2.5">
+              
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                <div className="flex justify-between items-center text-slate-500">
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Jugadas</span>
+                  <Hash size={15} className="text-blue-600" />
+                </div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="text-2xl font-black font-mono text-slate-900">{plays.length}</span>
+                  <span className="text-[11px] text-slate-400">líneas</span>
+                </div>
+              </div>
+
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                <div className="flex justify-between items-center text-slate-500">
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Viles / Sorteo</span>
+                  <Sparkles size={15} className="text-indigo-600" />
+                </div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="text-2xl font-black font-mono text-indigo-700">{totalVilesPerLottery}</span>
+                  <span className="text-[11px] text-slate-400">viles</span>
+                </div>
+              </div>
+
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                <div className="flex justify-between items-center text-slate-500">
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Sorteos</span>
+                  <Layers size={15} className={numSelectedLotteries > 0 ? "text-blue-600" : "text-amber-500"} />
+                </div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className={`text-2xl font-black font-mono ${numSelectedLotteries > 0 ? 'text-blue-700' : 'text-amber-600'}`}>{numSelectedLotteries}</span>
+                  <span className="text-[11px] text-slate-400">sel.</span>
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/80 p-3.5 rounded-2xl border-2 border-emerald-300 shadow-xs flex flex-col justify-between">
+                <div className="flex justify-between items-center text-emerald-800">
+                  <span className="text-[11px] font-black uppercase tracking-wider">TOTAL</span>
+                  <DollarSign size={16} className="text-emerald-700" />
+                </div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="text-2xl font-black font-mono text-emerald-700">${totalDollarsAllLotteries.toFixed(2)}</span>
+                </div>
+              </div>
+
             </div>
 
-            {/* Botón Acción */}
-            <div className="sm:col-span-4">
-              {editIdx !== null ? (
-                <div className="flex gap-2">
+            {/* CARD: LISTA DE APUNTES */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-blue-600" />
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Apuntes del Ticket ({plays.length})
+                  </h3>
+                </div>
+
+                {plays.length > 0 && (
                   <button
                     type="button"
-                    onClick={confirmEdit}
-                    className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-1.5"
+                    onClick={clearPlays}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-red-50 transition-colors"
                   >
-                    ✓ Guardar Cambio
+                    <Trash2 size={13} /> Vaciar
                   </button>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="h-12 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm"
-                  >
-                    ✕
-                  </button>
+                )}
+              </div>
+
+              {plays.length === 0 ? (
+                <div className="p-8 text-center text-slate-400">
+                  <FileText size={32} className="mx-auto mb-2 opacity-30 text-slate-400" />
+                  <p className="font-bold text-xs text-slate-600">No hay jugadas registradas aún</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Ingresa los números a la izquierda o pega la lista de WhatsApp.
+                  </p>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={addPlay}
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-black text-sm shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Plus size={18} />
-                  <span>AGREGAR JUGADA</span>
-                </button>
-              )}
-            </div>
-
-          </div>
-
-          {/* Selector de Decenas Rápidas */}
-          <div className="pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                Cargar Decena Completa (10 números con {currentAmount || 1} viles):
-              </span>
-            </div>
-            <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => addDecade(d)}
-                  className="py-2 px-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 font-mono font-bold text-xs text-slate-700 transition-colors text-center active:scale-95"
-                >
-                  {d}0 - {d}9
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── CARD 4: TABLA DE APUNTES REGISTRADOS ── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <FileText size={18} className="text-blue-600" />
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Apuntes en Lista
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                {plays.length}
-              </span>
-            </div>
-
-            {plays.length > 0 && (
-              <button
-                type="button"
-                onClick={clearPlays}
-                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-red-50 transition-colors"
-              >
-                <Trash2 size={14} /> Vaciar Todo
-              </button>
-            )}
-          </div>
-
-          {plays.length === 0 ? (
-            <div className="p-10 text-center text-slate-400">
-              <FileText size={36} className="mx-auto mb-2 opacity-30 text-slate-400" />
-              <p className="font-bold text-sm text-slate-600">No hay jugadas registradas aún</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Ingresa los números arriba o utiliza el botón de importar desde WhatsApp para cargar listas rápidamente.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto max-h-80">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
-                    <th className="py-3 px-4 w-12 text-center">#</th>
-                    <th className="py-3 px-4">Número</th>
-                    <th className="py-3 px-4 text-center">Viles</th>
-                    <th className="py-3 px-4 text-center">Subtotal/Sorteo</th>
-                    <th className="py-3 px-4 text-right">Total ({numSelectedLotteries} sort.)</th>
-                    <th className="py-3 px-4 text-center w-24">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
+                <div className="overflow-y-auto max-h-[380px] divide-y divide-slate-100">
                   {plays.map((p, idx) => {
                     const subtotal = p.amount * saleMode;
                     const totalPlay = subtotal * (numSelectedLotteries || 1);
                     return (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-2.5 px-4 text-center text-xs text-slate-400 font-sans">
-                          {idx + 1}
-                        </td>
-                        <td className="py-2.5 px-4 font-sans">
-                          <span className="inline-block px-3 py-1 bg-blue-50 border border-blue-200 text-blue-700 font-black font-mono text-base rounded-lg">
+                      <div key={idx} className="p-2.5 sm:p-3 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-[10px] text-slate-400 w-4 text-center font-mono">
+                            {idx + 1}
+                          </span>
+                          <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 font-black font-mono text-sm rounded-lg">
                             {p.number}
                           </span>
-                        </td>
-                        <td className="py-2.5 px-4 text-center font-bold text-slate-700">
-                          {p.amount} <span className="text-[10px] text-slate-400 font-sans">v</span>
-                        </td>
-                        <td className="py-2.5 px-4 text-center text-slate-600 font-bold">
-                          ${subtotal.toFixed(2)}
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-black text-slate-900">
-                          ${totalPlay.toFixed(2)}
-                        </td>
-                        <td className="py-2.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1 font-sans">
+                          <div>
+                            <span className="font-bold text-slate-800 font-mono">{p.amount} viles</span>
+                            <div className="text-[10px] text-slate-400">
+                              ${subtotal.toFixed(2)}/sorteo
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="font-black text-slate-900 font-mono text-sm">
+                              ${totalPlay.toFixed(2)}
+                            </span>
+                            <div className="text-[9px] text-slate-400 uppercase">
+                              {numSelectedLotteries} sort.
+                            </div>
+                          </div>
+                          <div className="flex items-center">
                             <button
                               type="button"
                               onClick={() => startEdit(idx)}
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Editar"
                             >
-                              <Edit size={16} />
+                              <Edit size={14} />
                             </button>
                             <button
                               type="button"
@@ -747,49 +749,48 @@ export default function ManualSale() {
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Eliminar"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* ── CARD 5: RESUMEN Y BOTÓN FINAL DE GUARDAR ── */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-center sm:text-left">
-            <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Resumen Final:</div>
-            <div className="text-sm font-bold text-slate-800 mt-0.5">
-              {plays.length} jugadas × {totalVilesPerLottery} viles × {numSelectedLotteries} sorteo(s)
+            {/* BOTÓN FINAL DE GUARDAR / EMITIR */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold uppercase tracking-wider">A Pagar / Emitir:</span>
+                <span className="text-2xl font-black text-emerald-700 font-mono">
+                  ${totalDollarsAllLotteries.toFixed(2)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveSale}
+                disabled={saving || plays.length === 0 || numSelectedLotteries === 0}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-sm sm:text-base rounded-xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" />
+                    <span>GUARDANDO VENTA...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    <span>GUARDAR Y EMITIR TICKET</span>
+                  </>
+                )}
+              </button>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono mt-1">
-              ${totalDollarsAllLotteries.toFixed(2)}
-            </div>
+
           </div>
 
-          <button
-            type="button"
-            onClick={handleSaveSale}
-            disabled={saving || plays.length === 0 || numSelectedLotteries === 0}
-            className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-base rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <>
-                <RefreshCw size={20} className="animate-spin" />
-                <span>GUARDANDO...</span>
-              </>
-            ) : (
-              <>
-                <Save size={20} />
-                <span>GUARDAR Y EMITIR VENTA</span>
-              </>
-            )}
-          </button>
         </div>
 
       </div>

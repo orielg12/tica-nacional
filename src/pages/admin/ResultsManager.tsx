@@ -9,7 +9,8 @@ import { syncAutoResults } from '../../services/autoResultsService';
 
 export default function ResultsManager() {
   const store = useStore();
-  const [lotteryId, setLotteryId] = useState(store.lotteriesMaster[0]?.id || '1');
+  const enabledLotteries = store.lotteriesMaster.filter(l => l.isActive);
+  const [lotteryId, setLotteryId] = useState(store.lotteriesMaster.find(l => l.isActive)?.id || store.lotteriesMaster[0]?.id || '1');
   const [selectedDate, setSelectedDate] = useState(getLocalISODate());
   const [prizes, setPrizes] = useState({ first: '', second: '', third: '' });
   const [historyFilterDate, setHistoryFilterDate] = useState('');
@@ -152,8 +153,12 @@ export default function ResultsManager() {
 
       const { data, error } = await query.limit(100);
       if (!error && data) {
+        // Filtrar exclusivamente sorteos habilitados
+        const activeIds = new Set(store.lotteriesMaster.filter(l => l.isActive).map(l => l.id));
+        const activeData = data.filter(r => activeIds.has(r.draw_id || r.lotteryId));
+
         // Ordenar: primero por fecha descendente; y dentro de la misma fecha, por horario del sorteo (hora y minuto)
-        const sorted = [...data].sort((a, b) => {
+        const sorted = [...activeData].sort((a, b) => {
           if (a.date !== b.date) {
             return b.date.localeCompare(a.date);
           }
@@ -476,7 +481,7 @@ export default function ResultsManager() {
               onChange={(e) => setLotteryId(e.target.value)}
               style={{ width: '100%', boxSizing: 'border-box', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontWeight: 'bold', background: '#f8fafc' }}
             >
-              {store.lotteriesMaster.map(l => (
+              {enabledLotteries.map(l => (
                 <option key={l.id} value={l.id}>{l.name} - {formatLotteryTime(l.hour, l.minute)}</option>
               ))}
             </select>
@@ -680,8 +685,8 @@ export default function ResultsManager() {
                    onChange={(e) => setHistoryFilterLottery(e.target.value)}
                    style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', background: '#f8fafc', height: '100%' }}
                  >
-                   <option value="">Todos los sorteos</option>
-                   {store.lotteriesMaster.map(l => (
+                   <option value="">Todos los sorteos habilitados</option>
+                   {enabledLotteries.map(l => (
                      <option key={l.id} value={l.id}>{l.name} - {formatLotteryTime(l.hour, l.minute)}</option>
                    ))}
                  </select>
