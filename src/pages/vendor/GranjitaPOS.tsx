@@ -557,12 +557,12 @@ export default function GranjitaPOS() {
             </div>
 
             {/* PROCESAR */}
-            <div style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 18px)' }}>
+            <div className="pb-1 sm:pb-2">
               <button
                 type="button"
                 onClick={() => setShowCheckoutModal(true)}
                 disabled={isBusy || granjitaCart.length === 0}
-                className={`w-full h-[60px] rounded-lg font-black text-base tracking-widest uppercase flex items-center justify-center gap-3 transition-all shadow-lg border-b-4 active:translate-y-1 active:border-b-0 ${
+                className={`w-full h-[52px] rounded-lg font-black text-base tracking-widest uppercase flex items-center justify-center gap-3 transition-all shadow-lg border-b-4 active:translate-y-1 active:border-b-0 ${
                   granjitaCart.length > 0
                     ? `${tc('bg-[#0ea5e9] border-[#0369a1] active:bg-[#0284c7]', 'bg-[#15803d] hover:bg-[#166534] border-[#166534] active:bg-[#166534]')} text-white`
                     : `${tc('bg-gray-800 text-gray-600 border-gray-700', 'bg-[#e5e7eb] text-[#9ca3af] border-[#d1d5db]')} opacity-60`

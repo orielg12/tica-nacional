@@ -41,12 +41,12 @@ export default function POS() {
   const selectBg      = tc('bg-gray-900 border-gray-600 text-teal-400', 'bg-white border-2 border-slate-300 text-blue-600 font-bold');
   // Numpad buttons: en claro → blanco con contorno marcado y sombra 3D física
   const numBtnClass   = tc(
-    `${bgNumBtn} active:opacity-70 rounded-lg h-[55px] flex items-center justify-center text-2xl font-bold font-mono shadow`,
-    'bg-white active:bg-slate-100 rounded-lg h-[55px] flex items-center justify-center text-2xl font-black font-mono text-slate-900 border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] active:shadow-none active:translate-y-[3px] transition-transform'
+    `${bgNumBtn} active:opacity-70 rounded-lg h-[48px] sm:h-[55px] flex items-center justify-center text-xl sm:text-2xl font-bold font-mono shadow`,
+    'bg-white active:bg-slate-100 rounded-lg h-[48px] sm:h-[55px] flex items-center justify-center text-xl sm:text-2xl font-black font-mono text-slate-900 border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] active:shadow-none active:translate-y-[3px] transition-transform'
   );
   const backspaceClass = tc(
-    'bg-red-900/20 text-red-500 active:bg-red-900/50 rounded-lg h-[55px] flex items-center justify-center shadow',
-    'bg-white active:bg-red-50 rounded-lg h-[55px] flex items-center justify-center border-2 border-red-200 shadow-[0_3px_0_#fecaca] active:shadow-none active:translate-y-[3px] transition-transform text-[#dc2626] font-black'
+    'bg-red-900/20 text-red-500 active:bg-red-900/50 rounded-lg h-[48px] sm:h-[55px] flex items-center justify-center shadow',
+    'bg-white active:bg-red-50 rounded-lg h-[48px] sm:h-[55px] flex items-center justify-center border-2 border-red-200 shadow-[0_3px_0_#fecaca] active:shadow-none active:translate-y-[3px] transition-transform text-[#dc2626] font-black'
   );
 
   const [lotteries, setLotteries] = useState<LotteryConfig[]>([]);
@@ -907,7 +907,7 @@ export default function POS() {
   }, []);
 
   const renderPreparationControls = () => (
-    <div className="px-1 py-1 flex gap-2 w-full items-center">
+    <div className="px-1 py-0.5 flex gap-1.5 w-full items-center">
        <SafeTextInput 
          placeholder="Nombre del cliente (Opcional)" 
          value={clientName}
@@ -922,24 +922,24 @@ export default function POS() {
              e.currentTarget.blur();
            }
          }}
-         className={`flex-1 ${bgInput} border ${borderNumpad} ${textInputValue} rounded-lg p-2.5 text-sm outline-none focus:border-sky-500 transition-colors ${tc('placeholder-gray-600','placeholder-slate-400')}`}
+         className={`flex-1 ${bgInput} border ${borderNumpad} ${textInputValue} rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sky-500 transition-colors ${tc('placeholder-gray-600','placeholder-slate-400')}`}
        />
        <button
          type="button"
          onClick={() => setShowRepeatModal(true)}
-         className={`${tc('bg-teal-600 hover:bg-teal-500 active:bg-teal-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a]')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap`}
+         className={`${tc('bg-teal-600 hover:bg-teal-500 active:bg-teal-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a]')} text-white rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap`}
          title="Repetir jugada anterior"
        >
-         <Copy size={16} />
+         <Copy size={14} />
          <span>Repetir</span>
        </button>
        <button
          type="button"
          onClick={() => setShowImportModal(true)}
-         className={`${tc('bg-[#0284c7] hover:bg-sky-500 active:bg-sky-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a]')} text-white rounded-lg px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm font-sans whitespace-nowrap`}
+         className={`${tc('bg-[#0284c7] hover:bg-sky-500 active:bg-sky-700', 'bg-[#0f766e] hover:bg-[#115e59] active:bg-[#134e4a]')} text-white rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1 shadow-sm font-sans whitespace-nowrap`}
          title="Importar jugada desde WhatsApp / Texto"
        >
-         <FileText size={16} />
+         <FileText size={14} />
          <span>Importar</span>
        </button>
     </div>
@@ -1144,13 +1144,13 @@ export default function POS() {
             
             {/* EL BOTON MÁS GRANDE - PROCESAR MÓVIL (Solo visible si !isDesktop) */}
             {!isDesktop && (
-              <div style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 18px)' }}>
+              <div className="pb-1 sm:pb-2">
                 <button 
                   onClick={() => setShowCheckoutModal(true)}
                   disabled={posCart.length === 0}
-                  className={`w-full ${tc('bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] border-[#0369a1]', 'bg-[#15803d] hover:bg-[#166534] disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 active:bg-[#166534] border-[#166534]')} text-white rounded-lg h-[60px] flex items-center justify-center shadow-lg transition-colors mt-0.5 border-b-4 active:translate-y-1 active:border-b-0`}
+                  className={`w-full ${tc('bg-[#0ea5e9] disabled:bg-gray-800 disabled:text-gray-600 active:bg-[#0284c7] border-[#0369a1]', 'bg-[#15803d] hover:bg-[#166534] disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 active:bg-[#166534] border-[#166534]')} text-white rounded-lg h-[50px] flex items-center justify-center shadow-lg transition-colors mt-0.5 border-b-4 active:translate-y-1 active:border-b-0`}
                 >
-                  <span className="font-black text-2xl tracking-widest text-shadow">PROCESAR</span>
+                  <span className="font-black text-xl sm:text-2xl tracking-widest text-shadow">PROCESAR</span>
                 </button>
               </div>
             )}
