@@ -1,13 +1,13 @@
 import { getLocalISODate, getStartOfDayUTC, getEndOfDayUTC } from '../../utils/dateUtils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDashboardData } from '../../hooks/useDashboardData';
-import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame, RefreshCw, Activity, Layers, TrendingUp, TrendingDown } from 'lucide-react';
+import { DollarSign, Tag, Percent, Trophy, ShieldAlert, Flame, RefreshCw, Activity, Layers, TrendingUp, TrendingDown, AlertTriangle, Search, Copy, Check } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../utils/supabase';
 
-/** Devuelve color de fondo, texto y borde según el monto apostado en el número */
-function getHotNumberStyle(totalAmount: number, maxAmount: number): { bg: string; border: string; textColor: string; badge: string } {
-  const ratio = maxAmount > 0 ? totalAmount / maxAmount : 0;
+/** Devuelve color de fondo, texto y borde según los VILES acumulados en el número respecto al máximo */
+function getHotNumberStyle(viles: number, maxViles: number): { bg: string; border: string; textColor: string; badge: string } {
+  const ratio = maxViles > 0 ? viles / maxViles : 0;
   if (ratio >= 0.75) return { bg: '#fef2f2', border: '#ef4444', textColor: '#b91c1c', badge: '#dc2626' };       // 🔴 Rojo — crítico
   if (ratio >= 0.50) return { bg: '#fff7ed', border: '#f97316', textColor: '#c2410c', badge: '#ea580c' };       // 🟠 Naranja — alto
   if (ratio >= 0.25) return { bg: '#fefce8', border: '#eab308', textColor: '#a16207', badge: '#ca8a04' };       // 🟡 Amarillo — medio
@@ -46,6 +46,62 @@ export default function Dashboard() {
   }[]>([]);
   const [monitorModality, setMonitorModality] = useState<'all' | '0.20' | '0.25'>('all');
   const [loadingHotNumbers, setLoadingHotNumbers] = useState(false);
+  // Ref para mantener datos anteriores y evitar parpadeo durante refetch
+  const prevDrawsRef = useRef<typeof upcomingDrawsHot>([]);
+  // Límite de riesgo global leído de la DB
+  const [riskLimit, setRiskLimit] = useState<number>(store.globalRiskLimit || 100);
+  // Límites por número específico
+  const [numberLimitsMap, setNumberLimitsMap] = useState<Record<string, number>>({});
+  // Buscador de número en el monitor
+  const [searchNumberQuery, setSearchNumberQuery] = useState('');
+  const [copiedCovers, setCopiedCovers] = useState(false);
+
+  const handleCopyCovers = (draws: typeof upcomingDrawsHot) => {
+    const lines: string[] = [`*📋 LISTA DE RESPALDOS - ${activeDate}*`, ''];
+    let count = 0;
+    draws.forEach(d => {
+      const over = d.allNumbers.filter(n => {
+        const lim = numberLimitsMap[n.number] ?? riskLimit;
+        return n.viles > lim;
+      });
+      if (over.length > 0) {
+        lines.push(`*${d.drawName} (${d.drawTime})*:`);
+        over.forEach(n => {
+          const lim = numberLimitsMap[n.number] ?? riskLimit;
+          const passed = n.viles - lim;
+          lines.push(`• Número *${n.number}* -> *${passed} viles* (lleva ${n.viles}v, límite ${lim}v)`);
+          count++;
+        });
+        lines.push('');
+      }
+    });
+    if (count === 0) {
+      alert("No hay números que superen el límite de riesgo en estos sorteos actualmente.");
+      return;
+    }
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text);
+    setCopiedCovers(true);
+    setTimeout(() => setCopiedCovers(false), 3000);
+    alert(`¡Se copiaron ${count} jugadas de respaldo al portapapeles listas para enviar por WhatsApp!`);
+  };
+
+  // Cargar límite de riesgo desde Supabase una vez
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('risk_limits').select('number_played, max_limit');
+        if (data) {
+          const global = data.find((r: any) => r.number_played === 'GLOBAL_LIMIT');
+          if (global) setRiskLimit(parseFloat(global.max_limit) || 100);
+          const numMap: Record<string, number> = {};
+          data.filter((r: any) => r.number_played && /^\d{2}$/.test(r.number_played))
+            .forEach((r: any) => { numMap[r.number_played] = parseFloat(r.max_limit) || 100; });
+          setNumberLimitsMap(numMap);
+        }
+      } catch {}
+    })();
+  }, []);
 
   const fetchHotNumbers = async (isInitial = false) => {
     if (isInitial) setLoadingHotNumbers(true);
@@ -187,7 +243,10 @@ export default function Dashboard() {
         };
         return parseTime(a.drawTime) - parseTime(b.drawTime);
       });
-      setUpcomingDrawsHot(sortedDraws.slice(0, 3));
+      // Mostrar hasta 5 sorteos y guardar ref para evitar parpadeo
+      const newData = sortedDraws.slice(0, 5);
+      prevDrawsRef.current = newData;
+      setUpcomingDrawsHot(newData);
     } catch (e) {
       console.error("Error fetching automatic upcoming draw hot numbers:", e);
     } finally {
@@ -495,119 +554,209 @@ export default function Dashboard() {
       })()}
 
       {/* MONITOR DE NÚMEROS ALTOS POR SORTEO PRÓXIMO / ACTIVO */}
-      <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+      {(() => {
+        // Usar datos previos si el estado actual está vacío y estamos cargando (evita flasheo)
+        const displayDraws = upcomingDrawsHot.length > 0 ? upcomingDrawsHot : prevDrawsRef.current;
+
+        return (
+        <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                <Flame size={24} color="#ef4444" />
                <div>
                   <h4 style={{ margin: 0, fontSize: '1.12rem', color: '#17233D', fontWeight: 800 }}>
-                     Monitor de Números Altos (Jugadas Procesadas)
+                     Monitor de Números Altos
                   </h4>
                   <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                     Sorteos activos en tiempo real con mayor acumulación de dinero
+                     Ordenado por viles acumulados · Límite global: <strong style={{ color: '#0f172a' }}>{riskLimit} viles</strong>
                   </span>
                </div>
             </div>
 
-            {/* Selector de Modalidad */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+            {/* Controles de Acción: Buscar Número, Copiar Respaldos y Selector de Modalidad */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+               {/* Buscador Rápido de Número */}
+               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '8px', color: '#94a3b8' }} />
+                  <input
+                     type="text"
+                     maxLength={2}
+                     placeholder="Buscar nº..."
+                     value={searchNumberQuery}
+                     onChange={(e) => setSearchNumberQuery(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                     style={{
+                        padding: '0.35rem 0.6rem 0.35rem 1.8rem',
+                        fontSize: '0.78rem',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        width: '95px',
+                        fontWeight: 700,
+                        outline: 'none',
+                        backgroundColor: searchNumberQuery ? '#fef3c7' : '#fff'
+                     }}
+                  />
+                  {searchNumberQuery && (
+                     <button
+                        onClick={() => setSearchNumberQuery('')}
+                        style={{ position: 'absolute', right: '6px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 800 }}
+                     >
+                        ✕
+                     </button>
+                  )}
+               </div>
+
+               {/* Botón Copiar Respaldos WhatsApp */}
                <button
                   type="button"
-                  onClick={() => setMonitorModality('all')}
+                  onClick={() => handleCopyCovers(displayDraws)}
                   style={{
-                     padding: '0.35rem 0.85rem',
-                     fontSize: '0.78rem',
-                     fontWeight: 700,
+                     display: 'flex',
+                     alignItems: 'center',
+                     gap: '0.35rem',
+                     padding: '0.38rem 0.75rem',
+                     fontSize: '0.75rem',
+                     fontWeight: 800,
                      borderRadius: '6px',
-                     border: 'none',
+                     border: '1px solid #10b981',
                      cursor: 'pointer',
-                     backgroundColor: monitorModality === 'all' ? '#17233D' : 'transparent',
-                     color: monitorModality === 'all' ? '#fff' : '#64748b',
-                     transition: 'all 0.15s ease-in-out'
+                     backgroundColor: copiedCovers ? '#10b981' : '#ecfdf5',
+                     color: copiedCovers ? '#fff' : '#047857',
+                     transition: 'all 0.15s ease'
                   }}
+                  title="Copia una lista con todos los números que exceden el límite de riesgo formateada para WhatsApp"
                >
-                  Todas
+                  {copiedCovers ? <Check size={14} /> : <Copy size={14} />}
+                  <span>{copiedCovers ? '¡Copiado!' : 'Copiar Respaldos'}</span>
                </button>
-               <button
-                  type="button"
-                  onClick={() => setMonitorModality('0.20')}
-                  style={{
-                     padding: '0.35rem 0.85rem',
-                     fontSize: '0.78rem',
-                     fontWeight: 700,
-                     borderRadius: '6px',
-                     border: 'none',
-                     cursor: 'pointer',
-                     backgroundColor: monitorModality === '0.20' ? '#0d9488' : 'transparent',
-                     color: monitorModality === '0.20' ? '#fff' : '#64748b',
-                     transition: 'all 0.15s ease-in-out'
-                  }}
-               >
-                  Solo $0.20
-               </button>
-               <button
-                  type="button"
-                  onClick={() => setMonitorModality('0.25')}
-                  style={{
-                     padding: '0.35rem 0.85rem',
-                     fontSize: '0.78rem',
-                     fontWeight: 700,
-                     borderRadius: '6px',
-                     border: 'none',
-                     cursor: 'pointer',
-                     backgroundColor: monitorModality === '0.25' ? '#7c3aed' : 'transparent',
-                     color: monitorModality === '0.25' ? '#fff' : '#64748b',
-                     transition: 'all 0.15s ease-in-out'
-                  }}
-               >
-                  Solo $0.25
-               </button>
+
+               {/* Selector de Modalidad */}
+               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+                  <button
+                     type="button"
+                     onClick={() => setMonitorModality('all')}
+                     style={{
+                        padding: '0.35rem 0.85rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: monitorModality === 'all' ? '#17233D' : 'transparent',
+                        color: monitorModality === 'all' ? '#fff' : '#64748b',
+                        transition: 'all 0.15s ease-in-out'
+                     }}
+                  >
+                     Todas
+                  </button>
+                  <button
+                     type="button"
+                     onClick={() => setMonitorModality('0.20')}
+                     style={{
+                        padding: '0.35rem 0.85rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: monitorModality === '0.20' ? '#0d9488' : 'transparent',
+                        color: monitorModality === '0.20' ? '#fff' : '#64748b',
+                        transition: 'all 0.15s ease-in-out'
+                     }}
+                  >
+                     Solo $0.20
+                  </button>
+                  <button
+                     type="button"
+                     onClick={() => setMonitorModality('0.25')}
+                     style={{
+                        padding: '0.35rem 0.85rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: monitorModality === '0.25' ? '#7c3aed' : 'transparent',
+                        color: monitorModality === '0.25' ? '#fff' : '#64748b',
+                        transition: 'all 0.15s ease-in-out'
+                     }}
+                  >
+                     Solo $0.25
+                  </button>
+               </div>
             </div>
          </div>
 
-         {loadingHotNumbers ? (
+         {loadingHotNumbers && displayDraws.length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '1.5rem', textAlign: 'center' }}>Cargando jugadas procesadas...</div>
-         ) : upcomingDrawsHot.length === 0 ? (
+         ) : displayDraws.length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: '0.9rem', padding: '1.5rem', textAlign: 'center', fontStyle: 'italic' }}>
                Sin jugadas procesadas en sorteos activos por vencer.
             </div>
          ) : (
             <div>
-               {/* Leyenda de colores */}
+               {/* Leyenda de colores + indicador de carga sutil */}
                <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap', fontSize: '0.75rem', fontWeight: 'bold', alignItems: 'center' }}>
-                 <span style={{ color: '#64748b' }}>Nivel de riesgo acumulado:</span>
+                 <span style={{ color: '#64748b' }}>Nivel de riesgo (por viles):</span>
                  <span style={{ backgroundColor: '#f0fdf4', border: '1px solid #22c55e', color: '#15803d', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🟢 Bajo</span>
                  <span style={{ backgroundColor: '#fefce8', border: '1px solid #eab308', color: '#a16207', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🟡 Medio</span>
                  <span style={{ backgroundColor: '#fff7ed', border: '1px solid #f97316', color: '#c2410c', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🟠 Alto</span>
                  <span style={{ backgroundColor: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>🔴 Crítico</span>
+                 <span style={{ backgroundColor: '#fdf4ff', border: '1px solid #c026d3', color: '#86198f', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>⚠️ Respaldar</span>
+                 {loadingHotNumbers && <span style={{ color: '#94a3b8', fontSize: '0.7rem', fontStyle: 'italic' }}>⟳ Actualizando...</span>}
                </div>
-               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(280px, 1fr))`, gap: '1.25rem' }}>
-                 {upcomingDrawsHot.map((drawData) => {
+               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(320px, 1fr))`, gap: '1.25rem' }}>
+                 {displayDraws.map((drawData) => {
+                   // ORDENAR POR VILES ACUMULADOS (no por monto en dólares)
                    let displayNumbers = drawData.allNumbers;
                    if (monitorModality === '0.20') {
                      displayNumbers = drawData.allNumbers
                        .filter(n => n.viles020 > 0)
-                       .sort((a, b) => b.amount020 - a.amount020);
+                       .sort((a, b) => b.viles020 - a.viles020);
                    } else if (monitorModality === '0.25') {
                      displayNumbers = drawData.allNumbers
                        .filter(n => n.viles025 > 0)
-                       .sort((a, b) => b.amount025 - a.amount025);
+                       .sort((a, b) => b.viles025 - a.viles025);
                    } else {
                      displayNumbers = drawData.allNumbers
                        .filter(n => n.viles > 0)
-                       .sort((a, b) => b.totalAmount - a.totalAmount);
+                       .sort((a, b) => b.viles - a.viles);
                    }
-                   const topNumbers = displayNumbers.slice(0, 8);
-                   const maxAmt = Math.max(
-                     ...topNumbers.map(n => monitorModality === '0.20' ? n.amount020 : monitorModality === '0.25' ? n.amount025 : n.totalAmount),
+                   const sortedFiltered = displayNumbers;
+                   const topNumbers = searchNumberQuery 
+                     ? sortedFiltered.filter(n => n.number === searchNumberQuery)
+                     : sortedFiltered.slice(0, 10);
+                   const maxViles = Math.max(
+                     ...topNumbers.map(n => monitorModality === '0.20' ? n.viles020 : monitorModality === '0.25' ? n.viles025 : n.viles),
                      1
                    );
 
+                   // Total de viles y monto del sorteo
+                   const totalDrawViles = drawData.allNumbers.reduce((sum, n) => sum + n.viles, 0);
+                   const totalDrawAmount = drawData.allNumbers.reduce((sum, n) => sum + n.totalAmount, 0);
+                   const numbersNeedingCover = drawData.allNumbers.filter(n => {
+                     const limit = numberLimitsMap[n.number] ?? riskLimit;
+                     return n.viles > limit;
+                   }).length;
+
                    return (
-                     <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '1rem' }}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.6rem', marginBottom: '0.75rem' }}>
-                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0d9488' }}>{drawData.drawName}</span>
-                         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#fff', padding: '0.15rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>{drawData.drawTime}</span>
+                     <div key={drawData.drawId} style={{ backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1', padding: '1rem', transition: 'opacity 0.3s ease' }}>
+                       {/* Header del sorteo */}
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.6rem', marginBottom: '0.5rem' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                           <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0d9488' }}>{drawData.drawName}</span>
+                           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', backgroundColor: '#fff', padding: '0.15rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>{drawData.drawTime}</span>
+                         </div>
+                         {numbersNeedingCover > 0 && (
+                           <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#be123c', backgroundColor: '#fff1f2', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid #fda4af', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                             <AlertTriangle size={12} /> {numbersNeedingCover} a respaldar
+                           </span>
+                         )}
+                       </div>
+                       {/* Mini resumen del sorteo */}
+                       <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.6rem', fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                         <span>Números: <strong style={{ color: '#0f172a' }}>{drawData.allNumbers.length}</strong></span>
+                         <span>Viles: <strong style={{ color: '#0f172a' }}>{totalDrawViles}</strong></span>
+                         <span>Monto: <strong style={{ color: '#0f172a' }}>${totalDrawAmount.toFixed(2)}</strong></span>
                        </div>
 
                        {topNumbers.length === 0 ? (
@@ -615,47 +764,58 @@ export default function Dashboard() {
                            Sin jugadas registradas {monitorModality !== 'all' ? `en modalidad $${monitorModality}` : ''} para este sorteo.
                          </p>
                        ) : (
-                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                            {topNumbers.map((numItem, nIdx) => {
-                             const displayedAmount = monitorModality === '0.20' ? numItem.amount020 : monitorModality === '0.25' ? numItem.amount025 : numItem.totalAmount;
                              const displayedViles = monitorModality === '0.20' ? numItem.viles020 : monitorModality === '0.25' ? numItem.viles025 : numItem.viles;
-                             const style = getHotNumberStyle(displayedAmount, maxAmt);
-                             const barWidth = maxAmt > 0 ? Math.max((displayedAmount / maxAmt) * 100, 4) : 4;
+                             const displayedAmount = monitorModality === '0.20' ? numItem.amount020 : monitorModality === '0.25' ? numItem.amount025 : numItem.totalAmount;
+                             const effectiveLimit = numberLimitsMap[numItem.number] ?? riskLimit;
+                             const needsCover = displayedViles > effectiveLimit;
+                             const excessViles = needsCover ? displayedViles - effectiveLimit : 0;
+                             const coverPct = effectiveLimit > 0 ? Math.min((displayedViles / effectiveLimit) * 100, 100) : 0;
+                             const style = needsCover
+                               ? { bg: '#fdf4ff', border: '#c026d3', textColor: '#86198f', badge: '#a21caf' }
+                               : getHotNumberStyle(displayedViles, maxViles);
+                             const barWidth = maxViles > 0 ? Math.max((displayedViles / maxViles) * 100, 4) : 4;
 
                              return (
-                               <div key={nIdx} style={{ position: 'relative', overflow: 'hidden', backgroundColor: style.bg, padding: '0.55rem 0.8rem', borderRadius: '8px', border: `1.5px solid ${style.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+                               <div key={nIdx} style={{ position: 'relative', overflow: 'hidden', backgroundColor: style.bg, padding: '0.5rem 0.75rem', borderRadius: '8px', border: `1.5px solid ${style.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.03)', transition: 'all 0.3s ease' }}>
                                  {/* Barra de progreso de fondo */}
-                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, backgroundColor: style.border, opacity: 0.15 }} />
+                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, backgroundColor: style.border, opacity: 0.12, transition: 'width 0.4s ease' }} />
                                  <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                   {/* Número jugado GRANDE y visible */}
-                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                                     <span style={{ fontSize: '0.82rem', fontWeight: 900, backgroundColor: style.badge, color: '#fff', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>{nIdx + 1}</span>
-                                     <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '1.75rem', color: style.textColor, letterSpacing: '1px', lineHeight: 1 }}>{numItem.number}</span>
+                                   {/* Lado izquierdo: ranking + número + viles GRANDES */}
+                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                     <span style={{ fontSize: '0.72rem', fontWeight: 900, backgroundColor: style.badge, color: '#fff', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>{nIdx + 1}</span>
+                                     <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '1.7rem', color: style.textColor, letterSpacing: '1px', lineHeight: 1 }}>{numItem.number}</span>
+                                     {/* VILES como métrica principal GRANDE */}
+                                     <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '0.2rem' }}>
+                                       <span style={{ fontSize: '1.3rem', fontWeight: 900, color: style.textColor, lineHeight: 1 }}>{displayedViles}</span>
+                                       <span style={{ fontSize: '0.65rem', fontWeight: 700, color: style.textColor, opacity: 0.7 }}>viles</span>
+                                     </div>
                                    </div>
-                                   {/* Montos y desglose */}
-                                   <div style={{ textAlign: 'right' }}>
-                                     <div style={{ fontSize: '1.25rem', fontWeight: 900, color: style.textColor, lineHeight: 1.1 }}>
+                                   {/* Lado derecho: monto + recomendación */}
+                                   <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                     <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#475569', lineHeight: 1.1 }}>
                                        ${displayedAmount.toFixed(2)}
                                      </div>
-                                     {monitorModality === 'all' ? (
-                                       <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end', alignItems: 'center', marginTop: '0.2rem', flexWrap: 'wrap' }}>
-                                         <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>
-                                           {displayedViles} viles ({numItem.ticketsCount}t)
-                                         </span>
-                                         {numItem.viles020 > 0 && numItem.viles025 > 0 && (
-                                           <span style={{ fontSize: '0.68rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '0.08rem 0.35rem', borderRadius: '4px', fontWeight: 600 }}>
-                                             0.20: {numItem.viles020}v | 0.25: {numItem.viles025}v
-                                           </span>
-                                         )}
+                                     {needsCover ? (
+                                       <div style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 800, color: '#be123c', backgroundColor: '#fff1f2', padding: '1px 6px', borderRadius: '4px', border: '1px solid #fda4af' }}>
+                                         <AlertTriangle size={11} />
+                                         RESPALDAR {excessViles} viles
                                        </div>
-                                     ) : monitorModality === '0.20' ? (
-                                       <div style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: 700, marginTop: '0.2rem' }}>
-                                         {displayedViles} viles ($0.20)
+                                     ) : coverPct >= 70 ? (
+                                       <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#d97706', backgroundColor: '#fffbeb', padding: '1px 6px', borderRadius: '4px', border: '1px solid #fde68a' }}>
+                                         ⚡ {coverPct.toFixed(0)}% del límite
                                        </div>
                                      ) : (
-                                       <div style={{ fontSize: '0.78rem', color: '#7c3aed', fontWeight: 700, marginTop: '0.2rem' }}>
-                                         {displayedViles} viles ($0.25)
+                                       <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>
+                                         {numItem.ticketsCount}t · {coverPct.toFixed(0)}% límite
                                        </div>
+                                     )}
+                                     {/* Desglose por modalidad si aplica */}
+                                     {monitorModality === 'all' && numItem.viles020 > 0 && numItem.viles025 > 0 && (
+                                       <span style={{ fontSize: '0.62rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '0.05rem 0.3rem', borderRadius: '3px', fontWeight: 600 }}>
+                                         0.20: {numItem.viles020}v | 0.25: {numItem.viles025}v
+                                       </span>
                                      )}
                                    </div>
                                  </div>
@@ -670,7 +830,9 @@ export default function Dashboard() {
                </div>
             </div>
          )}
-      </div>
+        </div>
+        );
+      })()}
 
       {/* Content Sections */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
