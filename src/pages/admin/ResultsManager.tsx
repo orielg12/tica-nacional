@@ -16,38 +16,6 @@ export default function ResultsManager() {
   const firstInputRef = useRef<HTMLInputElement>(null);
   const secondInputRef = useRef<HTMLInputElement>(null);
   const thirdInputRef = useRef<HTMLInputElement>(null);
-  const [activePrizeField, setActivePrizeField] = useState<'first' | 'second' | 'third'>('first');
-
-  const handleKeypadPress = (val: string) => {
-    if (val === 'CLEAR') {
-      setPrizes(prev => ({ ...prev, [activePrizeField]: '' }));
-      return;
-    }
-    if (val === 'BACK') {
-      setPrizes(prev => ({
-        ...prev,
-        [activePrizeField]: prev[activePrizeField].slice(0, -1)
-      }));
-      return;
-    }
-
-    const currentVal = prizes[activePrizeField] || '';
-    if (currentVal.length < 2) {
-      const newVal = (currentVal + val).slice(0, 2);
-      setPrizes(prev => ({ ...prev, [activePrizeField]: newVal }));
-
-      // Auto-avanza al siguiente premio al completar 2 dígitos
-      if (newVal.length === 2) {
-        if (activePrizeField === 'first') {
-          setActivePrizeField('second');
-          secondInputRef.current?.focus();
-        } else if (activePrizeField === 'second') {
-          setActivePrizeField('third');
-          thirdInputRef.current?.focus();
-        }
-      }
-    }
-  };
   const [historyFilterDate, setHistoryFilterDate] = useState('');
   const [historyFilterLottery, setHistoryFilterLottery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -542,22 +510,26 @@ export default function ResultsManager() {
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.5rem', width: '100%', boxSizing: 'border-box' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 'bold', color: '#16a34a', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>1er Premio</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#16a34a', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>1er Premio</label>
                   <input 
                     ref={firstInputRef}
-                    type="text" 
+                    type="tel" 
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={2} 
                     value={prizes.first}
-                    onFocus={() => setActivePrizeField('first')}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                       setPrizes(prev => ({...prev, first: val}));
                       if (val.length === 2) {
-                        setActivePrizeField('second');
+                        secondInputRef.current?.focus();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
                         secondInputRef.current?.focus();
                       }
                     }}
@@ -566,32 +538,38 @@ export default function ResultsManager() {
                       width: '100%', 
                       minWidth: 0, 
                       boxSizing: 'border-box', 
-                      padding: '0.8rem 0.2rem', 
-                      fontSize: '1.4rem', 
+                      padding: '0.9rem 0.2rem', 
+                      fontSize: '1.5rem', 
                       fontWeight: 'bold', 
                       textAlign: 'center', 
                       borderRadius: '8px', 
-                      border: activePrizeField === 'first' ? '2.5px solid #16a34a' : '2px solid #86efac', 
+                      border: '2px solid #86efac', 
                       outline: 'none', 
                       background: '#f0fdf4' 
                     }}
                   />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>2do Premio</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>2do Premio</label>
                   <input 
                     ref={secondInputRef}
-                    type="text" 
+                    type="tel" 
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={2} 
                     value={prizes.second}
-                    onFocus={() => setActivePrizeField('second')}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                       setPrizes(prev => ({...prev, second: val}));
                       if (val.length === 2) {
-                        setActivePrizeField('third');
+                        thirdInputRef.current?.focus();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !prizes.second) {
+                        firstInputRef.current?.focus();
+                      } else if (e.key === 'Enter') {
                         thirdInputRef.current?.focus();
                       }
                     }}
@@ -600,82 +578,51 @@ export default function ResultsManager() {
                       width: '100%', 
                       minWidth: 0, 
                       boxSizing: 'border-box', 
-                      padding: '0.8rem 0.2rem', 
-                      fontSize: '1.4rem', 
+                      padding: '0.9rem 0.2rem', 
+                      fontSize: '1.5rem', 
                       fontWeight: 'bold', 
                       textAlign: 'center', 
                       borderRadius: '8px', 
-                      border: activePrizeField === 'second' ? '2.5px solid #2563eb' : '2px solid #93c5fd', 
+                      border: '2px solid #93c5fd', 
                       outline: 'none', 
                       background: '#eff6ff' 
                     }}
                   />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>3er Premio</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>3er Premio</label>
                   <input 
                     ref={thirdInputRef}
-                    type="text" 
+                    type="tel" 
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={2} 
                     value={prizes.third}
-                    onFocus={() => setActivePrizeField('third')}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                       setPrizes(prev => ({...prev, third: val}));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !prizes.third) {
+                        secondInputRef.current?.focus();
+                      }
                     }}
                     placeholder="00" 
                     style={{ 
                       width: '100%', 
                       minWidth: 0, 
                       boxSizing: 'border-box', 
-                      padding: '0.8rem 0.2rem', 
-                      fontSize: '1.4rem', 
+                      padding: '0.9rem 0.2rem', 
+                      fontSize: '1.5rem', 
                       fontWeight: 'bold', 
                       textAlign: 'center', 
                       borderRadius: '8px', 
-                      border: activePrizeField === 'third' ? '2.5px solid #475569' : '2px solid #cbd5e1', 
+                      border: '2px solid #cbd5e1', 
                       outline: 'none', 
                       background: '#f8fafc' 
                     }}
                   />
-                </div>
-              </div>
-
-              {/* Teclado numérico táctil en pantalla */}
-              <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.72rem', fontWeight: 800, color: '#64748b' }}>
-                  <span>TECLADO NUMÉRICO RÁPIDO</span>
-                  <span style={{ color: activePrizeField === 'first' ? '#16a34a' : activePrizeField === 'second' ? '#2563eb' : '#475569' }}>
-                    Editando: {activePrizeField === 'first' ? '1er Premio' : activePrizeField === 'second' ? '2do Premio' : '3er Premio'}
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.45rem' }}>
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'CLEAR', '0', 'BACK'].map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleKeypadPress(key)}
-                      style={{
-                        padding: '0.75rem 0.4rem',
-                        fontSize: key === 'CLEAR' || key === 'BACK' ? '0.75rem' : '1.25rem',
-                        fontWeight: 800,
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        background: key === 'CLEAR' ? '#fee2e2' : key === 'BACK' ? '#fef3c7' : '#ffffff',
-                        color: key === 'CLEAR' ? '#dc2626' : key === 'BACK' ? '#b45309' : '#0f172a',
-                        cursor: 'pointer',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        userSelect: 'none'
-                      }}
-                    >
-                      {key === 'CLEAR' ? 'C' : key === 'BACK' ? '⌫' : key}
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
