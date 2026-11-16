@@ -7,7 +7,7 @@ import { getDecadeNumbers } from '../../utils/math';
 import { 
   Trash2, Save, AlertCircle, Edit, Clipboard, X, CheckCircle, 
   FileText, Plus, Layers, User, Calendar, DollarSign, 
-  Hash, Sparkles, RefreshCw, Eye, Zap
+  Hash, Sparkles, RefreshCw, Eye, Zap, RotateCcw
 } from 'lucide-react';
 import { SafeTextInput } from '../../components/shared/SafeTextInput';
 import { parseImportText } from '../../utils/textImportParser';
@@ -44,9 +44,38 @@ export default function ManualSale() {
   // Edit state
   const [editIdx, setEditIdx] = useState<number | null>(null);
 
+  // Correction draft state (from TicketsManager)
+  const [correctionSourceId, setCorrectionSourceId] = useState<string | null>(null);
+  const [autoCancelOriginal, setAutoCancelOriginal] = useState<boolean>(true);
+
   useEffect(() => {
     store.fetchLotteries();
     store.fetchUsers();
+
+    try {
+      const draftStr = localStorage.getItem('manual_sale_correction_draft');
+      if (draftStr) {
+        const draft = JSON.parse(draftStr);
+        if (draft.plays && draft.plays.length > 0) {
+          setPlays(draft.plays);
+        }
+        if (draft.selectedLotteryIds && draft.selectedLotteryIds.length > 0) {
+          setSelectedLotteryIds(draft.selectedLotteryIds);
+        }
+        if (draft.clientName) {
+          setClientName(draft.clientName);
+        }
+        if (draft.vendorId) {
+          setVendorId(draft.vendorId);
+        }
+        if (draft.sourceTicketId) {
+          setCorrectionSourceId(draft.sourceTicketId);
+        }
+        localStorage.removeItem('manual_sale_correction_draft');
+      }
+    } catch (e) {
+      console.warn("Could not load correction draft:", e);
+    }
   }, []);
 
   const allLotteries = store.lotteriesMaster.filter(l => l.isActive);
@@ -243,10 +272,19 @@ export default function ManualSale() {
         throw new Error(`Error guardando números del ticket: ${numbersErr.message}`);
       }
 
+      // Si se está corrigiendo un ticket y se marcó anular el original:
+      if (correctionSourceId && autoCancelOriginal) {
+        await supabase.from('tickets').update({ status: 'cancelled' }).eq('id', correctionSourceId);
+      }
+      const prevSourceId = correctionSourceId;
+      setCorrectionSourceId(null);
+
       setSavedTicketId(ticketId);
       setResult({
         success: true,
-        message: `¡Venta emitida con éxito! Se generó el Ticket #${ticketId.slice(0, 8)} (${selectedLotteryIds.length} sorteos) por un monto total de $${totalDollarsAllLotteries.toFixed(2)}.`
+        message: prevSourceId 
+          ? `¡Ticket corregido con éxito! Se emitió el nuevo Ticket #${ticketId.slice(0, 8).toUpperCase()} y se anuló el ticket original #${prevSourceId.slice(0, 8).toUpperCase()}.`
+          : `¡Venta emitida con éxito! Se generó el Ticket #${ticketId.slice(0, 8).toUpperCase()} (${selectedLotteryIds.length} sorteos) por un monto total de $${totalDollarsAllLotteries.toFixed(2)}.`
       });
 
       setPlays([]);
@@ -322,6 +360,51 @@ export default function ManualSale() {
             </button>
           </div>
         </div>
+
+        {/* ── BANNER DE MODO CORRECCIÓN (Si viene de Control de Tickets) ── */}
+        {correctionSourceId && (
+          <div className="bg-amber-500/10 border-2 border-amber-500/50 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-fade-in">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-700 flex-shrink-0">
+                <RotateCcw size={22} className="animate-spin-slow" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-amber-950 text-base">
+                    Modo Corrección: Reemplazando Ticket #{correctionSourceId.split('-')[0].toUpperCase()}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-amber-200 text-amber-900">
+                    Sustitución en Curso
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-amber-900/80 mt-0.5">
+                  Las jugadas, sorteos, cliente y vendedor originales se han cargado. Modifica los números que desees corregir y emite el nuevo ticket.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-white/80 p-3 rounded-xl border border-amber-300">
+              <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-amber-950 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoCancelOriginal}
+                  onChange={e => setAutoCancelOriginal(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <span>Anular ticket original automáticamente al guardar</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setCorrectionSourceId(null)}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold underline ml-2"
+                title="Desactivar modo corrección"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── ALERTA DE RESULTADO CON ACCIONES DIRECTAS ── */}
         {result && (
