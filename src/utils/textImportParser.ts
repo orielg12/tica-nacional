@@ -36,11 +36,38 @@ export function parseImportText(
     clientName = nameMatch[1].trim();
   }
 
-  // 2. Check if the ENTIRE text is a space/newline-separated sequence of pure numbers
-  // e.g. "2 31 2 29 2 17 2 05  2 35 1 01 1 02 1 03 1 04  1 06  1 08 1 09  1 53 1 45 1 54 1 21 1 12 1 13 1 07"
-  const cleanFullText = importText.replace(/[\r\n]+/g, ' ').trim();
+  // 2. Check if the ENTIRE text is dot-notation plays: "19.4 12.2 16.2 14.2" or on newlines
+  const cleanFullText = importText.replace(/[\r\n,]+/g, ' ').trim();
   const allTokens = cleanFullText.split(/\s+/).filter(Boolean);
-  const isPureNumberSequence = allTokens.length >= 2 && allTokens.every(t => /^\d+(\.\d+)?$/.test(t));
+  
+  const isAllDotNotation = allTokens.length >= 1 && allTokens.every(t => /^\d{1,2}\.\d+$/.test(t));
+  if (isAllDotNotation) {
+    for (const token of allTokens) {
+      const dotMatch = token.match(/^(\d{1,2})\.(\d+(?:\.\d+)?)$/);
+      if (dotMatch) {
+        let num: string;
+        let amt: number;
+        if (invertOrder) {
+          amt = parseFloat(dotMatch[1]);
+          num = dotMatch[2].padStart(2, '0');
+        } else {
+          num = dotMatch[1].padStart(2, '0');
+          amt = parseFloat(dotMatch[2]);
+        }
+        if (!isNaN(amt) && amt > 0 && num) {
+          plays.push({ number: num, amount: amt });
+        }
+      }
+    }
+    return { clientName, plays, detectedLotteryNames };
+  }
+
+  // 2b. Check if the ENTIRE text is a space/newline-separated sequence of pure numbers
+  // e.g. "2 31 2 29 2 17 2 05  2 35 1 01 1 02 1 03 1 04  1 06  1 08 1 09  1 53 1 45 1 54 1 21 1 12 1 13 1 07"
+  const isPureNumberSequence = allTokens.length >= 2 && 
+    allTokens.length % 2 === 0 && 
+    allTokens.every(t => /^\d+(\.\d+)?$/.test(t)) &&
+    allTokens.filter((_, idx) => idx % 2 === 1).every(t => /^\d{1,2}$/.test(t));
 
   if (isPureNumberSequence) {
     for (let i = 0; i < allTokens.length - 1; i += 2) {
@@ -72,9 +99,35 @@ export function parseImportText(
       }
     }
 
+    // Check if line contains one or more dot-notation plays: "19.4" or "19.4 12.2 16.2 14.2" or "19.4, 12.2"
+    const dotTokens = line.split(/[,\s]+/).filter(Boolean);
+    if (dotTokens.length >= 1 && dotTokens.every(t => /^\d{1,2}\.\d+$/.test(t))) {
+      for (const token of dotTokens) {
+        const dotMatch = token.match(/^(\d{1,2})\.(\d+(?:\.\d+)?)$/);
+        if (dotMatch) {
+          let num: string;
+          let amt: number;
+          if (invertOrder) {
+            amt = parseFloat(dotMatch[1]);
+            num = dotMatch[2].padStart(2, '0');
+          } else {
+            num = dotMatch[1].padStart(2, '0');
+            amt = parseFloat(dotMatch[2]);
+          }
+          if (!isNaN(amt) && amt > 0 && num) {
+            plays.push({ number: num, amount: amt });
+          }
+        }
+      }
+      continue;
+    }
+
     // Check if line itself contains a sequence of numeric pairs: "2 31 2 29 2 17 2 05"
     const lineTokens = line.split(/\s+/).filter(Boolean);
-    if (lineTokens.length >= 4 && lineTokens.every(t => /^\d+(\.\d+)?$/.test(t))) {
+    if (lineTokens.length >= 4 && 
+        lineTokens.length % 2 === 0 && 
+        lineTokens.every(t => /^\d+(\.\d+)?$/.test(t)) &&
+        lineTokens.filter((_, idx) => idx % 2 === 1).every(t => /^\d{1,2}$/.test(t))) {
       for (let i = 0; i < lineTokens.length - 1; i += 2) {
         const amt = parseFloat(lineTokens[i]);
         const numRaw = lineTokens[i + 1];

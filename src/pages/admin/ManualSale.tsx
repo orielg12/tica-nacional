@@ -259,7 +259,8 @@ export default function ManualSale() {
             ticket_id: ticketId,
             draw_id: lotteryId,
             number_played: p.number,
-            amount: p.amount
+            amount: p.amount,
+            created_at: createdAtISO
           });
         }
       }

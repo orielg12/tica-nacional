@@ -134,6 +134,7 @@ export default function Dashboard() {
       }
 
       if (targetLotteries.length === 0) {
+        prevDrawsRef.current = [];
         setUpcomingDrawsHot([]);
         return;
       }
@@ -144,7 +145,7 @@ export default function Dashboard() {
 
       const { data, error } = await supabase
         .from('ticket_numbers')
-        .select('number_played, amount, draw_id, ticket:ticket_id(id, status, total_amount, vendor_id, ticket_numbers(amount))')
+        .select('number_played, amount, draw_id, created_at, ticket:ticket_id(id, status, total_amount, vendor_id, created_at, ticket_numbers(amount))')
         .in('draw_id', targetIds)
         .gte('created_at', startOfDay)
         .lte('created_at', endOfDay);
@@ -155,10 +156,13 @@ export default function Dashboard() {
 
       const validPlays = (!error && data) ? data.filter((tn: any) => {
         const ticketObj = Array.isArray(tn.ticket) ? tn.ticket[0] : tn.ticket;
-        if (ticketObj?.status === 'cancelled') return false;
+        if (!ticketObj || ticketObj?.status === 'cancelled') return false;
         if (isSubAdmin && subAdminVendorIds && subAdminVendorIds.length > 0) {
-          return subAdminVendorIds.includes(ticketObj?.vendor_id);
+          if (!subAdminVendorIds.includes(ticketObj?.vendor_id)) return false;
         }
+        // Verificación estricta de fecha local para evitar que jugadas nocturnas de ayer con UTC del día siguiente o desfases se cuelen
+        const ticketDate = ticketObj?.created_at ? getLocalISODate(new Date(ticketObj.created_at)) : (tn.created_at ? getLocalISODate(new Date(tn.created_at)) : null);
+        if (ticketDate && ticketDate !== activeDate) return false;
         return true;
       }) : [];
 
@@ -265,6 +269,8 @@ export default function Dashboard() {
   }, [refetch]);
 
   useEffect(() => {
+    prevDrawsRef.current = [];
+    setUpcomingDrawsHot([]);
     store.fetchUsers();
     store.fetchLotteries();
     fetchHotNumbers(true);
@@ -555,8 +561,10 @@ export default function Dashboard() {
 
       {/* MONITOR DE NÚMEROS ALTOS POR SORTEO PRÓXIMO / ACTIVO */}
       {(() => {
-        // Usar datos previos si el estado actual está vacío y estamos cargando (evita flasheo)
-        const displayDraws = upcomingDrawsHot.length > 0 ? upcomingDrawsHot : prevDrawsRef.current;
+        // Solo usar datos previos si está cargando activamente para evitar parpadeo; si terminó de cargar, mostrar los sorteos reales actuales
+        const displayDraws = loadingHotNumbers 
+          ? (upcomingDrawsHot.length > 0 ? upcomingDrawsHot : prevDrawsRef.current) 
+          : upcomingDrawsHot;
 
         return (
         <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
